@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Form } from "@/components/ui/form"; // Added missing import
 import { MealLevelTargetsSchema, DailyTargetsSchema, type MealLevelTargets, type DailyTargets, type MealTarget } from '@/lib/schemas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -229,3 +230,4 @@ export default function MealLevelTargetsPage() {
     </div>
   );
 }
+
