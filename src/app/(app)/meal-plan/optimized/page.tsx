@@ -10,11 +10,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, Wand2, AlertTriangle, Settings2, Info } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { generatePersonalizedMealPlan, type GeneratePersonalizedMealPlanInput, type GeneratePersonalizedMealPlanOutput } from '@/ai/flows/generate-meal-plan';
-import { suggestIngredientSwap, type SuggestIngredientSwapInput, type SuggestIngredientSwapOutput } from '@/ai/flows/suggest-ingredient-swap';
-import { type ProfileFormValues, AiGeneratedMealPlanOutputSchema, type AiGeneratedMealPlanOutput as MealPlanType, type AiGeneratedDayPlanSchema as DayPlan, type AiGeneratedMealSchema as MealData, ProfileFormSchema } from '@/lib/schemas'; // Use AI specific schema for output
+// Intentionally not importing generatePersonalizedMealPlan or suggestIngredientSwap flows for now
+// import { generatePersonalizedMealPlan, type GeneratePersonalizedMealPlanInput, type GeneratePersonalizedMealPlanOutput } from '@/ai/flows/generate-meal-plan';
+// import { suggestIngredientSwap, type SuggestIngredientSwapInput, type SuggestIngredientSwapOutput } from '@/ai/flows/suggest-ingredient-swap';
+import { type ProfileFormValues, AiGeneratedMealPlanOutputSchema, type AiGeneratedMealPlanOutput as MealPlanType, type AiGeneratedDayPlanSchema as DayPlan, type AiGeneratedMealSchema as MealData, ProfileFormSchema } from '@/lib/schemas';
 import { ResponsiveContainer, BarChart, XAxis, YAxis, Tooltip as ChartTooltip, Legend, Bar } from 'recharts';
-import { ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
+import { type ChartConfig, ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { daysOfWeek } from '@/lib/constants';
 import {
   Dialog,
@@ -25,31 +26,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-
-
-async function getFullProfileData(userId: string): Promise<Partial<ProfileFormValues>> {
-  const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
-  if (storedProfile) {
-    try {
-      const parsed = JSON.parse(storedProfile);
-      // Ensure array fields are properly parsed if stored as comma-separated strings
-      const arrayFields: (keyof ProfileFormValues)[] = [
-        'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
-        'allergies', 'preferredMicronutrients', 'medicalConditions', 'medications', 
-        'injuries', 'surgeries', 'exerciseGoals', 'exercisePreferences', 'equipmentAccess'
-      ];
-      arrayFields.forEach(field => {
-        if (typeof parsed[field] === 'string') {
-          parsed[field] = parsed[field] ? parsed[field].split(',').map((s: string) => s.trim()).filter((s: string) => s !== '') : [];
-        } else if (!Array.isArray(parsed[field])) {
-            parsed[field] = [];
-        }
-      });
-      return parsed;
-    } catch (e) { console.error("Error parsing profile for AI:", e); return {}; }
-  }
-  return {};
-}
+import type { SuggestIngredientSwapOutput } from '@/ai/flows/suggest-ingredient-swap';
 
 
 export default function OptimizedMealPlanPage() {
@@ -64,123 +41,28 @@ export default function OptimizedMealPlanPage() {
   const [swapSuggestions, setSwapSuggestions] = useState<SuggestIngredientSwapOutput>([]);
   const [isLoadingSwap, setIsLoadingSwap] = useState(false);
 
-
   const handleGeneratePlan = async () => {
-    if (!user) {
-      toast({ title: "Error", description: "You must be logged in.", variant: "destructive" });
-      return;
-    }
-    setIsLoading(true);
-    setError(null);
-    setMealPlan(null);
-
-    try {
-      const profileData = await getFullProfileData(user.id);
-      
-      // Validate and provide defaults for required fields for the AI model
-      // This is a simplified example; production code would need more robust handling
-      const aiInput: GeneratePersonalizedMealPlanInput = {
-        age: profileData.age || 30,
-        gender: profileData.gender || "male",
-        height: profileData.height || 170,
-        currentWeight: profileData.currentWeight || 70,
-        goalWeight: profileData.goalWeight || 65,
-        bodyFatPercentage: profileData.currentBodyFatPercentage || 20,
-        muscleMassPercentage: profileData.currentMuscleMassPercentage || 40,
-        waterPercentage: profileData.currentWaterPercentage || 55,
-        waistMeasurement: profileData.waistMeasurementCurrent || 80,
-        hipsMeasurement: profileData.hipsMeasurementCurrent || 90,
-        limbsMeasurement: profileData.limbsMeasurementCurrent || 50,
-        activityLevel: profileData.activityLevel || "moderate",
-        dietGoal: profileData.dietGoal || "lose_weight",
-        preferredDiet: profileData.preferredDiet || "none",
-        preferredCuisines: Array.isArray(profileData.preferredCuisines) ? profileData.preferredCuisines : [],
-        dispreferredCuisines: Array.isArray(profileData.dispreferredCuisines) ? profileData.dispreferredCuisines : [],
-        preferredIngredients: Array.isArray(profileData.preferredIngredients) ? profileData.preferredIngredients : [],
-        dispreferredIngredients: Array.isArray(profileData.dispreferredIngredients) ? profileData.dispreferredIngredients : [],
-        allergies: Array.isArray(profileData.allergies) ? profileData.allergies : [],
-        mealsPerDay: profileData.mealsPerDay || 3,
-        preferredMicronutrients: Array.isArray(profileData.preferredMicronutrients) ? profileData.preferredMicronutrients : [],
-        medicalConditions: Array.isArray(profileData.medicalConditions) ? profileData.medicalConditions : [],
-        medications: Array.isArray(profileData.medications) ? profileData.medications : [],
-        painMobilityIssues: profileData.painMobilityIssues || "none",
-        injuries: Array.isArray(profileData.injuries) ? profileData.injuries : [],
-        surgeries: Array.isArray(profileData.surgeries) ? profileData.surgeries : [],
-        exerciseGoals: Array.isArray(profileData.exerciseGoals) ? profileData.exerciseGoals : [],
-        exercisePreferences: Array.isArray(profileData.exercisePreferences) ? profileData.exercisePreferences : [],
-        exerciseFrequency: profileData.exerciseFrequency || "3-4_days",
-        exerciseIntensity: profileData.exerciseIntensity || "moderate",
-        equipmentAccess: Array.isArray(profileData.equipmentAccess) ? profileData.equipmentAccess : [],
-      };
-      
-      const result = await generatePersonalizedMealPlan(aiInput);
-      const parsedResult = AiGeneratedMealPlanOutputSchema.safeParse(result);
-
-      if (parsedResult.success) {
-        setMealPlan(parsedResult.data);
-        toast({ title: "Meal Plan Generated!", description: "Your AI-optimized meal plan is ready." });
-      } else {
-        console.error("AI Output Validation Error:", parsedResult.error.flatten());
-        setError("Failed to understand AI response. The format was unexpected.");
-        toast({ title: "Error", description: "AI response format was incorrect.", variant: "destructive" });
-      }
-    } catch (e: any) {
-      console.error("AI Generation Error:", e);
-      setError(e.message || "An unknown error occurred while generating the meal plan.");
-      toast({ title: "Generation Failed", description: e.message || "Unknown error.", variant: "destructive" });
-    } finally {
-      setIsLoading(false);
-    }
+    console.log("handleGeneratePlan called - logic removed for debugging");
+    // Placeholder for AI call - currently disabled for debugging parsing error
+    // To re-enable, uncomment imports and logic below
+    toast({ title: "Note", description: "Plan generation is temporarily disabled for debugging."});
   };
   
   const openSwapModal = async (meal: MealData) => {
-    if (!user) return;
-    setCurrentMealForSwap(meal);
-    setIsSwapModalOpen(true);
-    setIsLoadingSwap(true);
-    setSwapSuggestions([]);
-    try {
-      const profileData = await getFullProfileData(user.id);
-      // Map MealData to SuggestIngredientSwapInput.ingredients
-      const ingredientsForAI = meal.ingredients.map(ing => ({
-        name: ing.ingredient_name,
-        quantity: ing.quantity_g,
-        caloriesPer100g: ing.macros_per_100g.calories,
-        proteinPer100g: ing.macros_per_100g.protein_g,
-        fatPer100g: ing.macros_per_100g.fat_g,
-      }));
-
-      const swapInput: SuggestIngredientSwapInput = {
-        mealName: meal.meal_name,
-        ingredients: ingredientsForAI,
-        dietaryPreferences: profileData.preferredDiet || "none",
-        dislikedIngredients: Array.isArray(profileData.dispreferredIngredients) ? profileData.dispreferredIngredients : [],
-        allergies: Array.isArray(profileData.allergies) ? profileData.allergies : [],
-        // These targets ideally come from meal-level targets or are estimated
-        nutrientTargets: { 
-          calories: meal.total_calories, 
-          protein: meal.total_protein_g, 
-          carbohydrates: 0, // AI output doesn't have carbs per meal yet, placeholder
-          fat: meal.total_fat_g 
-        },
-      };
-      const suggestions = await suggestIngredientSwap(swapInput);
-      setSwapSuggestions(suggestions);
-    } catch (e: any) {
-      toast({ title: "Swap Suggestion Error", description: e.message || "Could not get suggestions.", variant: "destructive" });
-    } finally {
-      setIsLoadingSwap(false);
-    }
+    console.log("openSwapModal called with meal - logic removed for debugging:", meal);
+     // Placeholder for AI call - currently disabled for debugging parsing error
+    // To re-enable, uncomment imports and logic below
+    toast({ title: "Note", description: "Swap suggestions are temporarily disabled for debugging."});
   };
 
-
+  /*
   const chartConfig: ChartConfig = {
     calories: { label: "Calories (kcal)", color: "hsl(var(--chart-1))" },
     protein: { label: "Protein (g)", color: "hsl(var(--chart-2))" },
     fat: { label: "Fat (g)", color: "hsl(var(--chart-3))" },
     carbs: { label: "Carbs (g)", color: "hsl(var(--chart-4))" }, // if available
   };
-
+  */
 
   return (
     <div className="container mx-auto py-8">
@@ -222,6 +104,7 @@ export default function OptimizedMealPlanPage() {
                    <p>Total Fat: {mealPlan.weeklySummary.totalFat.toFixed(1)} g</p>
                    {mealPlan.weeklySummary.totalCarbs && <p>Total Carbs: {mealPlan.weeklySummary.totalCarbs.toFixed(1)} g</p> }
                   
+                  {/* Temporarily comment out ChartContainer until chartConfig is restored 
                   <ChartContainer config={chartConfig} className="mx-auto aspect-video max-h-[300px] mt-4">
                     <BarChart accessibilityLayer data={[
                         { type: 'Calories', value: mealPlan.weeklySummary.totalCalories / 7, fill: "var(--color-calories)" }, // Daily average
@@ -235,6 +118,7 @@ export default function OptimizedMealPlanPage() {
                       <Bar dataKey="value" radius={8} />
                     </BarChart>
                   </ChartContainer>
+                  */}
                 </CardContent>
               </Card>
 
