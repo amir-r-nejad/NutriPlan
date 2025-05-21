@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Pencil, PlusCircle, Trash2 } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { daysOfWeek, mealNames } from '@/lib/constants';
-import type { Meal, DailyMealPlan, WeeklyMealPlan } from '@/lib/schemas';
+import type { Meal, DailyMealPlan, WeeklyMealPlan, Ingredient } from '@/lib/schemas';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,19 +19,61 @@ import { Textarea } from '@/components/ui/textarea';
 const initialWeeklyPlan: WeeklyMealPlan = {
   days: daysOfWeek.map(day => ({
     dayOfWeek: day,
-    meals: mealNames.map(mealName => ({
-      name: mealName,
-      customName: mealName === "Lunch" && day === "Monday" ? "Chicken Salad" : "",
-      ingredients: mealName === "Lunch" && day === "Monday" ? [
-        { name: "Chicken Breast", quantity: 100, unit: "g", calories: 165, protein: 31, carbs: 0, fat: 3.6 },
-        { name: "Lettuce", quantity: 50, unit: "g", calories: 7, protein: 0.5, carbs: 1.5, fat: 0.1 },
-        { name: "Tomato", quantity: 30, unit: "g", calories: 5, protein: 0.2, carbs: 1.2, fat: 0.1 },
-      ] : [],
-      totalCalories: mealName === "Lunch" && day === "Monday" ? 177 : 0,
-      totalProtein: mealName === "Lunch" && day === "Monday" ? 31.7 : 0,
-      totalCarbs: mealName === "Lunch" && day === "Monday" ? 2.7 : 0,
-      totalFat: mealName === "Lunch" && day === "Monday" ? 3.8 : 0,
-    })),
+    meals: mealNames.map(mealName => {
+      let customName = "";
+      let ingredients: Ingredient[] = [];
+      let totalCalories = 0;
+      let totalProtein = 0;
+      let totalCarbs = 0;
+      let totalFat = 0;
+
+      if (day === "Monday") {
+        if (mealName === "Lunch") {
+          customName = "Chicken Salad";
+          ingredients = [
+            { name: "Chicken Breast", quantity: 100, unit: "g", calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+            { name: "Lettuce", quantity: 50, unit: "g", calories: 7, protein: 0.5, carbs: 1.5, fat: 0.1 },
+            { name: "Tomato", quantity: 30, unit: "g", calories: 5, protein: 0.2, carbs: 1.2, fat: 0.1 },
+          ];
+          totalCalories = 177;
+          totalProtein = 31.7;
+          totalCarbs = 2.7;
+          totalFat = 3.8;
+        } else if (mealName === "Afternoon Snack") {
+            customName = "Apple Slices with Peanut Butter";
+            ingredients = [ 
+                { name: "Apple", quantity: 1, unit: "medium", calories: 95, protein: 0.5, carbs: 25, fat: 0.3 },
+                { name: "Peanut Butter", quantity: 32, unit: "g", calories: 190, protein: 8, carbs: 7, fat: 16 }
+            ];
+            totalCalories = 285; totalProtein = 8.5; totalCarbs = 32; totalFat = 16.3;
+        } else if (mealName === "Dinner") {
+            customName = "Salmon & Asparagus";
+            ingredients = [
+                { name: "Salmon Fillet", quantity: 150, unit: "g", calories: 312, protein: 30, carbs: 0, fat: 20.4 },
+                { name: "Asparagus", quantity: 100, unit: "g", calories: 20, protein: 2.2, carbs: 3.9, fat: 0.1 },
+                { name: "Olive Oil", quantity: 5, unit: "ml", calories: 40, protein: 0, carbs: 0, fat: 4.5 },
+            ];
+            totalCalories = 372; totalProtein = 32.2; totalCarbs = 3.9; totalFat = 24.9;
+        } else if (mealName === "Evening Snack") {
+            customName = "Greek Yogurt with Berries";
+            ingredients = [ 
+                { name: "Greek Yogurt", quantity: 150, unit: "g", calories: 150, protein: 15, carbs: 6, fat: 8 },
+                { name: "Mixed Berries", quantity: 50, unit: "g", calories: 25, protein: 0.5, carbs: 6, fat: 0.2 },
+            ];
+            totalCalories = 175; totalProtein = 15.5; totalCarbs = 12; totalFat = 8.2;
+        }
+      }
+
+      return {
+        name: mealName,
+        customName,
+        ingredients,
+        totalCalories,
+        totalProtein,
+        totalCarbs,
+        totalFat,
+      };
+    }),
   })),
 };
 
@@ -161,10 +203,17 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
         // Assuming macros are per 100g and quantity is in g
         // This part needs robust logic based on how macros are defined (per 100g, per unit, etc.)
         // For now, a simplified placeholder if ingredient has direct macros
-        if (ing.calories && ing.quantity) totalCalories += (ing.calories / 100) * ing.quantity;
-        if (ing.protein && ing.quantity) totalProtein += (ing.protein / 100) * ing.quantity;
-        if (ing.carbs && ing.quantity) totalCarbs += (ing.carbs / 100) * ing.quantity;
-        if (ing.fat && ing.quantity) totalFat += (ing.fat / 100) * ing.quantity;
+        if (ing.calories && ing.quantity && ing.unit?.toLowerCase() === 'g') { // Basic check for 'g'
+            totalCalories += (ing.calories / 100) * ing.quantity;
+            if(ing.protein) totalProtein += (ing.protein / 100) * ing.quantity;
+            if(ing.carbs) totalCarbs += (ing.carbs / 100) * ing.quantity;
+            if(ing.fat) totalFat += (ing.fat / 100) * ing.quantity;
+        } else if (ing.calories && ing.quantity) { // Fallback for non-gram units, assumes calories are per unit
+            totalCalories += ing.calories * ing.quantity;
+            if(ing.protein) totalProtein += ing.protein * ing.quantity;
+            if(ing.carbs) totalCarbs += ing.carbs * ing.quantity;
+            if(ing.fat) totalFat += ing.fat * ing.quantity;
+        }
     });
     setMeal(prev => ({...prev, totalCalories, totalProtein, totalCarbs, totalFat}));
   }
