@@ -14,9 +14,11 @@ import { MacroSplitterFormSchema, type MacroSplitterFormValues, type ProfileForm
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { mealNames as defaultMealNames } from '@/lib/constants';
-import { Loader2, RefreshCw, Calculator, AlertTriangle, CheckCircle2, SplitSquareHorizontal } from 'lucide-react';
+import { Loader2, RefreshCw, Calculator, AlertTriangle, CheckCircle2, SplitSquareHorizontal, Lightbulb } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface TotalMacros {
   calories: number;
@@ -81,9 +83,12 @@ const defaultMacroPercentages: { [key: string]: { calories_pct: number; protein_
 export default function MacroSplitterPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [dailyTargets, setDailyTargets] = useState<TotalMacros | null>(null);
   const [calculatedSplit, setCalculatedSplit] = useState<CalculatedMealMacros[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileData, setProfileData] = useState<Partial<ProfileFormValues> | null>(null);
+
 
   const form = useForm<MacroSplitterFormValues>({
     resolver: zodResolver(MacroSplitterFormSchema),
@@ -107,9 +112,10 @@ export default function MacroSplitterPage() {
     if (!user?.id) return;
     setIsLoading(true);
     try {
-      const profileData = await getProfileDataForMacroSplitter(user.id);
-      if (profileData.age && profileData.gender && profileData.currentWeight && profileData.height && profileData.activityLevel && profileData.dietGoal) {
-        const estimatedTargets = calculateEstimatedDailyTargets(profileData);
+      const fetchedProfileData = await getProfileDataForMacroSplitter(user.id);
+      setProfileData(fetchedProfileData);
+      if (fetchedProfileData.age && fetchedProfileData.gender && fetchedProfileData.currentWeight && fetchedProfileData.height && fetchedProfileData.activityLevel && fetchedProfileData.dietGoal) {
+        const estimatedTargets = calculateEstimatedDailyTargets(fetchedProfileData);
         if (estimatedTargets.targetCalories && estimatedTargets.targetProtein && estimatedTargets.targetCarbs && estimatedTargets.targetFat) {
             setDailyTargets({
                 calories: estimatedTargets.targetCalories,
@@ -158,6 +164,17 @@ export default function MacroSplitterPage() {
       })),
     });
     setCalculatedSplit(null);
+  };
+
+  const handleSuggestMeals = (mealData: CalculatedMealMacros) => {
+    const queryParams = new URLSearchParams({
+      mealName: mealData.mealName,
+      calories: mealData.Calories.toString(),
+      protein: mealData['Protein (g)'].toString(),
+      carbs: mealData['Carbs (g)'].toString(),
+      fat: mealData['Fat (g)'].toString(),
+    }).toString();
+    router.push(`/tools/meal-suggestions?${queryParams}`);
   };
   
   const watchedMealDistributions = form.watch("mealDistributions");
@@ -323,6 +340,7 @@ export default function MacroSplitterPage() {
                   <TableHead className="text-right">Protein (g)</TableHead>
                   <TableHead className="text-right">Carbs (g)</TableHead>
                   <TableHead className="text-right">Fat (g)</TableHead>
+                  <TableHead className="text-right w-[180px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -333,6 +351,15 @@ export default function MacroSplitterPage() {
                     <TableCell className="text-right tabular-nums">{mealData['Protein (g)']}</TableCell>
                     <TableCell className="text-right tabular-nums">{mealData['Carbs (g)']}</TableCell>
                     <TableCell className="text-right tabular-nums">{mealData['Fat (g)']}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSuggestMeals(mealData)}
+                      >
+                        <Lightbulb className="mr-2 h-4 w-4" /> Suggest Meals
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
                  <TableRow className="font-semibold border-t-2">
@@ -341,6 +368,7 @@ export default function MacroSplitterPage() {
                     <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Protein (g)'], 0)}</TableCell>
                     <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Carbs (g)'], 0)}</TableCell>
                     <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Fat (g)'], 0)}</TableCell>
+                    <TableCell></TableCell> {/* Empty cell for Actions column in total row */}
                 </TableRow>
               </TableBody>
             </Table>

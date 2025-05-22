@@ -15,7 +15,8 @@ import {
   Bot,
   NotebookText,
   Calculator,
-  SplitSquareHorizontal
+  SplitSquareHorizontal,
+  ChefHat
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -42,6 +43,7 @@ const navItems = [
   { href: '/profile', label: 'Profile', icon: User },
   { href: '/tools/macro-calculator', label: 'Macro Calculator', icon: Calculator },
   { href: '/tools/macro-splitter', label: 'Macro Splitter', icon: SplitSquareHorizontal },
+  { href: '/tools/meal-suggestions', label: 'Meal Suggestions', icon: ChefHat },
   { href: '/meal-plan/current', label: 'Current Meal Plan', icon: NotebookText },
   { href: '/meal-plan/optimized', label: 'AI Meal Plan', icon: Bot },
 ];
@@ -95,7 +97,7 @@ export default function AppLayout({
         <SidebarFooter className="p-2">
            <div className="flex items-center gap-3 p-2 rounded-md border border-sidebar-border bg-sidebar-accent/50">
             <Avatar className="h-9 w-9">
-              <AvatarImage src={`https://placehold.co/100x100.png?text=${user.email?.[0]?.toUpperCase() ?? 'U'}`} alt={user.email} data-ai-hint="avatar person" />
+              <AvatarImage src={`https://placehold.co/100x100.png?text=${user.email?.[0]?.toUpperCase() ?? 'U'}`} alt={user.email ?? 'User Avatar'} data-ai-hint="avatar person" />
               <AvatarFallback>{user.email?.[0]?.toUpperCase() ?? 'U'}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col group-data-[collapsible=icon]:hidden">

@@ -1,5 +1,7 @@
+
 import { config } from 'dotenv';
 config();
 
 import '@/ai/flows/generate-meal-plan.ts';
 import '@/ai/flows/suggest-ingredient-swap.ts';
+import '@/ai/flows/suggest-meals-for-macros.ts';
