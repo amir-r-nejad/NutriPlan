@@ -70,14 +70,11 @@ export default function DashboardPage() {
             <Target className="h-10 w-10 text-primary mb-4" />
             <h2 className="text-3xl font-semibold text-primary mb-3">Track Your Targets</h2>
             <p className="text-foreground/80 mb-6">
-              Set and monitor your daily and meal-specific nutritional targets. Fine-tune your intake to perfectly match your body&apos;s requirements and fitness ambitions.
+              Set and monitor your daily nutritional targets. Fine-tune your intake to perfectly match your body&apos;s requirements and fitness ambitions.
             </p>
             <div className="flex gap-4">
               <Link href="/targets/daily" passHref>
                 <Button variant="secondary">Daily Targets <ArrowRight className="ml-2 h-4 w-4" /></Button>
-              </Link>
-              <Link href="/targets/meal-level" passHref>
-                <Button variant="secondary">Meal-Level Targets <ArrowRight className="ml-2 h-4 w-4" /></Button>
               </Link>
             </div>
           </div>
