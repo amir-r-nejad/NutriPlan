@@ -9,7 +9,7 @@ import { Loader2, ChefHat, AlertTriangle, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { ProfileFormValues } from '@/lib/schemas';
-import { suggestMealsForMacros, type SuggestMealsForMacrosInput, type SuggestMealsForMacrosOutput } from '@/ai/flows/suggest-meals-for-macros'; // Adjust path as needed
+import { suggestMealsForMacros, type SuggestMealsForMacrosInput, type SuggestMealsForMacrosOutput } from '@/ai/flows/suggest-meals-for-macros'; 
 
 async function getProfileDataForSuggestions(userId: string): Promise<Partial<ProfileFormValues>> {
   const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
@@ -120,28 +120,13 @@ function MealSuggestionsContent() {
     };
 
     try {
-      // Placeholder for AI call
-      // const result = await suggestMealsForMacros(aiInput);
-      // setSuggestions(result.suggestions);
-      
-      // Mock AI call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const mockSuggestions: SuggestMealsForMacrosOutput['suggestions'] = [
-        {
-          mealTitle: "Protein-Packed Oatmeal",
-          description: "A hearty bowl of oatmeal with protein powder, berries, and nuts. Perfectly balanced for your morning energy and muscle recovery.",
-          keyIngredients: ["Rolled Oats", "Protein Powder", "Mixed Berries", "Almonds"],
-          estimatedMacros: { calories: targetMacros.calories * 0.95, protein: targetMacros.protein * 1.0, carbs: targetMacros.carbs * 0.9, fat: targetMacros.fat * 0.9 }
-        },
-        {
-          mealTitle: "Quick Chicken & Veggie Stir-fry",
-          description: "Lean chicken breast stir-fried with colorful vegetables in a light soy-ginger sauce. Quick, easy, and hits your macro targets.",
-          keyIngredients: ["Chicken Breast", "Broccoli", "Bell Peppers", "Soy Sauce", "Ginger"],
-          estimatedMacros: { calories: targetMacros.calories * 1.02, protein: targetMacros.protein * 0.98, carbs: targetMacros.carbs * 1.05, fat: targetMacros.fat * 1.0 }
-        },
-      ];
-      setSuggestions(mockSuggestions);
-
+      const result = await suggestMealsForMacros(aiInput);
+      if (result && result.suggestions) {
+        setSuggestions(result.suggestions);
+      } else {
+        setError("AI did not return valid suggestions.");
+        toast({title: "AI Response Error", description: "Received an unexpected response from the AI.", variant: "destructive"});
+      }
     } catch (err) {
       console.error("Error getting meal suggestions:", err);
       setError("Failed to fetch meal suggestions. Please try again.");
