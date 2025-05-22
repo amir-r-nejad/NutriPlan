@@ -14,7 +14,7 @@ import { MacroSplitterFormSchema, type MacroSplitterFormValues, type DailyTarget
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { mealNames as defaultMealNames } from '@/lib/constants';
-import { Loader2, RefreshCw, Calculator, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Loader2, RefreshCw, Calculator, AlertTriangle, CheckCircle2, SplitSquareHorizontal } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 
