@@ -55,11 +55,59 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
       return parsedProfile as ProfileFormValues;
     } catch (error) {
       console.error("Error parsing stored profile data:", error);
-      return { mealsPerDay: 3 }; // Default
+      return { // Default values if nothing stored or error
+        age: undefined,
+        gender: undefined,
+        height: undefined,
+        currentWeight: undefined,
+        goalWeight: undefined,
+        activityLevel: "moderate",
+        dietGoal: "lose_weight",
+        mealsPerDay: 3,
+        preferredDiet: "none",
+        preferredCuisines: [],
+        dispreferredCuisines: [],
+        preferredIngredients: [],
+        dispreferredIngredients: [],
+        allergies: [],
+        preferredMicronutrients: [],
+        medicalConditions: [],
+        medications: [],
+        painMobilityIssues: "",
+        injuries: [],
+        surgeries: [],
+        exerciseGoals: [],
+        exercisePreferences: [],
+        equipmentAccess: [],
+        currentBodyFatPercentage: undefined,
+        targetBodyFatPercentage: undefined,
+        currentMuscleMassPercentage: undefined,
+        targetMuscleMassPercentage: undefined,
+        currentWaterPercentage: undefined,
+        targetWaterPercentage: undefined,
+        waistMeasurementCurrent: undefined,
+        waistMeasurementGoal1Month: undefined,
+        waistMeasurementIdeal: undefined,
+        hipsMeasurementCurrent: undefined,
+        hipsMeasurementGoal1Month: undefined,
+        hipsMeasurementIdeal: undefined,
+        rightLegMeasurementCurrent: undefined,
+        rightLegMeasurementGoal1Month: undefined,
+        rightLegMeasurementIdeal: undefined,
+        leftLegMeasurementCurrent: undefined,
+        leftLegMeasurementGoal1Month: undefined,
+        leftLegMeasurementIdeal: undefined,
+        rightArmMeasurementCurrent: undefined,
+        rightArmMeasurementGoal1Month: undefined,
+        rightArmMeasurementIdeal: undefined,
+        leftArmMeasurementCurrent: undefined,
+        leftArmMeasurementGoal1Month: undefined,
+        leftArmMeasurementIdeal: undefined,
+      };
     }
   }
   return { // Default values if nothing stored
-    age: undefined, // Let zod handle default or required
+    age: undefined, 
     gender: undefined,
     height: undefined,
     currentWeight: undefined,
@@ -139,7 +187,10 @@ export default function ProfilePage() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(ProfileFormSchema),
     defaultValues: {
-      mealsPerDay: 3, // Default meals per day
+      activityLevel: "moderate",
+      dietGoal: "lose_weight",
+      mealsPerDay: 3,
+      preferredDiet: "none",
       preferredCuisines: [],
       dispreferredCuisines: [],
       preferredIngredients: [],
@@ -148,12 +199,14 @@ export default function ProfilePage() {
       preferredMicronutrients: [],
       medicalConditions: [],
       medications: [],
+      painMobilityIssues: "",
       injuries: [],
       surgeries: [],
       exerciseGoals: [],
       exercisePreferences: [],
       equipmentAccess: [],
       age: undefined,
+      gender: undefined,
       height: undefined,
       currentWeight: undefined,
       goalWeight: undefined,
@@ -181,7 +234,6 @@ export default function ProfilePage() {
       leftArmMeasurementCurrent: undefined,
       leftArmMeasurementGoal1Month: undefined,
       leftArmMeasurementIdeal: undefined,
-      painMobilityIssues: "",
     },
   });
 
@@ -189,7 +241,6 @@ export default function ProfilePage() {
     if (user?.id) {
       setIsLoading(true);
       getProfileData(user.id).then((profileData) => {
-        // Transform comma-separated strings back to arrays for form
         const transformedData = { ...profileData };
         const arrayFields: (keyof ProfileFormValues)[] = [
           'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
@@ -197,17 +248,26 @@ export default function ProfilePage() {
           'injuries', 'surgeries', 'exerciseGoals', 'exercisePreferences', 'equipmentAccess'
         ];
         arrayFields.forEach(field => {
-          if (typeof transformedData[field] === 'string') {
-            transformedData[field] = (transformedData[field] as string).split(',').map(s => s.trim()).filter(s => s !== '');
-          } else if (!Array.isArray(transformedData[field])) {
-            transformedData[field] = [];
-        }
+          if (field in transformedData) { // Check if field exists
+            const value = transformedData[field];
+            if (typeof value === 'string') {
+              transformedData[field] = value.split(',').map(s => s.trim()).filter(s => s !== '');
+            } else if (!Array.isArray(value)) {
+              transformedData[field] = [];
+            }
+          } else {
+            transformedData[field] = []; // Initialize if not present
+          }
         });
         form.reset(transformedData);
         setIsLoading(false);
+      }).catch(error => {
+        console.error("Error loading profile data:", error);
+        toast({ title: "Error", description: "Could not load profile data.", variant: "destructive"});
+        setIsLoading(false);
       });
     }
-  }, [user, form]);
+  }, [user, form, toast]);
 
   async function onSubmit(data: ProfileFormValues) {
     if (!user?.id) {
@@ -227,7 +287,6 @@ export default function ProfilePage() {
       control={form.control}
       name={fieldName}
       render={({ field }) => {
-        // Ensure field.value is always an array for join, and string for Textarea
         const displayValue = Array.isArray(field.value) ? field.value.join(', ') : (field.value || '');
         return (
           <FormItem>
@@ -237,6 +296,7 @@ export default function ProfilePage() {
                 placeholder={placeholder}
                 value={displayValue}
                 onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()))}
+                className="h-10 resize-none" 
               />
             </FormControl>
             <FormMessage />
@@ -260,12 +320,12 @@ export default function ProfilePage() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <Accordion type="multiple" defaultValue={["item-1"]} className="w-full">
+            <Accordion type="multiple" defaultValue={["item-1", "item-2", "item-3", "item-4", "item-5", "item-6"]} className="w-full">
               <AccordionItem value="item-1">
                 <AccordionTrigger className="text-xl font-semibold">Basic Info</AccordionTrigger>
                 <AccordionContent className="grid md:grid-cols-2 gap-6 pt-4">
                   <FormField control={form.control} name="age" render={({ field }) => ( <FormItem> <FormLabel>Age</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="gender" render={({ field }) => ( <FormItem> <FormLabel>Gender</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl> <SelectContent>{genders.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="gender" render={({ field }) => ( <FormItem> <FormLabel>Gender</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl> <SelectContent>{genders.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
                   <FormField control={form.control} name="height" render={({ field }) => ( <FormItem> <FormLabel>Height (cm)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
                   <FormField control={form.control} name="currentWeight" render={({ field }) => ( <FormItem> <FormLabel>Current Weight (kg)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
                   <FormField control={form.control} name="goalWeight" render={({ field }) => ( <FormItem> <FormLabel>Goal Weight (kg)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
@@ -316,10 +376,10 @@ export default function ProfilePage() {
                 <AccordionTrigger className="text-xl font-semibold">Activity & Diet Preferences</AccordionTrigger>
                 <AccordionContent className="space-y-6 pt-4">
                   <div className="grid md:grid-cols-2 gap-6">
-                    <FormField control={form.control} name="activityLevel" render={({ field }) => ( <FormItem> <FormLabel>Activity Level</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Select activity level" /></SelectTrigger></FormControl> <SelectContent>{activityLevels.map(al => <SelectItem key={al.value} value={al.value}>{al.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="dietGoal" render={({ field }) => ( <FormItem> <FormLabel>Diet Goal</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Select diet goal" /></SelectTrigger></FormControl> <SelectContent>{dietGoals.map(dg => <SelectItem key={dg.value} value={dg.value}>{dg.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="preferredDiet" render={({ field }) => ( <FormItem> <FormLabel>Preferred Diet</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Select preferred diet" /></SelectTrigger></FormControl> <SelectContent>{preferredDiets.map(pd => <SelectItem key={pd.value} value={pd.value}>{pd.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-                     <FormField control={form.control} name="mealsPerDay" render={({ field }) => ( <FormItem> <FormLabel>Meals Per Day</FormLabel> <Select onValueChange={(v) => field.onChange(Number(v))} defaultValue={String(field.value)}> <FormControl><SelectTrigger><SelectValue placeholder="Select meals per day" /></SelectTrigger></FormControl> <SelectContent>{mealsPerDayOptions.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="activityLevel" render={({ field }) => ( <FormItem> <FormLabel>Activity Level</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select activity level" /></SelectTrigger></FormControl> <SelectContent>{activityLevels.map(al => <SelectItem key={al.value} value={al.value}>{al.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="dietGoal" render={({ field }) => ( <FormItem> <FormLabel>Diet Goal</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select diet goal" /></SelectTrigger></FormControl> <SelectContent>{dietGoals.map(dg => <SelectItem key={dg.value} value={dg.value}>{dg.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="preferredDiet" render={({ field }) => ( <FormItem> <FormLabel>Preferred Diet</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select preferred diet" /></SelectTrigger></FormControl> <SelectContent>{preferredDiets.map(pd => <SelectItem key={pd.value} value={pd.value}>{pd.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+                     <FormField control={form.control} name="mealsPerDay" render={({ field }) => ( <FormItem> <FormLabel>Meals Per Day</FormLabel> <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value ?? 3 )}> <FormControl><SelectTrigger><SelectValue placeholder="Select meals per day" /></SelectTrigger></FormControl> <SelectContent>{mealsPerDayOptions.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
                   </div>
                   {renderCommaSeparatedInput("preferredCuisines", "Preferred Cuisines", "e.g., Italian, Mexican, Indian")}
                   {renderCommaSeparatedInput("dispreferredCuisines", "Dispreferred Cuisines", "e.g., Thai, French")}
@@ -345,8 +405,8 @@ export default function ProfilePage() {
                 <AccordionTrigger className="text-xl font-semibold">Exercise Preferences</AccordionTrigger>
                 <AccordionContent className="space-y-6 pt-4">
                    <div className="grid md:grid-cols-2 gap-6">
-                    <FormField control={form.control} name="exerciseFrequency" render={({ field }) => ( <FormItem> <FormLabel>Exercise Frequency</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger></FormControl> <SelectContent>{exerciseFrequencies.map(ef => <SelectItem key={ef.value} value={ef.value}>{ef.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="exerciseIntensity" render={({ field }) => ( <FormItem> <FormLabel>Exercise Intensity</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Select intensity" /></SelectTrigger></FormControl> <SelectContent>{exerciseIntensities.map(ei => <SelectItem key={ei.value} value={ei.value}>{ei.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="exerciseFrequency" render={({ field }) => ( <FormItem> <FormLabel>Exercise Frequency</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger></FormControl> <SelectContent>{exerciseFrequencies.map(ef => <SelectItem key={ef.value} value={ef.value}>{ef.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="exerciseIntensity" render={({ field }) => ( <FormItem> <FormLabel>Exercise Intensity</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select intensity" /></SelectTrigger></FormControl> <SelectContent>{exerciseIntensities.map(ei => <SelectItem key={ei.value} value={ei.value}>{ei.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
                   </div>
                   {renderCommaSeparatedInput("exerciseGoals", "Exercise Goals", "e.g., Weight loss, Muscle gain, Endurance")}
                   {renderCommaSeparatedInput("exercisePreferences", "Exercise Preferences", "e.g., Running, Weightlifting, Yoga")}
