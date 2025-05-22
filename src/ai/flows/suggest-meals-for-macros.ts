@@ -12,7 +12,7 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-export const SuggestMealsForMacrosInputSchema = z.object({
+const SuggestMealsForMacrosInputSchema = z.object({
   mealName: z.string().describe("The name of the meal type, e.g., Breakfast, Lunch."),
   targetCalories: z.number().describe("Target calories for the meal."),
   targetProteinGrams: z.number().describe("Target protein in grams for the meal."),
@@ -45,7 +45,7 @@ const MealSuggestionSchema = z.object({
   }).describe("AI's best estimate of the macros for the suggested meal. This should be close to the target macros provided in the input.")
 });
 
-export const SuggestMealsForMacrosOutputSchema = z.object({
+const SuggestMealsForMacrosOutputSchema = z.object({
   suggestions: z.array(MealSuggestionSchema).min(1).max(5).describe("A list of 2-3 meal suggestions."),
 });
 export type SuggestMealsForMacrosOutput = z.infer<typeof SuggestMealsForMacrosOutputSchema>;
@@ -162,3 +162,4 @@ const suggestMealsForMacrosFlow = ai.defineFlow(
     return { suggestions: mockSuggestionsList.slice(0, Math.random() > 0.5 ? 2 : 3) }; // Return 2 or 3 mock suggestions
   }
 );
+
