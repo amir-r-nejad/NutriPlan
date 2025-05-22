@@ -9,14 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form'; // Removed FormLabel and FormMessage as they are not directly used here but are part of FormField
 import { MacroSplitterFormSchema, type MacroSplitterFormValues, type DailyTargets, type CalculatedMealMacros } from '@/lib/schemas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { mealNames as defaultMealNames } from '@/lib/constants';
 import { Loader2, RefreshCw, Calculator, AlertTriangle, CheckCircle2, SplitSquareHorizontal } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Progress } from '@/components/ui/progress';
 
 // Mock function to get daily targets (replace with actual data fetching if needed)
 async function getDailyTargetsData(userId: string): Promise<Partial<DailyTargets>> {
@@ -53,6 +52,16 @@ function customMacroSplit(
   }));
 }
 
+const defaultMacroPercentages: { [key: string]: { calories_pct: number; protein_pct: number; carbs_pct: number; fat_pct: number } } = {
+  "Breakfast": { calories_pct: 20, protein_pct: 25, carbs_pct: 20, fat_pct: 15 },
+  "Morning Snack": { calories_pct: 10, protein_pct: 10, carbs_pct: 15, fat_pct: 10 },
+  "Lunch": { calories_pct: 25, protein_pct: 25, carbs_pct: 25, fat_pct: 25 },
+  "Afternoon Snack": { calories_pct: 10, protein_pct: 10, carbs_pct: 10, fat_pct: 10 },
+  "Dinner": { calories_pct: 25, protein_pct: 25, carbs_pct: 25, fat_pct: 30 },
+  "Evening Snack": { calories_pct: 10, protein_pct: 5, carbs_pct: 5, fat_pct: 10 },
+};
+
+
 export default function MacroSplitterPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -65,10 +74,10 @@ export default function MacroSplitterPage() {
     defaultValues: {
       mealDistributions: defaultMealNames.map(name => ({
         mealName: name,
-        calories_pct: 0,
-        protein_pct: 0,
-        carbs_pct: 0,
-        fat_pct: 0,
+        calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
+        protein_pct: defaultMacroPercentages[name]?.protein_pct || 0,
+        carbs_pct: defaultMacroPercentages[name]?.carbs_pct || 0,
+        fat_pct: defaultMacroPercentages[name]?.fat_pct || 0,
       })),
     },
   });
@@ -117,7 +126,11 @@ export default function MacroSplitterPage() {
   const handleReset = () => {
     form.reset({
       mealDistributions: defaultMealNames.map(name => ({
-        mealName: name, calories_pct: 0, protein_pct: 0, carbs_pct: 0, fat_pct: 0,
+        mealName: name,
+        calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
+        protein_pct: defaultMacroPercentages[name]?.protein_pct || 0,
+        carbs_pct: defaultMacroPercentages[name]?.carbs_pct || 0,
+        fat_pct: defaultMacroPercentages[name]?.fat_pct || 0,
       })),
     });
     setCalculatedSplit(null);
@@ -244,14 +257,9 @@ export default function MacroSplitterPage() {
                   </TableCaption>
                 </Table>
               </ScrollArea>
-              {Object.values(form.formState.errors).find(err => err.mealDistributions?.root?.message) && (
+              {form.formState.errors.mealDistributions?.root?.message && (
                 <p className="text-sm font-medium text-destructive mt-2">
-                    { (form.formState.errors.mealDistributions?.root?.message as string) || 
-                      (form.formState.errors.mealDistributions?.[0]?.calories_pct?.message as string) ||
-                      (form.formState.errors.mealDistributions?.[0]?.protein_pct?.message as string) ||
-                      (form.formState.errors.mealDistributions?.[0]?.carbs_pct?.message as string) ||
-                      (form.formState.errors.mealDistributions?.[0]?.fat_pct?.message as string)
-                    }
+                    {form.formState.errors.mealDistributions.root.message}
                 </p>
               )}
             </CardContent>
@@ -313,3 +321,4 @@ export default function MacroSplitterPage() {
     </div>
   );
 }
+
