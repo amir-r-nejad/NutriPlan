@@ -2,8 +2,8 @@
 import * as z from "zod";
 import { activityLevels, dietGoals, preferredDiets, mealsPerDayOptions, genders, exerciseFrequencies, exerciseIntensities } from "./constants";
 
-// Helper for comma-separated string to array of strings
-const commaSeparatedStringToArray = z.string().optional().transform(val => val ? val.split(',').map(s => s.trim()).filter(s => s !== '') : []);
+// Helper for comma-separated string to array of strings - REMOVED as schema will handle arrays directly
+// const commaSeparatedStringToArray = z.string().optional().transform(val => val ? val.split(',').map(s => s.trim()).filter(s => s !== '') : []);
 
 export const ProfileFormSchema = z.object({
   // Basic Info
@@ -46,27 +46,28 @@ export const ProfileFormSchema = z.object({
   activityLevel: z.enum(activityLevels.map(al => al.value) as [string, ...string[]], { required_error: "Activity level is required." }),
   dietGoal: z.enum(dietGoals.map(dg => dg.value) as [string, ...string[]], { required_error: "Diet goal is required." }),
   preferredDiet: z.enum(preferredDiets.map(pd => pd.value) as [string, ...string[]]).optional(),
-  preferredCuisines: commaSeparatedStringToArray,
-  dispreferredCuisines: commaSeparatedStringToArray,
-  preferredIngredients: commaSeparatedStringToArray,
-  dispreferredIngredients: commaSeparatedStringToArray,
-  allergies: commaSeparatedStringToArray,
   mealsPerDay: z.coerce.number().min(2).max(7),
-  preferredMicronutrients: commaSeparatedStringToArray,
+  
+  preferredCuisines: z.array(z.string()).optional(),
+  dispreferredCuisines: z.array(z.string()).optional(),
+  preferredIngredients: z.array(z.string()).optional(),
+  dispreferredIngredients: z.array(z.string()).optional(),
+  allergies: z.array(z.string()).optional(),
+  preferredMicronutrients: z.array(z.string()).optional(),
 
   // Medical Info
-  medicalConditions: commaSeparatedStringToArray,
-  medications: commaSeparatedStringToArray,
+  medicalConditions: z.array(z.string()).optional(),
+  medications: z.array(z.string()).optional(),
   painMobilityIssues: z.string().optional(),
-  injuries: commaSeparatedStringToArray,
-  surgeries: commaSeparatedStringToArray,
+  injuries: z.array(z.string()).optional(),
+  surgeries: z.array(z.string()).optional(),
 
   // Exercise Preferences
-  exerciseGoals: commaSeparatedStringToArray,
-  exercisePreferences: commaSeparatedStringToArray,
+  exerciseGoals: z.array(z.string()).optional(),
+  exercisePreferences: z.array(z.string()).optional(),
   exerciseFrequency: z.enum(exerciseFrequencies.map(ef => ef.value) as [string, ...string[]]).optional(),
   exerciseIntensity: z.enum(exerciseIntensities.map(ei => ei.value) as [string, ...string[]]).optional(),
-  equipmentAccess: commaSeparatedStringToArray,
+  equipmentAccess: z.array(z.string()).optional(),
 });
 
 export type ProfileFormValues = z.infer<typeof ProfileFormSchema>;
