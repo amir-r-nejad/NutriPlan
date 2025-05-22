@@ -59,11 +59,11 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
     }
   }
   return { // Default values if nothing stored
-    age: 30,
-    gender: "male",
-    height: 175,
-    currentWeight: 70,
-    goalWeight: 65,
+    age: undefined, // Let zod handle default or required
+    gender: undefined,
+    height: undefined,
+    currentWeight: undefined,
+    goalWeight: undefined,
     activityLevel: "moderate",
     dietGoal: "lose_weight",
     mealsPerDay: 3,
@@ -82,6 +82,30 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
     exerciseGoals: [],
     exercisePreferences: [],
     equipmentAccess: [],
+    currentBodyFatPercentage: undefined,
+    targetBodyFatPercentage: undefined,
+    currentMuscleMassPercentage: undefined,
+    targetMuscleMassPercentage: undefined,
+    currentWaterPercentage: undefined,
+    targetWaterPercentage: undefined,
+    waistMeasurementCurrent: undefined,
+    waistMeasurementGoal1Month: undefined,
+    waistMeasurementIdeal: undefined,
+    hipsMeasurementCurrent: undefined,
+    hipsMeasurementGoal1Month: undefined,
+    hipsMeasurementIdeal: undefined,
+    rightLegMeasurementCurrent: undefined,
+    rightLegMeasurementGoal1Month: undefined,
+    rightLegMeasurementIdeal: undefined,
+    leftLegMeasurementCurrent: undefined,
+    leftLegMeasurementGoal1Month: undefined,
+    leftLegMeasurementIdeal: undefined,
+    rightArmMeasurementCurrent: undefined,
+    rightArmMeasurementGoal1Month: undefined,
+    rightArmMeasurementIdeal: undefined,
+    leftArmMeasurementCurrent: undefined,
+    leftArmMeasurementGoal1Month: undefined,
+    leftArmMeasurementIdeal: undefined,
   };
 }
 
@@ -145,9 +169,18 @@ export default function ProfilePage() {
       hipsMeasurementCurrent: undefined,
       hipsMeasurementGoal1Month: undefined,
       hipsMeasurementIdeal: undefined,
-      limbsMeasurementCurrent: undefined,
-      limbsMeasurementGoal1Month: undefined,
-      limbsMeasurementIdeal: undefined,
+      rightLegMeasurementCurrent: undefined,
+      rightLegMeasurementGoal1Month: undefined,
+      rightLegMeasurementIdeal: undefined,
+      leftLegMeasurementCurrent: undefined,
+      leftLegMeasurementGoal1Month: undefined,
+      leftLegMeasurementIdeal: undefined,
+      rightArmMeasurementCurrent: undefined,
+      rightArmMeasurementGoal1Month: undefined,
+      rightArmMeasurementIdeal: undefined,
+      leftArmMeasurementCurrent: undefined,
+      leftArmMeasurementGoal1Month: undefined,
+      leftArmMeasurementIdeal: undefined,
       painMobilityIssues: "",
     },
   });
@@ -260,9 +293,22 @@ export default function ProfilePage() {
                    <FormField control={form.control} name="hipsMeasurementCurrent" render={({ field }) => ( <FormItem> <FormLabel>Hips (Current)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
                   <FormField control={form.control} name="hipsMeasurementGoal1Month" render={({ field }) => ( <FormItem> <FormLabel>Hips (1-Month Goal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
                    <FormField control={form.control} name="hipsMeasurementIdeal" render={({ field }) => ( <FormItem> <FormLabel>Hips (Ideal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
-                   <FormField control={form.control} name="limbsMeasurementCurrent" render={({ field }) => ( <FormItem> <FormLabel>Limbs (Current)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="limbsMeasurementGoal1Month" render={({ field }) => ( <FormItem> <FormLabel>Limbs (1-Month Goal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
-                   <FormField control={form.control} name="limbsMeasurementIdeal" render={({ field }) => ( <FormItem> <FormLabel>Limbs (Ideal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  
+                  <FormField control={form.control} name="rightLegMeasurementCurrent" render={({ field }) => ( <FormItem> <FormLabel>Right Leg (Current)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="rightLegMeasurementGoal1Month" render={({ field }) => ( <FormItem> <FormLabel>Right Leg (1-Month Goal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="rightLegMeasurementIdeal" render={({ field }) => ( <FormItem> <FormLabel>Right Leg (Ideal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+
+                  <FormField control={form.control} name="leftLegMeasurementCurrent" render={({ field }) => ( <FormItem> <FormLabel>Left Leg (Current)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="leftLegMeasurementGoal1Month" render={({ field }) => ( <FormItem> <FormLabel>Left Leg (1-Month Goal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="leftLegMeasurementIdeal" render={({ field }) => ( <FormItem> <FormLabel>Left Leg (Ideal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+
+                  <FormField control={form.control} name="rightArmMeasurementCurrent" render={({ field }) => ( <FormItem> <FormLabel>Right Arm (Current)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="rightArmMeasurementGoal1Month" render={({ field }) => ( <FormItem> <FormLabel>Right Arm (1-Month Goal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="rightArmMeasurementIdeal" render={({ field }) => ( <FormItem> <FormLabel>Right Arm (Ideal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+
+                  <FormField control={form.control} name="leftArmMeasurementCurrent" render={({ field }) => ( <FormItem> <FormLabel>Left Arm (Current)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="leftArmMeasurementGoal1Month" render={({ field }) => ( <FormItem> <FormLabel>Left Arm (1-Month Goal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="leftArmMeasurementIdeal" render={({ field }) => ( <FormItem> <FormLabel>Left Arm (Ideal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
                 </AccordionContent>
               </AccordionItem>
 
@@ -318,3 +364,4 @@ export default function ProfilePage() {
     </Card>
   );
 }
+

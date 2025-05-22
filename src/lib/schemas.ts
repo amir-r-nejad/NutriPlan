@@ -28,9 +28,19 @@ export const ProfileFormSchema = z.object({
   hipsMeasurementCurrent: z.coerce.number().min(0).optional(),
   hipsMeasurementGoal1Month: z.coerce.number().min(0).optional(),
   hipsMeasurementIdeal: z.coerce.number().min(0).optional(),
-  limbsMeasurementCurrent: z.coerce.number().min(0).optional(), // Assuming a single value for simplicity
-  limbsMeasurementGoal1Month: z.coerce.number().min(0).optional(),
-  limbsMeasurementIdeal: z.coerce.number().min(0).optional(),
+  
+  rightLegMeasurementCurrent: z.coerce.number().min(0).optional(),
+  rightLegMeasurementGoal1Month: z.coerce.number().min(0).optional(),
+  rightLegMeasurementIdeal: z.coerce.number().min(0).optional(),
+  leftLegMeasurementCurrent: z.coerce.number().min(0).optional(),
+  leftLegMeasurementGoal1Month: z.coerce.number().min(0).optional(),
+  leftLegMeasurementIdeal: z.coerce.number().min(0).optional(),
+  rightArmMeasurementCurrent: z.coerce.number().min(0).optional(),
+  rightArmMeasurementGoal1Month: z.coerce.number().min(0).optional(),
+  rightArmMeasurementIdeal: z.coerce.number().min(0).optional(),
+  leftArmMeasurementCurrent: z.coerce.number().min(0).optional(),
+  leftArmMeasurementGoal1Month: z.coerce.number().min(0).optional(),
+  leftArmMeasurementIdeal: z.coerce.number().min(0).optional(),
 
   // Activity & Diet Preferences
   activityLevel: z.enum(activityLevels.map(al => al.value) as [string, ...string[]], { required_error: "Activity level is required." }),
@@ -185,3 +195,4 @@ export const IngredientSwapSuggestionSchema = z.object({
 });
 
 export type IngredientSwapSuggestion = z.infer<typeof IngredientSwapSuggestionSchema>;
+
