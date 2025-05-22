@@ -37,14 +37,15 @@ async function getProfileDataForTargets(userId: string): Promise<Partial<Profile
   if (storedProfile) {
     try {
       const parsedProfile = JSON.parse(storedProfile);
+      // Ensure array fields are arrays
       const arrayFields: (keyof ProfileFormValues)[] = [
         'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
         'allergies', 'preferredMicronutrients', 'medicalConditions', 'medications', 
         'injuries', 'surgeries', 'exerciseGoals', 'exercisePreferences', 'equipmentAccess'
       ];
       arrayFields.forEach(field => {
-        if (typeof parsedProfile[field] === 'string') {
-           parsedProfile[field] = parsedProfile[field] ? parsedProfile[field].split(',').map((s: string) => s.trim()).filter((s: string) => s !== '') : [];
+        if (parsedProfile[field] && typeof parsedProfile[field] === 'string') {
+           parsedProfile[field] = parsedProfile[field].split(',').map((s: string) => s.trim()).filter((s: string) => s !== '');
         } else if (!Array.isArray(parsedProfile[field])) {
             parsedProfile[field] = [];
         }
@@ -62,7 +63,7 @@ async function getProfileDataForTargets(userId: string): Promise<Partial<Profile
 // Mock functions for data operations
 async function getDailyTargets(userId: string, profileDataForCalc: Partial<ProfileFormValues>): Promise<DailyTargetsData> {
   console.log("Fetching daily targets for user:", userId);
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
   
   const storedTargets = localStorage.getItem(`nutriplan_daily_targets_${userId}`);
   if (storedTargets) {
@@ -105,7 +106,7 @@ async function getDailyTargets(userId: string, profileDataForCalc: Partial<Profi
 async function saveDailyTargets(userId: string, data: DailyTargets) {
   console.log("Saving daily targets for user:", userId, data);
   localStorage.setItem(`nutriplan_daily_targets_${userId}`, JSON.stringify(data));
-  await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
   return { success: true };
 }
 
@@ -123,10 +124,10 @@ export default function DailyTargetsPage() {
     resolver: zodResolver(DailyTargetsSchema),
     defaultValues: {
       mealsPerDay: 3, 
-      targetCalories: undefined,
-      targetProtein: undefined,
-      targetCarbs: undefined,
-      targetFat: undefined,
+      targetCalories: 0, // Initialize with 0 to make it controlled, placeholder will show estimate
+      targetProtein: 0,
+      targetCarbs: 0,
+      targetFat: 0,
       caloriesBurned: undefined,
     },
   });
@@ -145,7 +146,16 @@ export default function DailyTargetsPage() {
 
         getDailyTargets(user.id, profileData).then((response) => {
           const { source, ...targetsDataValues } = response;
-          form.reset(targetsDataValues);
+          // Ensure all target macros are numbers, defaulting to 0 if undefined
+          const saneTargets: Partial<DailyTargets> = {
+            targetCalories: targetsDataValues.targetCalories ?? 0,
+            targetProtein: targetsDataValues.targetProtein ?? 0,
+            targetCarbs: targetsDataValues.targetCarbs ?? 0,
+            targetFat: targetsDataValues.targetFat ?? 0,
+            mealsPerDay: targetsDataValues.mealsPerDay ?? 3,
+            caloriesBurned: targetsDataValues.caloriesBurned,
+          };
+          form.reset(saneTargets);
           setIsLoading(false);
         }).catch(err => {
           console.error("Failed to load daily targets", err);
@@ -155,10 +165,17 @@ export default function DailyTargetsPage() {
       }).catch(err => {
         console.error("Failed to load profile data for target estimation", err);
         toast({ title: "Error", description: "Could not load profile data for target estimation.", variant: "destructive"});
-        // Still try to load daily targets with empty profile
         getDailyTargets(user.id, {}).then((response) => {
-            const { ...targetsDataValues } = response;
-            form.reset(targetsDataValues);
+            const { source, ...targetsDataValues } = response;
+            const saneTargets: Partial<DailyTargets> = {
+              targetCalories: targetsDataValues.targetCalories ?? 0,
+              targetProtein: targetsDataValues.targetProtein ?? 0,
+              targetCarbs: targetsDataValues.targetCarbs ?? 0,
+              targetFat: targetsDataValues.targetFat ?? 0,
+              mealsPerDay: targetsDataValues.mealsPerDay ?? 3,
+              caloriesBurned: targetsDataValues.caloriesBurned,
+            };
+            form.reset(saneTargets);
         }).finally(() => setIsLoading(false));
       });
     }
@@ -173,20 +190,26 @@ export default function DailyTargetsPage() {
 
     let submissionData = { ...data };
     
-    // If targetCalories is submitted as 0 (blank input) and we have profile-based estimates, use them.
-    if (data.targetCalories === 0 && userProfileData.age /* check if profile is complete enough */) {
+    // If targetCalories is effectively blank (submitted as 0 because input was empty) 
+    // and we have valid profile data for calculation, use the auto-calculated estimates.
+    if ((data.targetCalories === 0 || data.targetCalories === undefined) && 
+        userProfileData.age && userProfileData.gender && 
+        userProfileData.currentWeight && userProfileData.height && 
+        userProfileData.activityLevel && userProfileData.dietGoal) {
         const currentEstimates = calculateEstimatedDailyTargets(userProfileData);
         if (currentEstimates.targetCalories) {
             submissionData.targetCalories = currentEstimates.targetCalories;
-            submissionData.targetProtein = currentEstimates.targetProtein ?? data.targetProtein;
-            submissionData.targetCarbs = currentEstimates.targetCarbs ?? data.targetCarbs;
-            submissionData.targetFat = currentEstimates.targetFat ?? data.targetFat;
+            submissionData.targetProtein = currentEstimates.targetProtein ?? data.targetProtein ?? 0;
+            submissionData.targetCarbs = currentEstimates.targetCarbs ?? data.targetCarbs ?? 0;
+            submissionData.targetFat = currentEstimates.targetFat ?? data.targetFat ?? 0;
         }
     }
 
     try {
       await saveDailyTargets(user.id, { ...submissionData, userId: user.id });
       toast({ title: "Targets Updated", description: "Your daily nutritional targets have been saved." });
+      // Optionally, re-fetch and reset form to reflect saved (possibly auto-calculated) values
+      // getDailyTargets(user.id, userProfileData).then(response => form.reset(response));
     } catch (error) {
       toast({ title: "Update Failed", description: "Could not save targets. Please try again.", variant: "destructive" });
     } finally {
@@ -204,7 +227,8 @@ export default function DailyTargetsPage() {
   }
   
   const canCalculateProfileTDEE = userProfileData.age && userProfileData.gender && userProfileData.currentWeight && userProfileData.height && userProfileData.activityLevel;
-  const currentProfileTDEE = canCalculateProfileTDEE ? calculateTDEE(calculateBMR(userProfileData.gender!, userProfileData.currentWeight!, userProfileData.height!, userProfileData.age!), userProfileData.activityLevel!) : null;
+  const currentProfileBMR = canCalculateProfileTDEE ? calculateBMR(userProfileData.gender!, userProfileData.currentWeight!, userProfileData.height!, userProfileData.age!) : null;
+  const currentProfileTDEE = currentProfileBMR && userProfileData.activityLevel ? calculateTDEE(currentProfileBMR, userProfileData.activityLevel) : null;
 
 
   return (
@@ -226,7 +250,7 @@ export default function DailyTargetsPage() {
                   <FormItem>
                     <FormLabel>Daily Burned Calories (Optional)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 500 (from tracker)" {...field} value={field.value ?? ''} />
+                      <Input type="number" placeholder="e.g., 500 (from tracker)" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
                     </FormControl>
                     <FormDescription>Estimated calories burned through activity.</FormDescription>
                     <FormMessage />
@@ -258,13 +282,13 @@ export default function DailyTargetsPage() {
                             <p>🔹 We use the <strong>Mifflin-St Jeor Equation</strong>, a widely used formula for calculating Basal Metabolic Rate (BMR).</p>
                             <p>🔹 BMR is then multiplied by an <strong>activity multiplier</strong> to estimate <strong>Total Daily Energy Expenditure (TDEE)</strong>.</p>
                             
-                            <p><strong>Formula:</strong></p>
+                            <div className="font-semibold mt-2">Formula:</div>
                             <ul className="list-disc pl-5 space-y-1 text-xs">
                               <li><strong>Men:</strong> BMR = (10 × weight in kg) + (6.25 × height in cm) - (5 × age) + 5</li>
                               <li><strong>Women:</strong> BMR = (10 × weight in kg) + (6.25 × height in cm) - (5 × age) - 161</li>
                             </ul>
                             
-                            <p><strong>Activity Multipliers:</strong></p>
+                            <div className="font-semibold mt-2">Activity Multipliers:</div>
                             <ul className="list-disc pl-5 space-y-1 text-xs">
                               {activityLevels.map(level => (
                                 <li key={level.value}>
@@ -284,7 +308,8 @@ export default function DailyTargetsPage() {
                         type="number" 
                         placeholder={estimatedCaloriesFromProfile ? `Auto: ${Math.round(estimatedCaloriesFromProfile)} kcal` : "Leave blank for auto-calc"} 
                         {...field} 
-                        value={field.value ?? ''} 
+                        value={field.value === 0 && estimatedCaloriesFromProfile ? '' : field.value ?? ''} // Show empty if 0 and placeholder exists
+                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)} // Send 0 if empty for controlled input
                       />
                     </FormControl>
                      <FormDescription>Leave blank to auto-calculate based on your profile.</FormDescription>
@@ -299,7 +324,7 @@ export default function DailyTargetsPage() {
                   <FormItem>
                     <FormLabel>Target Daily Protein (g)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 150 g" {...field} value={field.value ?? ''}/>
+                      <Input type="number" placeholder="e.g., 150 g" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || 0)}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -312,7 +337,7 @@ export default function DailyTargetsPage() {
                   <FormItem>
                     <FormLabel>Target Daily Carbohydrates (g)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 200 g" {...field} value={field.value ?? ''}/>
+                      <Input type="number" placeholder="e.g., 200 g" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || 0)}/>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -325,7 +350,7 @@ export default function DailyTargetsPage() {
                   <FormItem>
                     <FormLabel>Target Daily Fat (g)</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 60 g" {...field} value={field.value ?? ''} />
+                      <Input type="number" placeholder="e.g., 60 g" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -355,7 +380,7 @@ export default function DailyTargetsPage() {
               />
             </div>
             
-            <Button type="submit" className="w-full text-lg py-6" disabled={isSubmitting}>
+            <Button type="submit" className="w-full text-lg py-6" disabled={isSubmitting || isLoading}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isSubmitting ? "Saving..." : "Save Daily Targets"}
             </Button>
