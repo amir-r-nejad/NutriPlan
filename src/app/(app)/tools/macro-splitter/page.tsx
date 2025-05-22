@@ -6,7 +6,8 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+// Label import was removed in a previous step as it wasn't used in the form, but it's good practice to keep imports minimal.
+// import { Label } from '@/components/ui/label'; 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
@@ -27,14 +28,13 @@ interface TotalMacros {
   fat_g: number;
 }
 
-// Helper function to fetch profile data
+// Helper function to fetch profile data (remains the same)
 async function getProfileDataForMacroSplitter(userId: string): Promise<Partial<ProfileFormValues>> {
   console.log("Fetching profile for macro splitter, user:", userId);
   const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
   if (storedProfile) {
     try {
       const parsedProfile = JSON.parse(storedProfile) as ProfileFormValues;
-       // Ensure array fields are arrays (though not strictly needed for calculator, good practice)
        const arrayFields: (keyof ProfileFormValues)[] = [
         'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
         'allergies', 'preferredMicronutrients', 'medicalConditions', 'medications', 
@@ -87,7 +87,7 @@ export default function MacroSplitterPage() {
   const [dailyTargets, setDailyTargets] = useState<TotalMacros | null>(null);
   const [calculatedSplit, setCalculatedSplit] = useState<CalculatedMealMacros[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [profileData, setProfileData] = useState<Partial<ProfileFormValues> | null>(null);
+  const [profileData, setProfileData] = useState<Partial<ProfileFormValues> | null>(null); // Added this state
 
 
   const form = useForm<MacroSplitterFormValues>({
@@ -113,7 +113,7 @@ export default function MacroSplitterPage() {
     setIsLoading(true);
     try {
       const fetchedProfileData = await getProfileDataForMacroSplitter(user.id);
-      setProfileData(fetchedProfileData);
+      setProfileData(fetchedProfileData); // Store profile data
       if (fetchedProfileData.age && fetchedProfileData.gender && fetchedProfileData.currentWeight && fetchedProfileData.height && fetchedProfileData.activityLevel && fetchedProfileData.dietGoal) {
         const estimatedTargets = calculateEstimatedDailyTargets(fetchedProfileData);
         if (estimatedTargets.targetCalories && estimatedTargets.targetProtein && estimatedTargets.targetCarbs && estimatedTargets.targetFat) {
@@ -362,13 +362,13 @@ export default function MacroSplitterPage() {
                     </TableCell>
                   </TableRow>
                 ))}
-                 <TableRow className="font-semibold border-t-2">
-                    <TableCell>Total</TableCell>
-                    <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal.Calories, 0)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Protein (g)'], 0)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Carbs (g)'], 0)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Fat (g)'], 0)}</TableCell>
-                    <TableCell></TableCell> {/* Empty cell for Actions column in total row */}
+                <TableRow className="font-semibold border-t-2">
+                    <TableCell>Total</TableCell>{/*
+                 */}<TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal.Calories, 0)}</TableCell>{/*
+                 */}<TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Protein (g)'], 0)}</TableCell>{/*
+                 */}<TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Carbs (g)'], 0)}</TableCell>{/*
+                 */}<TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Fat (g)'], 0)}</TableCell>{/*
+                 */}<TableCell></TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -379,3 +379,5 @@ export default function MacroSplitterPage() {
     </div>
   );
 }
+
+    
