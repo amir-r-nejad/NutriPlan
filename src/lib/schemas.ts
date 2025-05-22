@@ -1,6 +1,6 @@
 
 import * as z from "zod";
-import { activityLevels, dietGoals, preferredDiets, mealsPerDayOptions, genders, exerciseFrequencies, exerciseIntensities } from "./constants";
+import { activityLevels, dietGoals, preferredDiets, mealsPerDayOptions, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames } from "./constants";
 
 // Helper for preprocessing optional number fields: empty string becomes undefined
 const preprocessOptionalNumber = (val: unknown) => (val === "" || val === null ? undefined : val);
@@ -197,3 +197,43 @@ export const IngredientSwapSuggestionSchema = z.object({
 
 export type IngredientSwapSuggestion = z.infer<typeof IngredientSwapSuggestionSchema>;
 
+// Schema for Macro Splitter Tool
+const MealMacroDistributionSchema = z.object({
+  mealName: z.string(),
+  calories_pct: z.coerce.number().min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
+  protein_pct: z.coerce.number().min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
+  carbs_pct: z.coerce.number().min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
+  fat_pct: z.coerce.number().min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
+});
+export type MealMacroDistribution = z.infer<typeof MealMacroDistributionSchema>;
+
+export const MacroSplitterFormSchema = z.object({
+  mealDistributions: z.array(MealMacroDistributionSchema)
+    .length(defaultSplitterMealNames.length, `Must have ${defaultSplitterMealNames.length} meal entries.`),
+}).superRefine((data, ctx) => {
+  const checkSum = (macroKey: keyof Omit<MealMacroDistribution, 'mealName'>, macroName: string) => {
+    const sum = data.mealDistributions.reduce((acc, meal) => acc + meal[macroKey], 0);
+    if (Math.round(sum) !== 100) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Total ${macroName} percentages must sum to 100%. Current sum: ${sum.toFixed(1)}%`,
+        // Path to the first input of the column for error display or a general path
+        path: ['mealDistributions', 0, macroKey], 
+      });
+    }
+  };
+
+  checkSum('calories_pct', 'Calorie');
+  checkSum('protein_pct', 'Protein');
+  checkSum('carbs_pct', 'Carbohydrate');
+  checkSum('fat_pct', 'Fat');
+});
+export type MacroSplitterFormValues = z.infer<typeof MacroSplitterFormSchema>;
+
+export type CalculatedMealMacros = {
+  mealName: string;
+  Calories: number;
+  'Protein (g)': number;
+  'Carbs (g)': number;
+  'Fat (g)': number;
+};

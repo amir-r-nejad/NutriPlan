@@ -14,7 +14,8 @@ import {
   Settings,
   Bot,
   NotebookText,
-  Calculator // Added Calculator icon
+  Calculator,
+  SplitSquareHorizontal // Added icon
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -43,7 +44,8 @@ const navItems = [
   { href: '/meal-plan/optimized', label: 'AI Meal Plan', icon: Bot },
   { href: '/targets/daily', label: 'Daily Targets', icon: Target },
   { href: '/targets/meal-level', label: 'Meal Targets', icon: ClipboardList },
-  { href: '/tools/macro-calculator', label: 'Macro Calculator', icon: Calculator }, // Added new nav item
+  { href: '/tools/macro-calculator', label: 'Macro Calculator', icon: Calculator },
+  { href: '/tools/macro-splitter', label: 'Macro Splitter', icon: SplitSquareHorizontal }, // Added new nav item
 ];
 
 export default function AppLayout({
@@ -121,5 +123,3 @@ export default function AppLayout({
     </SidebarProvider>
   );
 }
-
-    
