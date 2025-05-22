@@ -129,6 +129,26 @@ export default function ProfilePage() {
       exerciseGoals: [],
       exercisePreferences: [],
       equipmentAccess: [],
+      age: undefined,
+      height: undefined,
+      currentWeight: undefined,
+      goalWeight: undefined,
+      currentBodyFatPercentage: undefined,
+      targetBodyFatPercentage: undefined,
+      currentMuscleMassPercentage: undefined,
+      targetMuscleMassPercentage: undefined,
+      currentWaterPercentage: undefined,
+      targetWaterPercentage: undefined,
+      waistMeasurementCurrent: undefined,
+      waistMeasurementGoal1Month: undefined,
+      waistMeasurementIdeal: undefined,
+      hipsMeasurementCurrent: undefined,
+      hipsMeasurementGoal1Month: undefined,
+      hipsMeasurementIdeal: undefined,
+      limbsMeasurementCurrent: undefined,
+      limbsMeasurementGoal1Month: undefined,
+      limbsMeasurementIdeal: undefined,
+      painMobilityIssues: "",
     },
   });
 
@@ -211,38 +231,38 @@ export default function ProfilePage() {
               <AccordionItem value="item-1">
                 <AccordionTrigger className="text-xl font-semibold">Basic Info</AccordionTrigger>
                 <AccordionContent className="grid md:grid-cols-2 gap-6 pt-4">
-                  <FormField control={form.control} name="age" render={({ field }) => ( <FormItem> <FormLabel>Age</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="age" render={({ field }) => ( <FormItem> <FormLabel>Age</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
                   <FormField control={form.control} name="gender" render={({ field }) => ( <FormItem> <FormLabel>Gender</FormLabel> <Select onValueChange={field.onChange} defaultValue={field.value}> <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl> <SelectContent>{genders.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="height" render={({ field }) => ( <FormItem> <FormLabel>Height (cm)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="currentWeight" render={({ field }) => ( <FormItem> <FormLabel>Current Weight (kg)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="goalWeight" render={({ field }) => ( <FormItem> <FormLabel>Goal Weight (kg)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="height" render={({ field }) => ( <FormItem> <FormLabel>Height (cm)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="currentWeight" render={({ field }) => ( <FormItem> <FormLabel>Current Weight (kg)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="goalWeight" render={({ field }) => ( <FormItem> <FormLabel>Goal Weight (kg)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
                 </AccordionContent>
               </AccordionItem>
 
               <AccordionItem value="item-2">
                 <AccordionTrigger className="text-xl font-semibold">Body Composition (%)</AccordionTrigger>
                 <AccordionContent className="grid md:grid-cols-2 gap-6 pt-4">
-                  <FormField control={form.control} name="currentBodyFatPercentage" render={({ field }) => ( <FormItem> <FormLabel>Current Body Fat %</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="targetBodyFatPercentage" render={({ field }) => ( <FormItem> <FormLabel>Target Body Fat %</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="currentMuscleMassPercentage" render={({ field }) => ( <FormItem> <FormLabel>Current Muscle Mass %</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="targetMuscleMassPercentage" render={({ field }) => ( <FormItem> <FormLabel>Target Muscle Mass %</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="currentWaterPercentage" render={({ field }) => ( <FormItem> <FormLabel>Current Water %</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="targetWaterPercentage" render={({ field }) => ( <FormItem> <FormLabel>Target Water %</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="currentBodyFatPercentage" render={({ field }) => ( <FormItem> <FormLabel>Current Body Fat %</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="targetBodyFatPercentage" render={({ field }) => ( <FormItem> <FormLabel>Target Body Fat %</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="currentMuscleMassPercentage" render={({ field }) => ( <FormItem> <FormLabel>Current Muscle Mass %</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="targetMuscleMassPercentage" render={({ field }) => ( <FormItem> <FormLabel>Target Muscle Mass %</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="currentWaterPercentage" render={({ field }) => ( <FormItem> <FormLabel>Current Water %</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="targetWaterPercentage" render={({ field }) => ( <FormItem> <FormLabel>Target Water %</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
                 </AccordionContent>
               </AccordionItem>
               
               <AccordionItem value="item-3">
                 <AccordionTrigger className="text-xl font-semibold">Measurements (cm)</AccordionTrigger>
                 <AccordionContent className="grid md:grid-cols-3 gap-6 pt-4">
-                  <FormField control={form.control} name="waistMeasurementCurrent" render={({ field }) => ( <FormItem> <FormLabel>Waist (Current)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="waistMeasurementGoal1Month" render={({ field }) => ( <FormItem> <FormLabel>Waist (1-Month Goal)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                   <FormField control={form.control} name="waistMeasurementIdeal" render={({ field }) => ( <FormItem> <FormLabel>Waist (Ideal)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                   <FormField control={form.control} name="hipsMeasurementCurrent" render={({ field }) => ( <FormItem> <FormLabel>Hips (Current)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="hipsMeasurementGoal1Month" render={({ field }) => ( <FormItem> <FormLabel>Hips (1-Month Goal)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                   <FormField control={form.control} name="hipsMeasurementIdeal" render={({ field }) => ( <FormItem> <FormLabel>Hips (Ideal)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                   <FormField control={form.control} name="limbsMeasurementCurrent" render={({ field }) => ( <FormItem> <FormLabel>Limbs (Current)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="limbsMeasurementGoal1Month" render={({ field }) => ( <FormItem> <FormLabel>Limbs (1-Month Goal)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
-                   <FormField control={form.control} name="limbsMeasurementIdeal" render={({ field }) => ( <FormItem> <FormLabel>Limbs (Ideal)</FormLabel> <FormControl><Input type="number" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="waistMeasurementCurrent" render={({ field }) => ( <FormItem> <FormLabel>Waist (Current)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="waistMeasurementGoal1Month" render={({ field }) => ( <FormItem> <FormLabel>Waist (1-Month Goal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                   <FormField control={form.control} name="waistMeasurementIdeal" render={({ field }) => ( <FormItem> <FormLabel>Waist (Ideal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                   <FormField control={form.control} name="hipsMeasurementCurrent" render={({ field }) => ( <FormItem> <FormLabel>Hips (Current)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="hipsMeasurementGoal1Month" render={({ field }) => ( <FormItem> <FormLabel>Hips (1-Month Goal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                   <FormField control={form.control} name="hipsMeasurementIdeal" render={({ field }) => ( <FormItem> <FormLabel>Hips (Ideal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                   <FormField control={form.control} name="limbsMeasurementCurrent" render={({ field }) => ( <FormItem> <FormLabel>Limbs (Current)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="limbsMeasurementGoal1Month" render={({ field }) => ( <FormItem> <FormLabel>Limbs (1-Month Goal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                   <FormField control={form.control} name="limbsMeasurementIdeal" render={({ field }) => ( <FormItem> <FormLabel>Limbs (Ideal)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
                 </AccordionContent>
               </AccordionItem>
 
@@ -269,7 +289,7 @@ export default function ProfilePage() {
                 <AccordionContent className="space-y-6 pt-4">
                   {renderCommaSeparatedInput("medicalConditions", "Medical Conditions", "e.g., Diabetes, Hypertension")}
                   {renderCommaSeparatedInput("medications", "Medications", "e.g., Metformin, Lisinopril")}
-                  <FormField control={form.control} name="painMobilityIssues" render={({ field }) => ( <FormItem> <FormLabel>Pain/Mobility Issues</FormLabel> <FormControl><Textarea placeholder="Describe any pain or mobility issues" {...field} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="painMobilityIssues" render={({ field }) => ( <FormItem> <FormLabel>Pain/Mobility Issues</FormLabel> <FormControl><Textarea placeholder="Describe any pain or mobility issues" value={field.value ?? ''} onChange={field.onChange} /></FormControl> <FormMessage /> </FormItem> )} />
                   {renderCommaSeparatedInput("injuries", "Injuries", "e.g., ACL tear, Rotator cuff injury")}
                   {renderCommaSeparatedInput("surgeries", "Surgeries", "e.g., Appendectomy, Knee replacement")}
                 </AccordionContent>
