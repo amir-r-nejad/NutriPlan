@@ -1,5 +1,5 @@
 
-import type { ProfileFormValues } from './schemas'; // Assuming gender is part of ProfileFormValues or a similar type
+import type { ProfileFormValues } from './schemas'; 
 import { activityLevels } from './constants';
 
 /**
@@ -21,8 +21,7 @@ export function calculateBMR(
   } else if (gender === 'female') {
     return 10 * weightKg + 6.25 * heightCm - 5 * ageYears - 161;
   }
-  // Fallback for "other" or unspecified - average of male and female, or handle as per app's decision
-  // This is a simplification; more nuanced handling might be needed for "other"
+  // Fallback for "other" or unspecified - average of male and female
   const bmrMale = 10 * weightKg + 6.25 * heightCm - 5 * ageYears + 5;
   const bmrFemale = 10 * weightKg + 6.25 * heightCm - 5 * ageYears - 161;
   return (bmrMale + bmrFemale) / 2;
@@ -96,13 +95,10 @@ export function calculateEstimatedDailyTargets(profile: Partial<ProfileFormValue
   let tdee = calculateTDEE(bmr, profile.activityLevel);
   const protein = calculateRecommendedProtein(profile.currentWeight, profile.dietGoal);
 
-  // Adjust TDEE for diet goal to get target calories
   const targetCalories = adjustTDEEForDietGoal(tdee, profile.dietGoal);
   
-  // Example: Fat at 25% of target calories, then carbs for the rest
-  // (9 calories per gram of fat, 4 calories per gram of protein/carbs)
   const proteinCalories = protein * 4;
-  const fatGrams = Math.round((targetCalories * 0.25) / 9);
+  const fatGrams = Math.round((targetCalories * 0.25) / 9); // Fat at 25% of target calories
   const fatCalories = fatGrams * 9;
   const carbGrams = Math.round((targetCalories - proteinCalories - fatCalories) / 4);
 
@@ -110,8 +106,8 @@ export function calculateEstimatedDailyTargets(profile: Partial<ProfileFormValue
   return {
     targetCalories: Math.round(targetCalories),
     targetProtein: Math.round(protein),
-    targetFat: Math.max(0, fatGrams), // Ensure it's at least 0 and a number
-    targetCarbs: Math.max(0, carbGrams), // Ensure it's at least 0 and a number
+    targetFat: Math.max(0, fatGrams),
+    targetCarbs: Math.max(0, carbGrams),
   };
 }
 
