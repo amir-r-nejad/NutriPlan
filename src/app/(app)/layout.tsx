@@ -40,11 +40,11 @@ import React from 'react';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/profile', label: 'Profile', icon: User },
-  { href: '/meal-plan/current', label: 'Current Meal Plan', icon: NotebookText },
-  { href: '/meal-plan/optimized', label: 'AI Meal Plan', icon: Bot },
   { href: '/targets/daily', label: 'Daily Targets', icon: Target },
   { href: '/tools/macro-calculator', label: 'Macro Calculator', icon: Calculator },
   { href: '/tools/macro-splitter', label: 'Macro Splitter', icon: SplitSquareHorizontal },
+  { href: '/meal-plan/current', label: 'Current Meal Plan', icon: NotebookText },
+  { href: '/meal-plan/optimized', label: 'AI Meal Plan', icon: Bot },
 ];
 
 export default function AppLayout({
