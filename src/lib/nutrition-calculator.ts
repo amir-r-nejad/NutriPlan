@@ -42,7 +42,6 @@ export function calculateTDEE(bmr: number, activityLevelValue: string): number {
 
 /**
  * Calculates a basic recommended protein intake.
- * This is a very simplified example.
  * @param weightKg - Weight in kilograms.
  * @param dietGoal - User's diet goal (e.g., "lose_weight", "gain_weight").
  * @returns Recommended protein in grams/day.
@@ -58,13 +57,29 @@ export function calculateRecommendedProtein(weightKg: number, dietGoal: string):
 }
 
 /**
+ * Adjusts TDEE based on diet goal.
+ * @param tdee - Total Daily Energy Expenditure.
+ * @param dietGoal - User's diet goal.
+ * @returns Adjusted TDEE (target calories).
+ */
+function adjustTDEEForDietGoal(tdee: number, dietGoal: string): number {
+  if (dietGoal === 'lose_weight') {
+    return tdee - 500; // Typical 500 kcal deficit for weight loss
+  } else if (dietGoal === 'gain_weight') {
+    return tdee + 300; // Typical 300-500 kcal surplus for muscle gain
+  }
+  return tdee; // Maintain weight
+}
+
+
+/**
  * Calculates estimated daily targets based on profile.
  */
 export function calculateEstimatedDailyTargets(profile: Partial<ProfileFormValues>): {
   targetCalories?: number;
   targetProtein?: number;
-  targetCarbs?: number; // Placeholder, not calculated yet
-  targetFat?: number; // Placeholder, not calculated yet
+  targetCarbs?: number; 
+  targetFat?: number; 
 } {
   if (
     !profile.gender ||
@@ -78,18 +93,25 @@ export function calculateEstimatedDailyTargets(profile: Partial<ProfileFormValue
   }
 
   const bmr = calculateBMR(profile.gender, profile.currentWeight, profile.height, profile.age);
-  const tdee = calculateTDEE(bmr, profile.activityLevel);
+  let tdee = calculateTDEE(bmr, profile.activityLevel);
   const protein = calculateRecommendedProtein(profile.currentWeight, profile.dietGoal);
 
-  // For simplicity, carbs and fat are not auto-calculated here yet.
-  // A common approach is to set protein, then fat (e.g., 20-30% of TDEE), then remaining for carbs.
-  // Example: Fat grams = (TDEE * 0.25) / 9 calories per gram.
-  // Carb grams = (TDEE - (protein * 4) - (fat * 9)) / 4 calories per gram.
+  // Adjust TDEE for diet goal to get target calories
+  const targetCalories = adjustTDEEForDietGoal(tdee, profile.dietGoal);
+  
+  // Example: Fat at 25% of target calories, then carbs for the rest
+  // (9 calories per gram of fat, 4 calories per gram of protein/carbs)
+  const fatGrams = Math.round((targetCalories * 0.25) / 9);
+  const proteinCalories = protein * 4;
+  const fatCalories = fatGrams * 9;
+  const carbGrams = Math.round((targetCalories - proteinCalories - fatCalories) / 4);
+
 
   return {
-    targetCalories: Math.round(tdee),
+    targetCalories: Math.round(targetCalories),
     targetProtein: Math.round(protein),
-    // targetFat: Math.round((tdee * 0.25) / 9), // Example
-    // targetCarbs: Math.round((tdee - (protein * 4) - ((tdee * 0.25) / 9) * 9) / 4) // Example
+    targetFat: fatGrams > 0 ? fatGrams : undefined,
+    targetCarbs: carbGrams > 0 ? carbGrams : undefined,
   };
 }
+

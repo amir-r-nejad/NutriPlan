@@ -21,8 +21,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import React, { useEffect, useState } from "react";
 import { mealsPerDayOptions } from "@/lib/constants";
-import { Loader2 } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 import { calculateEstimatedDailyTargets } from "@/lib/nutrition-calculator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Mock function to get profile data for target calculation
 async function getProfileDataForTargets(userId: string): Promise<Partial<ProfileFormValues>> {
@@ -80,8 +81,8 @@ async function getDailyTargets(userId: string): Promise<Partial<DailyTargets>> {
       targetCalories: estimatedTargets.targetCalories,
       targetProtein: estimatedTargets.targetProtein,
       // Carbs and fat could be estimated too, or left for user input
-      targetCarbs: undefined, // Or some default like 200
-      targetFat: undefined,   // Or some default like 60
+      targetCarbs: estimatedTargets.targetCarbs,
+      targetFat: estimatedTargets.targetFat,
       mealsPerDay: mealsPerDay,
       caloriesBurned: undefined, // User inputs this manually
     };
@@ -185,6 +186,21 @@ export default function DailyTargetsPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {isAutoCalculated && (
+          <Alert className="mb-6">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <strong>How are these estimates calculated?</strong>
+              <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
+                <li><strong>Basal Metabolic Rate (BMR):</strong> Estimated using the Mifflin-St Jeor Equation based on your profile (age, gender, height, weight). This is the calories your body burns at rest.</li>
+                <li><strong>Total Daily Energy Expenditure (TDEE):</strong> Your BMR is multiplied by an activity factor (based on your selected activity level) to estimate total daily calorie needs.</li>
+                <li><strong>Protein:</strong> Suggested based on your body weight and diet goal (e.g., higher for muscle gain or weight loss to preserve muscle).</li>
+                <li><strong>Carbohydrates & Fat:</strong> Initial estimates for carbs and fat are provided. You can adjust these based on your preferences (e.g., for low-carb or low-fat diets).</li>
+              </ul>
+              <p className="mt-2 text-xs">Remember, these are just starting points. Feel free to adjust them to better suit your individual needs and preferences!</p>
+            </AlertDescription>
+          </Alert>
+        )}
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -288,3 +304,4 @@ export default function DailyTargetsPage() {
     </Card>
   );
 }
+
