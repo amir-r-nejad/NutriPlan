@@ -9,28 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form'; // Removed FormLabel and FormMessage as they are not directly used here but are part of FormField
-import { MacroSplitterFormSchema, type MacroSplitterFormValues, type DailyTargets, type CalculatedMealMacros } from '@/lib/schemas';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { MacroSplitterFormSchema, type MacroSplitterFormValues, type ProfileFormValues, type CalculatedMealMacros } from '@/lib/schemas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { mealNames as defaultMealNames } from '@/lib/constants';
 import { Loader2, RefreshCw, Calculator, AlertTriangle, CheckCircle2, SplitSquareHorizontal } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-// Mock function to get daily targets (replace with actual data fetching if needed)
-async function getDailyTargetsData(userId: string): Promise<Partial<DailyTargets>> {
-  console.log("Fetching daily targets for user:", userId);
-  const storedData = localStorage.getItem(`nutriplan_daily_targets_${userId}`);
-  if (storedData) {
-    try {
-      return JSON.parse(storedData);
-    } catch (e) {
-      console.error("Error parsing daily targets from localStorage", e);
-    }
-  }
-  // Fallback if no data found or parsing error
-  return { targetCalories: 2000, targetProtein: 100, targetCarbs: 250, targetFat: 60, mealsPerDay: 3 };
-}
+import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
 
 interface TotalMacros {
   calories: number;
@@ -38,6 +24,36 @@ interface TotalMacros {
   carbs_g: number;
   fat_g: number;
 }
+
+// Helper function to fetch profile data
+async function getProfileDataForMacroSplitter(userId: string): Promise<Partial<ProfileFormValues>> {
+  console.log("Fetching profile for macro splitter, user:", userId);
+  const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
+  if (storedProfile) {
+    try {
+      const parsedProfile = JSON.parse(storedProfile) as ProfileFormValues;
+       // Ensure array fields are arrays (though not strictly needed for calculator, good practice)
+       const arrayFields: (keyof ProfileFormValues)[] = [
+        'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
+        'allergies', 'preferredMicronutrients', 'medicalConditions', 'medications', 
+        'injuries', 'surgeries', 'exerciseGoals', 'exercisePreferences', 'equipmentAccess'
+      ];
+      arrayFields.forEach(field => {
+        if (parsedProfile[field] && typeof parsedProfile[field] === 'string') {
+           (parsedProfile as any)[field] = (parsedProfile[field] as unknown as string).split(',').map((s: string) => s.trim()).filter((s: string) => s !== '');
+        } else if (!Array.isArray(parsedProfile[field])) {
+            (parsedProfile as any)[field] = [];
+        }
+      });
+      return parsedProfile;
+    } catch (error) {
+      console.error("Error parsing stored profile data for macro splitter:", error);
+      return {};
+    }
+  }
+  return {};
+}
+
 
 function customMacroSplit(
   totalMacros: TotalMacros,
@@ -87,35 +103,43 @@ export default function MacroSplitterPage() {
     name: "mealDistributions",
   });
 
-  const loadDailyTargets = useCallback(async () => {
+  const loadDataForSplitter = useCallback(async () => {
     if (!user?.id) return;
     setIsLoading(true);
     try {
-      const dt = await getDailyTargetsData(user.id);
-      if (dt.targetCalories && dt.targetProtein && dt.targetCarbs && dt.targetFat) {
-        setDailyTargets({
-          calories: dt.targetCalories,
-          protein_g: dt.targetProtein,
-          carbs_g: dt.targetCarbs,
-          fat_g: dt.targetFat,
-        });
+      const profileData = await getProfileDataForMacroSplitter(user.id);
+      if (profileData.age && profileData.gender && profileData.currentWeight && profileData.height && profileData.activityLevel && profileData.dietGoal) {
+        const estimatedTargets = calculateEstimatedDailyTargets(profileData);
+        if (estimatedTargets.targetCalories && estimatedTargets.targetProtein && estimatedTargets.targetCarbs && estimatedTargets.targetFat) {
+            setDailyTargets({
+                calories: estimatedTargets.targetCalories,
+                protein_g: estimatedTargets.targetProtein,
+                carbs_g: estimatedTargets.targetCarbs,
+                fat_g: estimatedTargets.targetFat,
+            });
+        } else {
+             toast({ title: "Profile Incomplete for Calculation", description: "Could not calculate daily totals from your profile. Please ensure all basic info, activity level, and diet goal are set.", variant: "destructive", duration: 5000});
+             setDailyTargets(null); 
+        }
       } else {
-        toast({ title: "Missing Daily Targets", description: "Please set your daily targets first.", variant: "destructive"});
+        toast({ title: "Profile Incomplete", description: "Your user profile is incomplete. Please fill it out to calculate daily totals for the Macro Splitter.", variant: "destructive", duration: 5000 });
+        setDailyTargets(null); 
       }
     } catch (error) {
-      toast({ title: "Error", description: "Failed to load daily targets.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to load data for macro splitter.", variant: "destructive" });
+      setDailyTargets(null);
     } finally {
       setIsLoading(false);
     }
   }, [user, toast]);
 
   useEffect(() => {
-    loadDailyTargets();
-  }, [loadDailyTargets]);
+    loadDataForSplitter();
+  }, [loadDataForSplitter]);
 
   const onSubmit = (data: MacroSplitterFormValues) => {
     if (!dailyTargets) {
-      toast({ title: "Error", description: "Daily targets not loaded.", variant: "destructive" });
+      toast({ title: "Error", description: "Daily macro totals not available. Please ensure your profile is complete.", variant: "destructive" });
       return;
     }
     const result = customMacroSplit(dailyTargets, data.mealDistributions);
@@ -163,7 +187,7 @@ export default function MacroSplitterPage() {
     return (
       <div className="flex justify-center items-center h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-4 text-lg">Loading daily targets...</p>
+        <p className="ml-4 text-lg">Loading data...</p>
       </div>
     );
   }
@@ -177,18 +201,24 @@ export default function MacroSplitterPage() {
             Macro Splitter Tool
           </CardTitle>
           <CardDescription>
-            Distribute your total daily macros across your meals by percentage.
+            Distribute your total daily macros across your meals by percentage. Totals are derived from your user profile.
           </CardDescription>
         </CardHeader>
-        {dailyTargets && (
+        {dailyTargets ? (
           <CardContent>
-            <h3 className="text-xl font-semibold mb-2 text-primary">Your Total Daily Macros:</h3>
+            <h3 className="text-xl font-semibold mb-2 text-primary">Your Estimated Total Daily Macros:</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 border rounded-md bg-muted/50 mb-6">
               <p><span className="font-medium">Calories:</span> {dailyTargets.calories.toFixed(0)} kcal</p>
               <p><span className="font-medium">Protein:</span> {dailyTargets.protein_g.toFixed(1)} g</p>
               <p><span className="font-medium">Carbs:</span> {dailyTargets.carbs_g.toFixed(1)} g</p>
               <p><span className="font-medium">Fat:</span> {dailyTargets.fat_g.toFixed(1)} g</p>
             </div>
+          </CardContent>
+        ) : (
+          <CardContent>
+            <p className="text-destructive text-center p-4 border border-destructive/50 rounded-md bg-destructive/10">
+              Could not load or calculate your total daily macros. Please ensure your profile is complete by visiting the <Link href="/profile" className="underline hover:text-destructive/80">Profile page</Link>.
+            </p>
           </CardContent>
         )}
       </Card>
@@ -266,7 +296,7 @@ export default function MacroSplitterPage() {
           </Card>
           
           <div className="flex space-x-4 mt-6">
-            <Button type="submit" className="flex-1 text-lg py-3" disabled={!dailyTargets || form.formState.isSubmitting}>
+            <Button type="submit" className="flex-1 text-lg py-3" disabled={!dailyTargets || form.formState.isSubmitting || isLoading}>
               <Calculator className="mr-2 h-5 w-5" />
               {form.formState.isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
               Calculate Split
@@ -321,4 +351,3 @@ export default function MacroSplitterPage() {
     </div>
   );
 }
-
