@@ -40,19 +40,15 @@ export function calculateTDEE(bmr: number, activityLevelValue: string): number {
 }
 
 /**
- * Calculates a basic recommended protein intake.
+ * Calculates a basic recommended protein intake based on body weight and activity level.
  * @param weightKg - Weight in kilograms.
- * @param dietGoal - User's diet goal (e.g., "lose_weight", "gain_weight").
+ * @param activityLevelValue - User's activity level.
  * @returns Recommended protein in grams/day.
  */
-export function calculateRecommendedProtein(weightKg: number, dietGoal: string): number {
-  let proteinPerKg = 1.6; // General recommendation
-  if (dietGoal === 'gain_weight') {
-    proteinPerKg = 2.0; // Higher for muscle gain
-  } else if (dietGoal === 'lose_weight') {
-    proteinPerKg = 1.8; // Higher to preserve muscle during calorie deficit
-  }
-  return weightKg * proteinPerKg;
+export function calculateRecommendedProtein(weightKg: number, activityLevelValue: string): number {
+  const level = activityLevels.find(l => l.value === activityLevelValue);
+  const proteinFactor = level?.proteinFactorPerKg || 0.8; // Default to sedentary if not found
+  return weightKg * proteinFactor;
 }
 
 /**
@@ -93,21 +89,22 @@ export function calculateEstimatedDailyTargets(profile: Partial<ProfileFormValue
 
   const bmr = calculateBMR(profile.gender, profile.currentWeight, profile.height, profile.age);
   let tdee = calculateTDEE(bmr, profile.activityLevel);
-  const protein = calculateRecommendedProtein(profile.currentWeight, profile.dietGoal);
+  const protein = calculateRecommendedProtein(profile.currentWeight, profile.activityLevel);
 
   const targetCalories = adjustTDEEForDietGoal(tdee, profile.dietGoal);
   
   const proteinCalories = protein * 4;
-  const fatGrams = Math.round((targetCalories * 0.25) / 9); // Fat at 25% of target calories
+  // Aim for fat to be ~25% of total calories
+  const fatGrams = Math.round((targetCalories * 0.25) / 9); 
   const fatCalories = fatGrams * 9;
+  // Remaining calories for carbs
   const carbGrams = Math.round((targetCalories - proteinCalories - fatCalories) / 4);
 
 
   return {
     targetCalories: Math.round(targetCalories),
     targetProtein: Math.round(protein),
-    targetFat: Math.max(0, fatGrams),
-    targetCarbs: Math.max(0, carbGrams),
+    targetFat: Math.max(0, fatGrams), // Ensure non-negative
+    targetCarbs: Math.max(0, carbGrams), // Ensure non-negative
   };
 }
-

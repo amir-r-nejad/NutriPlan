@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import React, { useEffect, useState } from "react";
 import { activityLevels, mealsPerDayOptions } from "@/lib/constants";
 import { Info, Loader2 } from "lucide-react";
-import { calculateEstimatedDailyTargets, calculateBMR, calculateTDEE } from "@/lib/nutrition-calculator";
+import { calculateEstimatedDailyTargets, calculateBMR, calculateTDEE, calculateRecommendedProtein } from "@/lib/nutrition-calculator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Interface for the data returned by getDailyTargets, including the source
@@ -117,6 +117,7 @@ export default function DailyTargetsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [estimatedCaloriesFromProfile, setEstimatedCaloriesFromProfile] = useState<number | undefined>(undefined);
+  const [estimatedProteinFromProfile, setEstimatedProteinFromProfile] = useState<number | undefined>(undefined);
   const [userProfileData, setUserProfileData] = useState<Partial<ProfileFormValues>>({});
 
 
@@ -124,7 +125,7 @@ export default function DailyTargetsPage() {
     resolver: zodResolver(DailyTargetsSchema),
     defaultValues: {
       mealsPerDay: 3, 
-      targetCalories: 0, // Initialize with 0 to make it controlled, placeholder will show estimate
+      targetCalories: 0, 
       targetProtein: 0,
       targetCarbs: 0,
       targetFat: 0,
@@ -136,17 +137,18 @@ export default function DailyTargetsPage() {
     if (user?.id) {
       setIsLoading(true);
       getProfileDataForTargets(user.id).then(profileData => {
-        setUserProfileData(profileData); // Store profile data for use in popover
+        setUserProfileData(profileData); 
         if (profileData.age && profileData.gender && profileData.currentWeight && profileData.height && profileData.activityLevel && profileData.dietGoal) {
           const estimates = calculateEstimatedDailyTargets(profileData);
           setEstimatedCaloriesFromProfile(estimates.targetCalories);
+          setEstimatedProteinFromProfile(estimates.targetProtein);
         } else {
           setEstimatedCaloriesFromProfile(undefined);
+          setEstimatedProteinFromProfile(undefined);
         }
 
         getDailyTargets(user.id, profileData).then((response) => {
           const { source, ...targetsDataValues } = response;
-          // Ensure all target macros are numbers, defaulting to 0 if undefined
           const saneTargets: Partial<DailyTargets> = {
             targetCalories: targetsDataValues.targetCalories ?? 0,
             targetProtein: targetsDataValues.targetProtein ?? 0,
@@ -190,26 +192,49 @@ export default function DailyTargetsPage() {
 
     let submissionData = { ...data };
     
-    // If targetCalories is effectively blank (submitted as 0 because input was empty) 
-    // and we have valid profile data for calculation, use the auto-calculated estimates.
-    if ((data.targetCalories === 0 || data.targetCalories === undefined) && 
-        userProfileData.age && userProfileData.gender && 
+    if (userProfileData.age && userProfileData.gender && 
         userProfileData.currentWeight && userProfileData.height && 
         userProfileData.activityLevel && userProfileData.dietGoal) {
         const currentEstimates = calculateEstimatedDailyTargets(userProfileData);
-        if (currentEstimates.targetCalories) {
-            submissionData.targetCalories = currentEstimates.targetCalories;
-            submissionData.targetProtein = currentEstimates.targetProtein ?? data.targetProtein ?? 0;
-            submissionData.targetCarbs = currentEstimates.targetCarbs ?? data.targetCarbs ?? 0;
-            submissionData.targetFat = currentEstimates.targetFat ?? data.targetFat ?? 0;
+        
+        if (data.targetCalories === 0 || data.targetCalories === undefined) {
+            if (currentEstimates.targetCalories) {
+                submissionData.targetCalories = currentEstimates.targetCalories;
+                submissionData.targetCarbs = currentEstimates.targetCarbs ?? data.targetCarbs ?? 0;
+                submissionData.targetFat = currentEstimates.targetFat ?? data.targetFat ?? 0;
+            }
+        }
+        if (data.targetProtein === 0 || data.targetProtein === undefined) {
+            if (currentEstimates.targetProtein) {
+                submissionData.targetProtein = currentEstimates.targetProtein;
+                 // If protein changed, carbs and fat might need re-eval if calories were fixed
+                 // For simplicity, we assume user fixed calories if they changed protein from auto
+                 if (submissionData.targetCalories !== (currentEstimates.targetCalories ?? 0)) {
+                    const proteinCalories = submissionData.targetProtein * 4;
+                    const fatGrams = Math.round((submissionData.targetCalories * 0.25) / 9);
+                    const fatCalories = fatGrams * 9;
+                    submissionData.targetFat = fatGrams;
+                    submissionData.targetCarbs = Math.round((submissionData.targetCalories - proteinCalories - fatCalories) / 4);
+                 }
+            }
         }
     }
 
     try {
       await saveDailyTargets(user.id, { ...submissionData, userId: user.id });
       toast({ title: "Targets Updated", description: "Your daily nutritional targets have been saved." });
-      // Optionally, re-fetch and reset form to reflect saved (possibly auto-calculated) values
-      // getDailyTargets(user.id, userProfileData).then(response => form.reset(response));
+       // Re-fetch and reset form to reflect saved (possibly auto-calculated) values
+      const profileData = await getProfileDataForTargets(user.id);
+      const targetsResponse = await getDailyTargets(user.id, profileData);
+      const { source, ...targetsDataValues } = targetsResponse;
+      form.reset({
+        targetCalories: targetsDataValues.targetCalories ?? 0,
+        targetProtein: targetsDataValues.targetProtein ?? 0,
+        targetCarbs: targetsDataValues.targetCarbs ?? 0,
+        targetFat: targetsDataValues.targetFat ?? 0,
+        mealsPerDay: targetsDataValues.mealsPerDay ?? 3,
+        caloriesBurned: targetsDataValues.caloriesBurned,
+      });
     } catch (error) {
       toast({ title: "Update Failed", description: "Could not save targets. Please try again.", variant: "destructive" });
     } finally {
@@ -229,6 +254,7 @@ export default function DailyTargetsPage() {
   const canCalculateProfileTDEE = userProfileData.age && userProfileData.gender && userProfileData.currentWeight && userProfileData.height && userProfileData.activityLevel;
   const currentProfileBMR = canCalculateProfileTDEE ? calculateBMR(userProfileData.gender!, userProfileData.currentWeight!, userProfileData.height!, userProfileData.age!) : null;
   const currentProfileTDEE = currentProfileBMR && userProfileData.activityLevel ? calculateTDEE(currentProfileBMR, userProfileData.activityLevel) : null;
+  const currentProfileRecommendedProtein = canCalculateProfileTDEE && userProfileData.currentWeight && userProfileData.activityLevel ? calculateRecommendedProtein(userProfileData.currentWeight, userProfileData.activityLevel) : null;
 
 
   return (
@@ -271,24 +297,23 @@ export default function DailyTargetsPage() {
                             <span className="sr-only">How are calories calculated?</span>
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-96 text-sm">
+                        <PopoverContent className="w-96 text-sm max-h-96 overflow-y-auto">
                           <div className="space-y-2">
                             <h4 className="font-medium leading-none">
                               🔢 Estimated Required Daily Calories: {currentProfileTDEE ? `${Math.round(currentProfileTDEE)} kcal` : 'N/A (Profile incomplete)'}
                             </h4>
                             <p className="text-xs text-muted-foreground">
-                              (Based on the Mifflin-St Jeor Equation and your activity level)
+                              (Based on the Mifflin-St Jeor Equation and your activity level. Your diet goal adjustment is applied separately.)
                             </p>
-                            <p>🔹 We use the <strong>Mifflin-St Jeor Equation</strong>, a widely used formula for calculating Basal Metabolic Rate (BMR).</p>
-                            <p>🔹 BMR is then multiplied by an <strong>activity multiplier</strong> to estimate <strong>Total Daily Energy Expenditure (TDEE)</strong>.</p>
-                            
-                            <div className="font-semibold mt-2">Formula:</div>
+                            <div className="font-semibold mt-2">🔹 Mifflin-St Jeor Equation (BMR):</div>
+                            <p className="text-xs">This calculates your Basal Metabolic Rate, the calories your body burns at rest.</p>
                             <ul className="list-disc pl-5 space-y-1 text-xs">
                               <li><strong>Men:</strong> BMR = (10 × weight in kg) + (6.25 × height in cm) - (5 × age) + 5</li>
                               <li><strong>Women:</strong> BMR = (10 × weight in kg) + (6.25 × height in cm) - (5 × age) - 161</li>
                             </ul>
                             
-                            <div className="font-semibold mt-2">Activity Multipliers:</div>
+                            <div className="font-semibold mt-2">🔹 Activity Multiplier (TDEE):</div>
+                             <p className="text-xs">BMR is multiplied by an activity factor to estimate Total Daily Energy Expenditure.</p>
                             <ul className="list-disc pl-5 space-y-1 text-xs">
                               {activityLevels.map(level => (
                                 <li key={level.value}>
@@ -296,8 +321,11 @@ export default function DailyTargetsPage() {
                                 </li>
                               ))}
                             </ul>
+                             <p className="text-xs text-muted-foreground pt-2">
+                              🔹 Your chosen <strong>diet goal</strong> (lose, maintain, gain weight) further adjusts this TDEE to get your target.
+                            </p>
                             <p className="text-xs text-muted-foreground pt-2">
-                              🔹 If you <strong>leave this blank</strong>, the app will automatically calculate your TDEE based on your profile inputs upon saving.
+                              🔹 If you <strong>leave this blank</strong>, the app will automatically calculate your target calories based on your profile inputs and diet goal upon saving.
                             </p>
                           </div>
                         </PopoverContent>
@@ -308,8 +336,8 @@ export default function DailyTargetsPage() {
                         type="number" 
                         placeholder={estimatedCaloriesFromProfile ? `Auto: ${Math.round(estimatedCaloriesFromProfile)} kcal` : "Leave blank for auto-calc"} 
                         {...field} 
-                        value={field.value === 0 && estimatedCaloriesFromProfile ? '' : field.value ?? ''} // Show empty if 0 and placeholder exists
-                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)} // Send 0 if empty for controlled input
+                        value={field.value === 0 && estimatedCaloriesFromProfile ? '' : field.value ?? ''} 
+                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)} 
                       />
                     </FormControl>
                      <FormDescription>Leave blank to auto-calculate based on your profile.</FormDescription>
@@ -322,10 +350,49 @@ export default function DailyTargetsPage() {
                 name="targetProtein"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Target Daily Protein (g)</FormLabel>
+                     <div className="flex items-center space-x-1">
+                        <FormLabel>Target Daily Protein (g)</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
+                              <Info className="h-4 w-4 text-muted-foreground hover:text-accent" />
+                              <span className="sr-only">How is protein calculated?</span>
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-96 text-sm max-h-96 overflow-y-auto">
+                            <div className="space-y-2">
+                              <h4 className="font-medium leading-none">
+                                💪 Estimated Protein Intake: {currentProfileRecommendedProtein ? `${Math.round(currentProfileRecommendedProtein)} g` : 'N/A (Profile incomplete)'}
+                              </h4>
+                              <p className="text-xs text-muted-foreground">
+                                (Based on {userProfileData.activityLevel ? activityLevels.find(al => al.value === userProfileData.activityLevel)?.proteinFactorPerKg : '0.8'}g per kg of body weight and your activity level)
+                              </p>
+                              <div className="font-semibold mt-2">🔹 Protein Intake Guidelines (grams per kg of body weight):</div>
+                              <p className="text-xs">We calculate protein needs based on your body weight and activity level, following sports nutrition guidelines.</p>
+                              <ul className="list-disc pl-5 space-y-1 text-xs">
+                                {activityLevels.map(level => (
+                                  <li key={level.value}>
+                                    {level.label} → <strong>{level.proteinFactorPerKg}g per kg</strong>
+                                  </li>
+                                ))}
+                              </ul>
+                              <p className="text-xs text-muted-foreground pt-2">
+                                🔹 If you <strong>leave this blank</strong>, we use the recommended intake based on your activity level and current weight upon saving.
+                              </p>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                     <FormControl>
-                      <Input type="number" placeholder="e.g., 150 g" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || 0)}/>
+                      <Input 
+                        type="number" 
+                        placeholder={estimatedProteinFromProfile ? `Auto: ${Math.round(estimatedProteinFromProfile)} g` : "Leave blank for auto-calc"} 
+                        {...field} 
+                        value={field.value === 0 && estimatedProteinFromProfile ? '' : field.value ?? ''} 
+                        onChange={e => field.onChange(parseFloat(e.target.value) || 0)}
+                      />
                     </FormControl>
+                     <FormDescription>Leave blank to auto-calculate based on your profile.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -339,6 +406,7 @@ export default function DailyTargetsPage() {
                     <FormControl>
                       <Input type="number" placeholder="e.g., 200 g" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || 0)}/>
                     </FormControl>
+                     <FormDescription>Adjust as needed. Auto-calculated if calories/protein are auto-set.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -352,6 +420,7 @@ export default function DailyTargetsPage() {
                     <FormControl>
                       <Input type="number" placeholder="e.g., 60 g" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} />
                     </FormControl>
+                    <FormDescription>Adjust as needed. Auto-calculated if calories/protein are auto-set.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -390,4 +459,3 @@ export default function DailyTargetsPage() {
     </Card>
   );
 }
-
