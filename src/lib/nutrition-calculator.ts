@@ -101,8 +101,8 @@ export function calculateEstimatedDailyTargets(profile: Partial<ProfileFormValue
   
   // Example: Fat at 25% of target calories, then carbs for the rest
   // (9 calories per gram of fat, 4 calories per gram of protein/carbs)
-  const fatGrams = Math.round((targetCalories * 0.25) / 9);
   const proteinCalories = protein * 4;
+  const fatGrams = Math.round((targetCalories * 0.25) / 9);
   const fatCalories = fatGrams * 9;
   const carbGrams = Math.round((targetCalories - proteinCalories - fatCalories) / 4);
 
@@ -110,8 +110,8 @@ export function calculateEstimatedDailyTargets(profile: Partial<ProfileFormValue
   return {
     targetCalories: Math.round(targetCalories),
     targetProtein: Math.round(protein),
-    targetFat: fatGrams > 0 ? fatGrams : undefined,
-    targetCarbs: carbGrams > 0 ? carbGrams : undefined,
+    targetFat: Math.max(0, fatGrams), // Ensure it's at least 0 and a number
+    targetCarbs: Math.max(0, carbGrams), // Ensure it's at least 0 and a number
   };
 }
 

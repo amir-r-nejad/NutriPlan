@@ -25,6 +25,11 @@ import { Info, Loader2 } from "lucide-react";
 import { calculateEstimatedDailyTargets } from "@/lib/nutrition-calculator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+// Interface for the data returned by getDailyTargets, including the source
+interface DailyTargetsData extends Partial<DailyTargets> {
+  source?: 'stored' | 'calculated_from_profile' | 'fallback_defaults';
+}
+
 // Mock function to get profile data for target calculation
 async function getProfileDataForTargets(userId: string): Promise<Partial<ProfileFormValues>> {
   console.log("Fetching profile for targets calculation, user:", userId);
@@ -56,14 +61,14 @@ async function getProfileDataForTargets(userId: string): Promise<Partial<Profile
 
 
 // Mock functions for data operations
-async function getDailyTargets(userId: string): Promise<Partial<DailyTargets>> {
+async function getDailyTargets(userId: string): Promise<DailyTargetsData> {
   console.log("Fetching daily targets for user:", userId);
   await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
   
   const storedTargets = localStorage.getItem(`nutriplan_daily_targets_${userId}`);
   if (storedTargets) {
     try {
-      return JSON.parse(storedTargets);
+      return { ...JSON.parse(storedTargets), source: 'stored' };
     } catch (e) {
       console.error("Error parsing stored daily targets:", e);
       // Fall through to calculation if parsing fails
@@ -75,16 +80,15 @@ async function getDailyTargets(userId: string): Promise<Partial<DailyTargets>> {
   if (userProfile.age && userProfile.gender && userProfile.currentWeight && userProfile.height && userProfile.activityLevel && userProfile.dietGoal) {
     const estimatedTargets = calculateEstimatedDailyTargets(userProfile);
     console.log("Calculated estimated targets:", estimatedTargets);
-    // Provide default mealsPerDay if not present in profile or estimates
     const mealsPerDay = userProfile.mealsPerDay || 3;
     return {
       targetCalories: estimatedTargets.targetCalories,
       targetProtein: estimatedTargets.targetProtein,
-      // Carbs and fat could be estimated too, or left for user input
       targetCarbs: estimatedTargets.targetCarbs,
       targetFat: estimatedTargets.targetFat,
       mealsPerDay: mealsPerDay,
-      caloriesBurned: undefined, // User inputs this manually
+      caloriesBurned: undefined,
+      source: 'calculated_from_profile',
     };
   }
   
@@ -96,6 +100,7 @@ async function getDailyTargets(userId: string): Promise<Partial<DailyTargets>> {
     targetFat: 60,
     mealsPerDay: 3,
     caloriesBurned: undefined,
+    source: 'fallback_defaults',
   };
 }
 
@@ -129,13 +134,11 @@ export default function DailyTargetsPage() {
   useEffect(() => {
     if (user?.id) {
       setIsLoading(true);
-      // Check if targets were previously saved
-      const previouslySaved = localStorage.getItem(`nutriplan_daily_targets_${user.id}`);
-      
-      getDailyTargets(user.id).then((targetsData) => {
-        form.reset(targetsData);
-        if (!previouslySaved && (targetsData.targetCalories || targetsData.targetProtein)) {
-          // If no data was saved, and we got calculated values, mark as auto-calculated
+      getDailyTargets(user.id).then((response) => {
+        const { source, ...targetsDataValues } = response;
+        form.reset(targetsDataValues);
+        
+        if (source === 'calculated_from_profile') {
           setIsAutoCalculated(true); 
         } else {
           setIsAutoCalculated(false);
@@ -180,9 +183,7 @@ export default function DailyTargetsPage() {
       <CardHeader>
         <CardTitle className="text-3xl font-bold">Daily Nutritional Targets</CardTitle>
         <CardDescription>
-          {isAutoCalculated 
-            ? "These are auto-calculated estimates based on your profile. Adjust them as needed."
-            : "Adjust your daily intake goals. These can be auto-calculated from your profile or set manually."}
+          Adjust your daily intake goals. These can be auto-calculated from your profile or set manually.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -194,8 +195,9 @@ export default function DailyTargetsPage() {
               <ul className="list-disc pl-5 mt-1 space-y-1 text-sm">
                 <li><strong>Basal Metabolic Rate (BMR):</strong> Estimated using the Mifflin-St Jeor Equation based on your profile (age, gender, height, weight). This is the calories your body burns at rest.</li>
                 <li><strong>Total Daily Energy Expenditure (TDEE):</strong> Your BMR is multiplied by an activity factor (based on your selected activity level) to estimate total daily calorie needs.</li>
+                <li><strong>Diet Goal Adjustment:</strong> Calorie target is adjusted based on your diet goal (e.g., deficit for weight loss, surplus for gain).</li>
                 <li><strong>Protein:</strong> Suggested based on your body weight and diet goal (e.g., higher for muscle gain or weight loss to preserve muscle).</li>
-                <li><strong>Carbohydrates & Fat:</strong> Initial estimates for carbs and fat are provided. You can adjust these based on your preferences (e.g., for low-carb or low-fat diets).</li>
+                <li><strong>Carbohydrates & Fat:</strong> After accounting for protein calories, remaining calories are typically split (e.g., ~25% fat, rest carbs).</li>
               </ul>
               <p className="mt-2 text-xs">Remember, these are just starting points. Feel free to adjust them to better suit your individual needs and preferences!</p>
             </AlertDescription>
