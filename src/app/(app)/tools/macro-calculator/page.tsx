@@ -167,7 +167,7 @@ export default function MacroCalculatorPage() {
                     <FormItem>
                       <FormLabel>Your Weight (kg)</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="e.g., 70" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                        <Input type="number" placeholder="e.g., 70" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -180,7 +180,7 @@ export default function MacroCalculatorPage() {
                     <FormItem>
                       <FormLabel>Protein per kg of body weight</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.1" placeholder="e.g., 1.5" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                        <Input type="number" step="0.1" placeholder="e.g., 1.5" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
                       </FormControl>
                       <FormDescription>E.g., 1.2–2.2 g/kg</FormDescription>
                       <FormMessage />
@@ -194,7 +194,7 @@ export default function MacroCalculatorPage() {
                     <FormItem>
                       <FormLabel>Target Daily Calorie Intake</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="e.g., 2000" {...field} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                        <Input type="number" placeholder="e.g., 2000" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -208,8 +208,7 @@ export default function MacroCalculatorPage() {
                       <FormLabel>% of Remaining Calories from Carbs</FormLabel>
                       <FormControl>
                         <Slider
-                          defaultValue={[field.value || 60]}
-                          value={[field.value || 0]}
+                          value={[field.value ?? 0]} // Ensure slider value is always defined
                           max={100}
                           step={1}
                           onValueChange={(value) => field.onChange(value[0])}
