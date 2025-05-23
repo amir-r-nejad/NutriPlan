@@ -17,7 +17,8 @@ import {
   Calculator,
   SplitSquareHorizontal,
   ChefHat,
-  Scaling // Added for Daily Macro Breakdown
+  Scaling,
+  BrainCircuit // Added for Smart Calorie Planner
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -43,6 +44,7 @@ const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/profile', label: 'Profile', icon: User },
   { href: '/tools/calorie-calculator', label: 'Calorie Calculator', icon: Calculator },
+  { href: '/tools/smart-calorie-planner', label: 'Smart Calorie Planner', icon: BrainCircuit },
   { href: '/tools/macro-calculator', label: 'Daily Macro Breakdown', icon: Scaling },
   { href: '/tools/macro-splitter', label: 'Macro Splitter', icon: SplitSquareHorizontal },
   { href: '/tools/meal-suggestions', label: 'Meal Suggestions', icon: ChefHat },
@@ -125,3 +127,4 @@ export default function AppLayout({
     </SidebarProvider>
   );
 }
+

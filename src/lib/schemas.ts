@@ -1,4 +1,3 @@
-
 import * as z from "zod";
 import { activityLevels, dietGoals, preferredDiets, mealsPerDayOptions, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames } from "./constants";
 
@@ -79,7 +78,7 @@ export const IngredientSchema = z.object({
   name: z.string().min(1, "Ingredient name is required"),
   quantity: z.coerce.number().min(0, "Quantity must be non-negative"),
   unit: z.string().min(1, "Unit is required (e.g., g, ml, piece)"), // Keeping unit flexible
-  calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()), // per 100g or per unit, define consistently
+  calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()), 
   protein: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   carbs: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   fat: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
@@ -129,10 +128,10 @@ export const DailyTargetsSchema = z.object({
   userId: z.string().optional(),
   date: z.date().optional(), // Or string representation
   caloriesBurned: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  targetCalories: z.coerce.number().min(0, "Target calories must be non-negative"),
-  targetProtein: z.coerce.number().min(0, "Target protein must be non-negative"),
-  targetCarbs: z.coerce.number().min(0, "Target carbs must be non-negative"),
-  targetFat: z.coerce.number().min(0, "Target fat must be non-negative"),
+  targetCalories: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()), // Allow blank for auto-calc
+  targetProtein: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()), // Allow blank for auto-calc
+  targetCarbs: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  targetFat: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   mealsPerDay: z.coerce.number().min(2).max(7),
 });
 export type DailyTargets = z.infer<typeof DailyTargetsSchema>;
@@ -185,7 +184,7 @@ export const AiGeneratedMealPlanOutputSchema = z.object({
   weeklySummary: z.object({
     totalCalories: z.number(),
     totalProtein: z.number(),
-    totalCarbs: z.number(), // Note: AI output has this, our schema might need adjustment or mapping
+    totalCarbs: z.number(), 
     totalFat: z.number(),
   }),
 });
@@ -219,7 +218,6 @@ export const MacroSplitterFormSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `Total ${macroName} percentages must sum to 100%. Current sum: ${sum.toFixed(1)}%`,
-        // Path to the first input of the column for error display or a general path
         path: ['mealDistributions', 0, macroKey], 
       });
     }
@@ -240,3 +238,34 @@ export type CalculatedMealMacros = {
   'Fat (g)': number;
 };
 
+// Schema for Smart Calorie Planner
+export const SmartCaloriePlannerFormSchema = z.object({
+  // Basic Info (Required)
+  age: z.coerce.number().positive("Age must be a positive number."),
+  gender: z.enum(genders.map(g => g.value) as [string, ...string[]], { required_error: "Gender is required." }),
+  height_cm: z.coerce.number().positive("Height must be a positive number."),
+  current_weight: z.coerce.number().positive("Current weight must be a positive number."),
+  goal_weight_1m: z.coerce.number().positive("1-Month Goal Weight must be a positive number."),
+  ideal_goal_weight: z.preprocess(preprocessOptionalNumber, z.coerce.number().positive("Ideal Goal Weight must be positive if provided.").optional()),
+  activity_factor_key: z.enum(activityLevels.map(al => al.value) as [string, ...string[]], { required_error: "Activity level is required." }),
+
+  // Body Composition (Optional)
+  bf_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100, "Body fat % must be between 0 and 100.").optional()),
+  bf_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100, "Target body fat % must be between 0 and 100.").optional()),
+  mm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()), // Muscle Mass %
+  mm_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),  // Target Muscle Mass %
+  bw_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()), // Body Water %
+  bw_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),  // Target Body Water %
+
+  // Measurements (Optional) - Waist & Hips for now
+  waist_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  waist_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  waist_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  hips_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  hips_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  hips_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  // Add arms/legs later if needed
+});
+
+export type SmartCaloriePlannerFormValues = z.infer<typeof SmartCaloriePlannerFormSchema>;
+```
