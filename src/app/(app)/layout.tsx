@@ -6,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   User,
-  // Calculator, // Removed Calorie Calculator icon
   BrainCircuit,
   Scaling,
   SplitSquareHorizontal,
@@ -14,6 +13,8 @@ import {
   NotebookText,
   Bot,
   LogOut,
+  MessageSquareQuestion, // Added
+  HelpCircle, // Added
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -26,6 +27,7 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
+  SidebarSeparator, // Added for visual separation
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,13 +40,17 @@ import React from 'react';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/profile', label: 'Profile', icon: User },
-  // { href: '/tools/calorie-calculator', label: 'Calorie Calculator', icon: Calculator }, // Removed
+  { section: "Tools & Planning" }, // Section separator
   { href: '/tools/smart-calorie-planner', label: 'Smart Calorie Planner', icon: BrainCircuit },
   { href: '/tools/macro-calculator', label: 'Daily Macro Breakdown', icon: Scaling },
   { href: '/tools/macro-splitter', label: 'Macro Splitter', icon: SplitSquareHorizontal },
   { href: '/tools/meal-suggestions', label: 'Meal Suggestions', icon: ChefHat },
+  { section: "Meal Management" }, // Section separator
   { href: '/meal-plan/current', label: 'Current Meal Plan', icon: NotebookText },
   { href: '/meal-plan/optimized', label: 'AI Meal Plan', icon: Bot },
+  { section: "Support" }, // Section separator
+  { href: '/support/chatbot', label: 'Chatbot Support', icon: MessageSquareQuestion },
+  { href: '/support/faq', label: 'FAQ & Chatbot', icon: HelpCircle },
 ];
 
 export default function AppLayout({
@@ -78,19 +84,29 @@ export default function AppLayout({
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-            {navItems.map((item) => (
-              <SidebarMenuItem key={item.label}>
-                <Link href={item.href} legacyBehavior passHref>
-                  <SidebarMenuButton
-                    isActive={pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href))}
-                    tooltip={item.label}
-                  >
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </Link>
-              </SidebarMenuItem>
-            ))}
+            {navItems.map((item, index) => {
+              if (item.section) {
+                return (
+                  <React.Fragment key={`separator-${index}`}>
+                    {index !== 0 && <SidebarSeparator className="my-2" />} 
+                    {/* Add a label for the section if desired, e.g., <SidebarGroupLabel>{item.section}</SidebarGroupLabel> */}
+                  </React.Fragment>
+                );
+              }
+              return (
+                <SidebarMenuItem key={item.label}>
+                  <Link href={item.href!} legacyBehavior passHref>
+                    <SidebarMenuButton
+                      isActive={pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href!))}
+                      tooltip={item.label}
+                    >
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </Link>
+                </SidebarMenuItem>
+              );
+            })}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter className="p-2">
