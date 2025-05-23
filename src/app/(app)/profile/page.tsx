@@ -28,10 +28,9 @@ import { ProfileFormSchema, type ProfileFormValues } from "@/lib/schemas";
 import { useAuth } from "@/contexts/AuthContext"; 
 import { useToast } from "@/hooks/use-toast";
 import React, { useEffect, useState } from "react";
-import { activityLevels, dietGoals, preferredDiets, mealsPerDayOptions, genders, exerciseFrequencies, exerciseIntensities } from "@/lib/constants";
+import { preferredDiets, exerciseFrequencies, exerciseIntensities } from "@/lib/constants";
 
 // This type represents the full profile data structure potentially stored in localStorage
-// It's distinct from ProfileFormValues which is now specific to this page's form.
 interface FullProfileData {
   age?: number;
   gender?: string;
@@ -39,6 +38,10 @@ interface FullProfileData {
   currentWeight?: number;
   goalWeight1Month?: number;
   goalWeightIdeal?: number;
+  activityLevel?: string; // Kept for storing/reading full profile
+  dietGoal?: string; // Kept for storing/reading full profile
+  mealsPerDay?: number; // Kept for storing/reading full profile
+  // Body comp and measurements also part of full profile but not directly managed by this form
   currentBodyFatPercentage?: number;
   targetBodyFatPercentage?: number;
   currentMuscleMassPercentage?: number;
@@ -63,10 +66,9 @@ interface FullProfileData {
   leftArmMeasurementCurrent?: number;
   leftArmMeasurementGoal1Month?: number;
   leftArmMeasurementIdeal?: number;
-  activityLevel?: string;
-  dietGoal?: string;
+
+  // Fields remaining in this form
   preferredDiet?: string;
-  mealsPerDay?: number;
   preferredCuisines?: string[];
   dispreferredCuisines?: string[];
   preferredIngredients?: string[];
@@ -92,14 +94,11 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
   const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
   if (storedProfile) {
     try {
-      const parsedProfile = JSON.parse(storedProfile) as FullProfileData; // Expect full data
+      const parsedProfile = JSON.parse(storedProfile) as FullProfileData; 
       
-      // Fields still managed by this form
+      // Map only the fields relevant to the current ProfileFormSchema
       const relevantProfileData: Partial<ProfileFormValues> = {
-        activityLevel: parsedProfile.activityLevel,
-        dietGoal: parsedProfile.dietGoal,
         preferredDiet: parsedProfile.preferredDiet,
-        mealsPerDay: parsedProfile.mealsPerDay,
         preferredCuisines: Array.isArray(parsedProfile.preferredCuisines) ? parsedProfile.preferredCuisines : (typeof parsedProfile.preferredCuisines === 'string' ? parsedProfile.preferredCuisines.split(',').map(s => s.trim()).filter(s => s) : []),
         dispreferredCuisines: Array.isArray(parsedProfile.dispreferredCuisines) ? parsedProfile.dispreferredCuisines : (typeof parsedProfile.dispreferredCuisines === 'string' ? parsedProfile.dispreferredCuisines.split(',').map(s => s.trim()).filter(s => s) : []),
         preferredIngredients: Array.isArray(parsedProfile.preferredIngredients) ? parsedProfile.preferredIngredients : (typeof parsedProfile.preferredIngredients === 'string' ? parsedProfile.preferredIngredients.split(',').map(s => s.trim()).filter(s => s) : []),
@@ -124,9 +123,6 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
   }
   // Return default values for the fields managed by this form
   return {
-    activityLevel: "moderate",
-    dietGoal: "lose_weight",
-    mealsPerDay: 3,
     preferredDiet: "none",
     preferredCuisines: [],
     dispreferredCuisines: [],
@@ -148,7 +144,6 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
 async function saveProfileData(userId: string, data: ProfileFormValues) {
   console.log("Saving profile subset for user:", userId, data);
   
-  // Fetch the full existing profile
   const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
   let fullProfile: FullProfileData = {};
   if (storedProfile) {
@@ -156,17 +151,14 @@ async function saveProfileData(userId: string, data: ProfileFormValues) {
       fullProfile = JSON.parse(storedProfile);
     } catch (error) {
       console.error("Error parsing existing profile data for saving:", error);
-      // If parsing fails, start with an empty object to avoid losing all data
     }
   }
 
-  // Merge the data from this form (which is a subset) into the full profile
   const updatedFullProfile: FullProfileData = {
-    ...fullProfile, // Preserve existing fields not managed by this form
-    ...data,     // Overwrite with new values for fields managed by this form
+    ...fullProfile, 
+    ...data,     
   };
 
-  // Convert arrays to comma-separated strings for storage example, if needed
   const dataToStore = { ...updatedFullProfile };
   const arrayFieldsToConvert: (keyof FullProfileData)[] = [
     'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
@@ -193,9 +185,7 @@ export default function ProfilePage() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(ProfileFormSchema),
     defaultValues: {
-      activityLevel: "moderate",
-      dietGoal: "lose_weight",
-      mealsPerDay: 3,
+      // activityLevel, dietGoal, mealsPerDay REMOVED
       preferredDiet: "none",
       preferredCuisines: [],
       dispreferredCuisines: [],
@@ -211,7 +201,6 @@ export default function ProfilePage() {
       exerciseGoals: [],
       exercisePreferences: [],
       equipmentAccess: [],
-      // Fields like age, gender, weight, etc., are no longer part of this form's defaultValues
     },
   });
 
@@ -219,7 +208,7 @@ export default function ProfilePage() {
     if (user?.id) {
       setIsLoading(true);
       getProfileData(user.id).then((profileDataSubset) => {
-        form.reset(profileDataSubset); // Reset form with only the relevant subset
+        form.reset(profileDataSubset); 
         setIsLoading(false);
       }).catch(error => {
         console.error("Error loading profile data:", error);
@@ -247,7 +236,8 @@ export default function ProfilePage() {
       control={form.control}
       name={fieldName}
       render={({ field }) => {
-        const displayValue = Array.isArray(field.value) ? field.value.join(', ') : (field.value || '');
+        // Ensure field.value is always treated as an array for join, or provide empty string if undefined/null
+        const displayValue = Array.isArray(field.value) ? field.value.join(', ') : '';
         return (
           <FormItem>
             <FormLabel>{label}</FormLabel>
@@ -281,16 +271,12 @@ export default function ProfilePage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <Accordion type="multiple" defaultValue={["item-4", "item-5", "item-6"]} className="w-full">
-              {/* Basic Info, Body Composition, and Measurements sections are removed */}
-
               <AccordionItem value="item-4">
-                <AccordionTrigger className="text-xl font-semibold">Activity & Diet Preferences</AccordionTrigger>
+                <AccordionTrigger className="text-xl font-semibold">Dietary Preferences & Restrictions</AccordionTrigger>
                 <AccordionContent className="space-y-6 pt-4">
                   <div className="grid md:grid-cols-2 gap-6">
-                    <FormField control={form.control} name="activityLevel" render={({ field }) => ( <FormItem> <FormLabel>Activity Level</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select activity level" /></SelectTrigger></FormControl> <SelectContent>{activityLevels.map(al => <SelectItem key={al.value} value={al.value}>{al.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="dietGoal" render={({ field }) => ( <FormItem> <FormLabel>Diet Goal</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select diet goal" /></SelectTrigger></FormControl> <SelectContent>{dietGoals.map(dg => <SelectItem key={dg.value} value={dg.value}>{dg.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+                    {/* Activity Level, Diet Goal, Meals Per Day fields are removed */}
                     <FormField control={form.control} name="preferredDiet" render={({ field }) => ( <FormItem> <FormLabel>Preferred Diet</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select preferred diet" /></SelectTrigger></FormControl> <SelectContent>{preferredDiets.map(pd => <SelectItem key={pd.value} value={pd.value}>{pd.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-                     <FormField control={form.control} name="mealsPerDay" render={({ field }) => ( <FormItem> <FormLabel>Meals Per Day</FormLabel> <Select onValueChange={(v) => field.onChange(Number(v))} value={String(field.value ?? 3 )}> <FormControl><SelectTrigger><SelectValue placeholder="Select meals per day" /></SelectTrigger></FormControl> <SelectContent>{mealsPerDayOptions.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
                   </div>
                   {renderCommaSeparatedInput("preferredCuisines" as keyof ProfileFormValues, "Preferred Cuisines", "e.g., Italian, Mexican, Indian")}
                   {renderCommaSeparatedInput("dispreferredCuisines" as keyof ProfileFormValues, "Dispreferred Cuisines", "e.g., Thai, French")}

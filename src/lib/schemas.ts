@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { activityLevels, dietGoals, preferredDiets, mealsPerDayOptions, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames, smartPlannerDietGoals } from "./constants";
+import { preferredDiets, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames, smartPlannerDietGoals, activityLevels as allActivityLevels } from "./constants"; // Added allActivityLevels
 
 // Helper for preprocessing optional number fields: empty string or null becomes undefined
 const preprocessOptionalNumber = (val: unknown) => (val === "" || val === null || val === undefined || (typeof val === 'string' && val.trim() === '') ? undefined : val);
@@ -10,10 +10,8 @@ export const ProfileFormSchema = z.object({
   // They are now managed by the Smart Calorie Planner or exist in the full profile data in localStorage.
 
   // Activity & Diet Preferences
-  activityLevel: z.enum(activityLevels.map(al => al.value) as [string, ...string[]], { required_error: "Activity level is required." }),
-  dietGoal: z.enum(dietGoals.map(dg => dg.value) as [string, ...string[]], { required_error: "Diet goal is required." }),
+  // activityLevel, dietGoal, mealsPerDay REMOVED from this form
   preferredDiet: z.enum(preferredDiets.map(pd => pd.value) as [string, ...string[]]).optional(),
-  mealsPerDay: z.coerce.number().min(2).max(7),
   
   preferredCuisines: z.array(z.string()).optional(),
   dispreferredCuisines: z.array(z.string()).optional(),
@@ -196,13 +194,13 @@ export const MacroSplitterFormSchema = z.object({
 });
 export type MacroSplitterFormValues = z.infer<typeof MacroSplitterFormSchema>;
 
-export type CalculatedMealMacros = {
+export interface CalculatedMealMacros {
   mealName: string;
   Calories: number;
   'Protein (g)': number;
   'Carbs (g)': number;
   'Fat (g)': number;
-};
+}
 
 // Schema for Smart Calorie Planner
 export const SmartCaloriePlannerFormSchema = z.object({
@@ -213,40 +211,46 @@ export const SmartCaloriePlannerFormSchema = z.object({
   current_weight: z.coerce.number().positive("Current weight must be a positive number."),
   goal_weight_1m: z.coerce.number().positive("1-Month Goal Weight must be a positive number."),
   ideal_goal_weight: z.preprocess(preprocessOptionalNumber, z.coerce.number().positive("Ideal Goal Weight must be positive if provided.").optional()),
-  activity_factor_key: z.enum(activityLevels.map(al => al.value) as [string, ...string[]], { required_error: "Activity level is required." }),
+  activity_factor_key: z.enum(allActivityLevels.map(al => al.value) as [string, ...string[]], { required_error: "Activity level is required." }),
   dietGoal: z.enum(smartPlannerDietGoals.map(g => g.value) as [string, ...string[]], { required_error: "Diet goal is required." }),
 
   // Body Composition (Optional)
-  bf_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100, "Body fat % must be between 0 and 100.").optional()),
-  bf_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100, "Target body fat % must be between 0 and 100.").optional()),
-  bf_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100, "Ideal body fat % must be between 0 and 100.").optional()),
-  mm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()), 
-  mm_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),  
-  mm_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
-  bw_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()), 
-  bw_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
-  bw_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
+  bf_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100, "Body fat % must be between 0 and 100.").optional()),
+  bf_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100, "Target body fat % must be between 0 and 100.").optional()),
+  bf_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100, "Ideal body fat % must be between 0 and 100.").optional()),
+  
+  mm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100).optional()), 
+  mm_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100).optional()),  
+  mm_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100).optional()),
+
+  bw_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100).optional()), 
+  bw_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100).optional()),
+  bw_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100).optional()),
 
   // Measurements (Optional)
-  waist_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  waist_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  waist_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  hips_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  hips_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  hips_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  waist_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  waist_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  waist_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
   
-  right_leg_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  right_leg_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  right_leg_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  left_leg_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  left_leg_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  left_leg_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  right_arm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  right_arm_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  right_arm_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  left_arm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  left_arm_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  left_arm_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  hips_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  hips_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  hips_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  
+  right_leg_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  right_leg_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  right_leg_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  
+  left_leg_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  left_leg_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  left_leg_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  
+  right_arm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  right_arm_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  right_arm_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  
+  left_arm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  left_arm_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+  left_arm_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
 });
 
 export type SmartCaloriePlannerFormValues = z.infer<typeof SmartCaloriePlannerFormSchema>;
