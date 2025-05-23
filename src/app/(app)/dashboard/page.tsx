@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bot, NotebookText, Target, User } from "lucide-react";
+import { ArrowRight, Bot, NotebookText, Target, User, BrainCircuit, Scaling, SplitSquareHorizontal } from "lucide-react";
 import Image from "next/image";
 
 export default function DashboardPage() {
@@ -70,14 +70,23 @@ export default function DashboardPage() {
             <Target className="h-10 w-10 text-primary mb-4" />
             <h2 className="text-3xl font-semibold text-primary mb-3">Nutrition Tools</h2>
             <p className="text-foreground/80 mb-6">
-              Utilize our calculators and splitters to fine-tune your nutritional intake and match your fitness ambitions.
+              Utilize our advanced planners and splitters to fine-tune your nutritional intake and match your fitness ambitions.
             </p>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
+              <Link href="/tools/smart-calorie-planner" passHref>
+                <Button variant="secondary">
+                  <BrainCircuit className="mr-2 h-4 w-4" /> Smart Calorie Planner
+                </Button>
+              </Link>
               <Link href="/tools/macro-calculator" passHref>
-                <Button variant="secondary">Macro Calculator <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                <Button variant="secondary">
+                  <Scaling className="mr-2 h-4 w-4" /> Daily Macro Breakdown
+                </Button>
               </Link>
               <Link href="/tools/macro-splitter" passHref>
-                <Button variant="secondary">Macro Splitter <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                <Button variant="secondary">
+                  <SplitSquareHorizontal className="mr-2 h-4 w-4" /> Macro Splitter
+                </Button>
               </Link>
             </div>
           </div>

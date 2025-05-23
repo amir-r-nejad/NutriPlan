@@ -6,19 +6,14 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   User,
-  CalendarDays,
-  Sparkles,
-  Target,
-  ClipboardList,
-  LogOut,
-  Settings,
-  Bot,
-  NotebookText,
-  Calculator,
+  // Calculator, // Removed Calorie Calculator icon
+  BrainCircuit,
+  Scaling,
   SplitSquareHorizontal,
   ChefHat,
-  Scaling,
-  BrainCircuit // Added for Smart Calorie Planner
+  NotebookText,
+  Bot,
+  LogOut,
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -43,7 +38,7 @@ import React from 'react';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/profile', label: 'Profile', icon: User },
-  { href: '/tools/calorie-calculator', label: 'Calorie Calculator', icon: Calculator },
+  // { href: '/tools/calorie-calculator', label: 'Calorie Calculator', icon: Calculator }, // Removed
   { href: '/tools/smart-calorie-planner', label: 'Smart Calorie Planner', icon: BrainCircuit },
   { href: '/tools/macro-calculator', label: 'Daily Macro Breakdown', icon: Scaling },
   { href: '/tools/macro-splitter', label: 'Macro Splitter', icon: SplitSquareHorizontal },
@@ -127,4 +122,3 @@ export default function AppLayout({
     </SidebarProvider>
   );
 }
-
