@@ -6,43 +6,8 @@ const preprocessOptionalNumber = (val: unknown) => (val === "" || val === null |
 
 
 export const ProfileFormSchema = z.object({
-  // Basic Info
-  age: z.coerce.number().min(1, "Age is required").max(120),
-  gender: z.enum(genders.map(g => g.value) as [string, ...string[]], { required_error: "Gender is required." }),
-  height: z.coerce.number().min(50, "Height must be at least 50cm").max(300),
-  currentWeight: z.coerce.number().min(20, "Current weight must be at least 20kg").max(500),
-  goalWeight1Month: z.coerce.number().min(20, "1-Month Goal weight must be at least 20kg").max(500).describe("The goal weight for 1 month."),
-  goalWeightIdeal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(20).max(500).optional().describe("The ideal goal weight.")),
-
-
-  // Body Composition
-  currentBodyFatPercentage: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
-  targetBodyFatPercentage: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
-  currentMuscleMassPercentage: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
-  targetMuscleMassPercentage: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
-  currentWaterPercentage: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
-  targetWaterPercentage: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
-
-  // Measurements
-  waistMeasurementCurrent: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  waistMeasurementGoal1Month: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  waistMeasurementIdeal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  hipsMeasurementCurrent: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  hipsMeasurementGoal1Month: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  hipsMeasurementIdeal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  
-  rightLegMeasurementCurrent: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  rightLegMeasurementGoal1Month: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  rightLegMeasurementIdeal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  leftLegMeasurementCurrent: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  leftLegMeasurementGoal1Month: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  leftLegMeasurementIdeal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  rightArmMeasurementCurrent: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  rightArmMeasurementGoal1Month: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  rightArmMeasurementIdeal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  leftArmMeasurementCurrent: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  leftArmMeasurementGoal1Month: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  leftArmMeasurementIdeal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  // Basic Info, Body Composition, and Measurements are removed from this page's schema.
+  // They are now managed by the Smart Calorie Planner or exist in the full profile data in localStorage.
 
   // Activity & Diet Preferences
   activityLevel: z.enum(activityLevels.map(al => al.value) as [string, ...string[]], { required_error: "Activity level is required." }),
