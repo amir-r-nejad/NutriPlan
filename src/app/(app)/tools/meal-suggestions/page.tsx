@@ -3,22 +3,22 @@
 
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { zodResolver } from "@hookform/resolvers/zod"; // Added
-import { useForm, Controller } from "react-hook-form"; // Added
+import { zodResolver } from "@hookform/resolvers/zod"; 
+import { useForm, Controller } from "react-hook-form"; 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"; // Added
-import { Textarea } from "@/components/ui/textarea"; // Added
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"; 
+import { Textarea } from "@/components/ui/textarea"; 
 import { Loader2, ChefHat, AlertTriangle, Sparkles, Settings } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; // Added
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; 
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { ProfileFormValues as FullProfileType } from '@/lib/schemas'; // Renamed to avoid conflict
-import { MealSuggestionPreferencesSchema, type MealSuggestionPreferencesValues } from '@/lib/schemas'; // Added
+import type { ProfileFormValues as FullProfileType } from '@/lib/schemas'; 
+import { MealSuggestionPreferencesSchema, type MealSuggestionPreferencesValues } from '@/lib/schemas'; 
 import { suggestMealsForMacros, type SuggestMealsForMacrosInput, type SuggestMealsForMacrosOutput } from '@/ai/flows/suggest-meals-for-macros';
-import { mealNames, defaultMacroPercentages, preferredDiets } from '@/lib/constants'; // Added preferredDiets
+import { mealNames, defaultMacroPercentages, preferredDiets } from '@/lib/constants'; 
 import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
 
 async function getProfileDataForSuggestions(userId: string): Promise<Partial<FullProfileType>> {
@@ -27,7 +27,6 @@ async function getProfileDataForSuggestions(userId: string): Promise<Partial<Ful
     try {
       const parsedProfile = JSON.parse(storedProfile) as FullProfileType;
       const arrayFields: (keyof FullProfileType)[] = [
-        // These are fields from the FULL profile, some of which are now managed here
         'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
         'allergies', 'preferredMicronutrients', 'medicalConditions', 'medications', 
         'injuries', 'surgeries', 'exerciseGoals', 'exercisePreferences', 'equipmentAccess'
@@ -93,23 +92,34 @@ function MealSuggestionsContent() {
       getProfileDataForSuggestions(user.id)
         .then(data => {
           setFullProfileData(data);
-          // Populate preference form with relevant data from full profile
           preferenceForm.reset({
             preferredDiet: data.preferredDiet,
-            preferredCuisines: data.preferredCuisines,
-            dispreferredCuisines: data.dispreferredCuisines,
-            preferredIngredients: data.preferredIngredients,
-            dispreferredIngredients: data.dispreferredIngredients,
-            allergies: data.allergies,
-            preferredMicronutrients: data.preferredMicronutrients,
-            medicalConditions: data.medicalConditions,
-            medications: data.medications,
+            preferredCuisines: data.preferredCuisines || [],
+            dispreferredCuisines: data.dispreferredCuisines || [],
+            preferredIngredients: data.preferredIngredients || [],
+            dispreferredIngredients: data.dispreferredIngredients || [],
+            allergies: data.allergies || [],
+            preferredMicronutrients: data.preferredMicronutrients || [],
+            medicalConditions: data.medicalConditions || [],
+            medications: data.medications || [],
           });
         })
         .catch(() => toast({title: "Error", description: "Could not load profile data.", variant: "destructive"}))
         .finally(() => setIsLoadingProfile(false));
     } else {
       setIsLoadingProfile(false);
+      // If no user, populate form with empty defaults or specific initial values if needed
+      preferenceForm.reset({
+            preferredDiet: undefined,
+            preferredCuisines: [],
+            dispreferredCuisines: [],
+            preferredIngredients: [],
+            dispreferredIngredients: [],
+            allergies: [],
+            preferredMicronutrients: [],
+            medicalConditions: [],
+            medications: [],
+      });
     }
   }, [user, toast, preferenceForm]);
 
@@ -216,15 +226,12 @@ function MealSuggestionsContent() {
       gender: fullProfileData?.gender,
       activityLevel: fullProfileData?.activityLevel,
       dietGoal: fullProfileData?.dietGoal,
-      // Use preferences from the local form
       preferredDiet: currentPreferences.preferredDiet,
       preferredCuisines: currentPreferences.preferredCuisines,
       dispreferredCuisines: currentPreferences.dispreferredCuisines,
       preferredIngredients: currentPreferences.preferredIngredients,
       dispreferredIngredients: currentPreferences.dispreferredIngredients,
       allergies: currentPreferences.allergies,
-      // Ensure all fields from SuggestMealsForMacrosInput are covered
-      // 'preferredMicronutrients' and 'medicalConditions' are available in currentPreferences
     };
 
     try {
@@ -254,8 +261,7 @@ function MealSuggestionsContent() {
       control={preferenceForm.control}
       name={fieldName}
       render={({ field }) => {
-        // Ensure field.value is always treated as an array for join, or provide empty string if undefined/null
-        const displayValue = Array.isArray(field.value) ? field.value.join(', ') : '';
+        const displayValue = Array.isArray(field.value) ? field.value.join(', ') : (field.value || '');
         return (
           <FormItem>
             <FormLabel>{label}</FormLabel>
@@ -287,6 +293,55 @@ function MealSuggestionsContent() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <Accordion type="single" collapsible className="w-full mb-6" defaultValue="preferences">
+            <AccordionItem value="preferences">
+              <AccordionTrigger>
+                <div className="flex items-center gap-2">
+                    <Settings className="h-5 w-5 text-primary" /> 
+                    <span className="text-lg font-semibold">Adjust Preferences for this Suggestion</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <Form {...preferenceForm}>
+                  <form className="space-y-6 pt-4">
+                    <Card>
+                      <CardHeader><CardTitle className="text-xl">Dietary Preferences & Restrictions</CardTitle></CardHeader>
+                      <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
+                        <FormField
+                          control={preferenceForm.control}
+                          name="preferredDiet"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Preferred Diet</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value ?? undefined}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select preferred diet" /></SelectTrigger></FormControl>
+                                <SelectContent>{preferredDiets.map(pd => <SelectItem key={pd.value} value={pd.value}>{pd.label}</SelectItem>)}</SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        {renderPreferenceTextarea("allergies" as keyof MealSuggestionPreferencesValues, "Allergies (comma-separated)", "e.g., Peanuts, Shellfish")}
+                        {renderPreferenceTextarea("preferredCuisines" as keyof MealSuggestionPreferencesValues, "Preferred Cuisines", "e.g., Italian, Mexican")}
+                        {renderPreferenceTextarea("dispreferredCuisines" as keyof MealSuggestionPreferencesValues, "Dispreferred Cuisines", "e.g., Thai, French")}
+                        {renderPreferenceTextarea("preferredIngredients" as keyof MealSuggestionPreferencesValues, "Preferred Ingredients", "e.g., Chicken, Broccoli")}
+                        {renderPreferenceTextarea("dispreferredIngredients" as keyof MealSuggestionPreferencesValues, "Dispreferred Ingredients", "e.g., Tofu, Mushrooms")}
+                        {renderPreferenceTextarea("preferredMicronutrients" as keyof MealSuggestionPreferencesValues, "Targeted Micronutrients", "e.g., Vitamin D, Iron")}
+                      </CardContent>
+                    </Card>
+                      <Card>
+                      <CardHeader><CardTitle className="text-xl">Medical Information (for AI awareness)</CardTitle></CardHeader>
+                      <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
+                        {renderPreferenceTextarea("medicalConditions" as keyof MealSuggestionPreferencesValues, "Medical Conditions", "e.g., Diabetes, Hypertension")}
+                        {renderPreferenceTextarea("medications" as keyof MealSuggestionPreferencesValues, "Medications", "e.g., Metformin, Lisinopril")}
+                      </CardContent>
+                    </Card>
+                  </form>
+                </Form>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+
           <div className="mb-6 space-y-2">
             <Label htmlFor="meal-select" className="text-lg font-semibold text-primary">Choose a Meal:</Label>
             <Select onValueChange={handleMealSelectionChange} value={selectedMealName || ""}>
@@ -300,58 +355,6 @@ function MealSuggestionsContent() {
               </SelectContent>
             </Select>
           </div>
-          
-          {selectedMealName && (
-            <Accordion type="single" collapsible className="w-full mb-6">
-              <AccordionItem value="preferences">
-                <AccordionTrigger>
-                  <div className="flex items-center gap-2">
-                     <Settings className="h-5 w-5 text-primary" /> 
-                     <span className="text-lg font-semibold">Adjust Preferences for this Suggestion</span>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <Form {...preferenceForm}>
-                    <form className="space-y-6 pt-4"> {/* Removed onSubmit from form tag as it's not for saving */}
-                      <Card>
-                        <CardHeader><CardTitle className="text-xl">Dietary Preferences & Restrictions</CardTitle></CardHeader>
-                        <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
-                          <FormField
-                            control={preferenceForm.control}
-                            name="preferredDiet"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>Preferred Diet</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                                  <FormControl><SelectTrigger><SelectValue placeholder="Select preferred diet" /></SelectTrigger></FormControl>
-                                  <SelectContent>{preferredDiets.map(pd => <SelectItem key={pd.value} value={pd.value}>{pd.label}</SelectItem>)}</SelectContent>
-                                </Select>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
-                          {renderPreferenceTextarea("allergies" as keyof MealSuggestionPreferencesValues, "Allergies (comma-separated)", "e.g., Peanuts, Shellfish")}
-                          {renderPreferenceTextarea("preferredCuisines" as keyof MealSuggestionPreferencesValues, "Preferred Cuisines", "e.g., Italian, Mexican")}
-                          {renderPreferenceTextarea("dispreferredCuisines" as keyof MealSuggestionPreferencesValues, "Dispreferred Cuisines", "e.g., Thai, French")}
-                          {renderPreferenceTextarea("preferredIngredients" as keyof MealSuggestionPreferencesValues, "Preferred Ingredients", "e.g., Chicken, Broccoli")}
-                          {renderPreferenceTextarea("dispreferredIngredients" as keyof MealSuggestionPreferencesValues, "Dispreferred Ingredients", "e.g., Tofu, Mushrooms")}
-                          {renderPreferenceTextarea("preferredMicronutrients" as keyof MealSuggestionPreferencesValues, "Targeted Micronutrients", "e.g., Vitamin D, Iron")}
-                        </CardContent>
-                      </Card>
-                       <Card>
-                        <CardHeader><CardTitle className="text-xl">Medical Information (for AI awareness)</CardTitle></CardHeader>
-                        <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
-                          {renderPreferenceTextarea("medicalConditions" as keyof MealSuggestionPreferencesValues, "Medical Conditions", "e.g., Diabetes, Hypertension")}
-                          {renderPreferenceTextarea("medications" as keyof MealSuggestionPreferencesValues, "Medications", "e.g., Metformin, Lisinopril")}
-                        </CardContent>
-                      </Card>
-                    </form>
-                  </Form>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          )}
-
 
           {isLoadingTargets && selectedMealName && (
             <div className="flex justify-center items-center py-4">
