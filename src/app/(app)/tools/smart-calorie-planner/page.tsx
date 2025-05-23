@@ -3,7 +3,7 @@
 
 import React, { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -23,7 +23,8 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { BrainCircuit, Calculator, HelpCircle, Info, RefreshCw, AlertTriangle } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
+import { BrainCircuit, Calculator, HelpCircle, RefreshCw, AlertTriangle } from "lucide-react";
 import { SmartCaloriePlannerFormSchema, type SmartCaloriePlannerFormValues } from "@/lib/schemas";
 import { activityLevels, genders, smartPlannerDietGoals } from "@/lib/constants";
 import { calculateBMR } from "@/lib/nutrition-calculator";
@@ -37,6 +38,16 @@ interface CalculationResults {
   finalTargetCalories: number;
   estimatedWeeklyWeightChangeKg: number;
   waistChangeWarning?: string;
+  // New fields for macro breakdown
+  proteinTargetPct: number;
+  proteinGrams: number;
+  proteinCalories: number;
+  carbsTargetPct: number;
+  carbsGrams: number;
+  carbsCalories: number;
+  fatTargetPct: number;
+  fatGrams: number;
+  fatCalories: number;
 }
 
 export default function SmartCaloriePlannerPage() {
@@ -52,7 +63,7 @@ export default function SmartCaloriePlannerPage() {
       goal_weight_1m: undefined,
       ideal_goal_weight: undefined,
       activity_factor_key: undefined,
-      dietGoal: "fat_loss", 
+      dietGoal: "fat_loss",
       bf_current: undefined,
       bf_target: undefined,
       bf_ideal: undefined,
@@ -94,32 +105,32 @@ export default function SmartCaloriePlannerPage() {
     const bmr = calculateBMR(data.gender, data.current_weight, data.height_cm, data.age);
     const tdee = Math.round(bmr * activityFactor);
 
-    let S1TargetCaloriesBase = tdee; 
+    let S1TargetCaloriesBase = tdee;
     if (data.current_weight !== undefined && data.goal_weight_1m !== undefined) {
         const weightDeltaS1 = data.current_weight - data.goal_weight_1m;
-        const calorieAdjustmentS1 = (7700 * weightDeltaS1) / 30; 
+        const calorieAdjustmentS1 = (7700 * weightDeltaS1) / 30;
         S1TargetCaloriesBase = tdee - calorieAdjustmentS1;
     }
     
     let S1TargetCaloriesAdjusted = S1TargetCaloriesBase;
 
     if (data.dietGoal === "fat_loss") {
-      S1TargetCaloriesAdjusted = Math.min(S1TargetCaloriesBase, tdee - 200); 
-      if (S1TargetCaloriesBase > tdee - 200 && S1TargetCaloriesAdjusted > tdee - 500) S1TargetCaloriesAdjusted = tdee - 500; 
+      S1TargetCaloriesAdjusted = Math.min(S1TargetCaloriesBase, tdee - 200);
+      if (S1TargetCaloriesBase > tdee - 200 && S1TargetCaloriesAdjusted > tdee - 500) S1TargetCaloriesAdjusted = tdee - 500;
     } else if (data.dietGoal === "muscle_gain") {
-      S1TargetCaloriesAdjusted = Math.max(S1TargetCaloriesBase, tdee + 150); 
-      if (S1TargetCaloriesBase < tdee + 150 && S1TargetCaloriesAdjusted < tdee + 300) S1TargetCaloriesAdjusted = tdee + 300; 
+      S1TargetCaloriesAdjusted = Math.max(S1TargetCaloriesBase, tdee + 150);
+      if (S1TargetCaloriesBase < tdee + 150 && S1TargetCaloriesAdjusted < tdee + 300) S1TargetCaloriesAdjusted = tdee + 300;
     } else if (data.dietGoal === "recomp") {
-      S1TargetCaloriesAdjusted = tdee - 200; 
+      S1TargetCaloriesAdjusted = tdee - 200;
     }
     
     const targetCaloriesS1 = Math.round(S1TargetCaloriesAdjusted);
 
     let targetCaloriesS2: number | undefined = undefined;
-    if (data.bf_current !== undefined && data.bf_target !== undefined && data.bf_current > 0 && data.bf_target > 0) {
+    if (data.bf_current !== undefined && data.bf_target !== undefined && data.current_weight > 0 && data.bf_current > 0 && data.bf_target > 0) {
       const fatMassCurrentKg = data.current_weight * (data.bf_current / 100);
       const referenceWeightForBFTarget = data.goal_weight_1m || data.current_weight;
-      const fatMassTargetKg = referenceWeightForBFTarget * (data.bf_target / 100); 
+      const fatMassTargetKg = referenceWeightForBFTarget * (data.bf_target / 100);
       const fatMassLossKg = fatMassCurrentKg - fatMassTargetKg;
       const calorieAdjustmentS2 = (7700 * fatMassLossKg) / 30;
       targetCaloriesS2 = Math.round(tdee - calorieAdjustmentS2);
@@ -127,12 +138,12 @@ export default function SmartCaloriePlannerPage() {
 
     let targetCaloriesS3: number | undefined = undefined;
     let waistWarning: string | undefined = undefined;
-    if (data.waist_current !== undefined && data.waist_goal_1m !== undefined && data.waist_current > 0 && data.waist_goal_1m > 0) {
+    if (data.waist_current !== undefined && data.waist_goal_1m !== undefined && data.current_weight > 0 && data.waist_current > 0 && data.waist_goal_1m > 0) {
       const waistChangeCm = data.waist_current - data.waist_goal_1m;
       if (Math.abs(waistChangeCm) > 5) {
         waistWarning = "Warning: A waist change of more than 4-5 cm in 4 weeks may be unrealistic or unsustainable.";
       }
-      const estimatedFatLossPercentFromWaist = waistChangeCm * 0.5; 
+      const estimatedFatLossPercentFromWaist = waistChangeCm * 0.5;
       const estimatedFatLossKgFromWaist = (estimatedFatLossPercentFromWaist / 100) * data.current_weight;
       const calorieAdjustmentS3 = (7700 * estimatedFatLossKgFromWaist) / 30;
       targetCaloriesS3 = Math.round(tdee - calorieAdjustmentS3);
@@ -146,6 +157,26 @@ export default function SmartCaloriePlannerPage() {
     const weeklyCalorieDelta = (tdee - finalTargetCalories) * 7;
     const estimatedWeeklyWeightChangeKg = parseFloat((weeklyCalorieDelta / 7700).toFixed(2));
 
+    // Macronutrient Breakdown Calculation
+    let proteinTargetPct: number, carbsTargetPct: number, fatTargetPct: number;
+
+    if (data.dietGoal === "fat_loss") {
+      proteinTargetPct = 35; carbsTargetPct = 35; fatTargetPct = 30;
+    } else if (data.dietGoal === "muscle_gain") {
+      proteinTargetPct = 30; carbsTargetPct = 50; fatTargetPct = 20;
+    } else { // recomp or other
+      proteinTargetPct = 40; carbsTargetPct = 35; fatTargetPct = 25;
+    }
+
+    const proteinCalories = Math.round(finalTargetCalories * (proteinTargetPct / 100));
+    const proteinGrams = Math.round(proteinCalories / 4);
+
+    const carbsCalories = Math.round(finalTargetCalories * (carbsTargetPct / 100));
+    const carbsGrams = Math.round(carbsCalories / 4);
+    
+    const fatCalories = Math.round(finalTargetCalories * (fatTargetPct / 100));
+    const fatGrams = Math.round(fatCalories / 9);
+
     setResults({
       bmr: Math.round(bmr),
       tdee,
@@ -155,6 +186,15 @@ export default function SmartCaloriePlannerPage() {
       finalTargetCalories,
       estimatedWeeklyWeightChangeKg,
       waistChangeWarning: waistWarning,
+      proteinTargetPct,
+      proteinGrams,
+      proteinCalories,
+      carbsTargetPct,
+      carbsGrams,
+      carbsCalories,
+      fatTargetPct,
+      fatGrams,
+      fatCalories,
     });
   }
   
@@ -191,7 +231,7 @@ export default function SmartCaloriePlannerPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <Accordion type="multiple" defaultValue={["basic-info", "body-comp", "measurements"]} className="w-full">
+              <Accordion type="multiple" defaultValue={["basic-info"]} className="w-full">
                 <AccordionItem value="basic-info">
                   <AccordionTrigger className="text-xl font-semibold">📋 Basic Info (Required)</AccordionTrigger>
                   <AccordionContent className="grid md:grid-cols-2 gap-6 pt-4">
@@ -211,24 +251,24 @@ export default function SmartCaloriePlannerPage() {
                   <AccordionContent className="space-y-3 pt-4">
                     <div className="grid grid-cols-4 gap-x-4 pb-1 border-b">
                       <span className="text-sm font-medium text-muted-foreground">Metric</span>
-                      <span className="text-sm font-medium text-muted-foreground">Current (%)</span>
-                      <span className="text-sm font-medium text-muted-foreground">Target (1 Month) (%)</span>
-                      <span className="text-sm font-medium text-muted-foreground">Ideal (%)</span>
+                      <span className="text-sm font-medium text-muted-foreground text-center">Current (%)</span>
+                      <span className="text-sm font-medium text-muted-foreground text-center">Target (1 Month) (%)</span>
+                      <span className="text-sm font-medium text-muted-foreground text-center">Ideal (%)</span>
                     </div>
                     {[
-                      { name: "Body Fat", currentField: "bf_current", targetField: "bf_target", idealField: "bf_ideal", placeholderSuffix: "%" },
-                      { name: "Muscle Mass", currentField: "mm_current", targetField: "mm_target", idealField: "mm_ideal", placeholderSuffix: "%" },
-                      { name: "Body Water", currentField: "bw_current", targetField: "bw_target", idealField: "bw_ideal", placeholderSuffix: "%" },
+                      { name: "Body Fat", currentField: "bf_current", targetField: "bf_target", idealField: "bf_ideal" },
+                      { name: "Muscle Mass", currentField: "mm_current", targetField: "mm_target", idealField: "mm_ideal" },
+                      { name: "Body Water", currentField: "bw_current", targetField: "bw_target", idealField: "bw_ideal" },
                     ].map(metric => (
                       <div key={metric.name} className="grid grid-cols-4 items-start gap-x-4 py-2">
-                        <span className="text-sm font-medium pt-2">{metric.name}</span>
+                        <FormLabel className="pt-2">{metric.name}</FormLabel>
                         <FormField
                           control={form.control}
                           name={metric.currentField as keyof SmartCaloriePlannerFormValues}
                           render={({ field }) => (
                             <FormItem>
                               <FormControl>
-                                <Input type="number" placeholder={`e.g., 20${metric.placeholderSuffix}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                                <Input type="number" placeholder="e.g., 20%" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="text-center" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -240,7 +280,7 @@ export default function SmartCaloriePlannerPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormControl>
-                                <Input type="number" placeholder={`e.g., 18${metric.placeholderSuffix}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                                <Input type="number" placeholder="e.g., 18%" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="text-center" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -252,7 +292,7 @@ export default function SmartCaloriePlannerPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormControl>
-                                <Input type="number" placeholder={`e.g., 15${metric.placeholderSuffix}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                                <Input type="number" placeholder="e.g., 15%" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="text-center" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -268,9 +308,9 @@ export default function SmartCaloriePlannerPage() {
                   <AccordionContent className="space-y-3 pt-4">
                     <div className="grid grid-cols-4 gap-x-4 pb-1 border-b">
                       <span className="text-sm font-medium text-muted-foreground">Metric</span>
-                      <span className="text-sm font-medium text-muted-foreground">Current (cm)</span>
-                      <span className="text-sm font-medium text-muted-foreground">1-Month Goal (cm)</span>
-                      <span className="text-sm font-medium text-muted-foreground">Ideal (cm)</span>
+                      <span className="text-sm font-medium text-muted-foreground text-center">Current (cm)</span>
+                      <span className="text-sm font-medium text-muted-foreground text-center">1-Month Goal (cm)</span>
+                      <span className="text-sm font-medium text-muted-foreground text-center">Ideal (cm)</span>
                     </div>
                     {[
                       { name: "Waist", currentField: "waist_current", goalField: "waist_goal_1m", idealField: "waist_ideal" },
@@ -281,14 +321,14 @@ export default function SmartCaloriePlannerPage() {
                       { name: "Left Arm", currentField: "left_arm_current", goalField: "left_arm_goal_1m", idealField: "left_arm_ideal" },
                     ].map(metric => (
                       <div key={metric.name} className="grid grid-cols-4 items-start gap-x-4 py-2">
-                        <span className="text-sm font-medium pt-2">{metric.name}</span>
+                        <FormLabel className="pt-2">{metric.name}</FormLabel>
                         <FormField
                           control={form.control}
                           name={metric.currentField as keyof SmartCaloriePlannerFormValues}
                           render={({ field }) => (
                             <FormItem>
                               <FormControl>
-                                <Input type="number" placeholder="cm" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                                <Input type="number" placeholder="cm" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="text-center" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -300,7 +340,7 @@ export default function SmartCaloriePlannerPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormControl>
-                                <Input type="number" placeholder="cm" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                                <Input type="number" placeholder="cm" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="text-center" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -312,7 +352,7 @@ export default function SmartCaloriePlannerPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormControl>
-                                <Input type="number" placeholder="cm" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                                <Input type="number" placeholder="cm" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} className="text-center" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -398,7 +438,7 @@ export default function SmartCaloriePlannerPage() {
               <CardHeader>
                 <CardTitle className="text-2xl">Your Smart Calorie Plan Results</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4 text-lg">
+              <CardContent className="space-y-4">
                 <p><strong>Basal Metabolic Rate (BMR):</strong> {results.bmr} kcal/day</p>
                 <p><strong>Maintenance Calories (TDEE):</strong> {results.tdee} kcal/day</p>
                 <hr className="my-2 border-border" />
@@ -432,10 +472,42 @@ export default function SmartCaloriePlannerPage() {
                     ` Gain ${results.estimatedWeeklyWeightChangeKg} kg/week` : 
                     ` Maintain weight`}
                 </p>
-                <div className="mt-4 pt-3 border-t border-border">
-                    <h4 className="font-semibold text-muted-foreground">Suggested Macro Breakdown (Example for Fat Loss):</h4>
-                    <p className="text-sm">~40% Carbs, 30% Protein, 30% Fat (Adjust based on preference)</p>
-                    <p className="text-xs text-muted-foreground">(This is a general guideline. Detailed macro planning can be done in the 'Daily Macro Breakdown' tool.)</p>
+                
+                <div className="pt-4">
+                    <h4 className="text-xl font-semibold mb-2 text-primary">Suggested Macronutrient Breakdown</h4>
+                    <Table>
+                        <TableHeader>
+                        <TableRow>
+                            <TableHead>Macronutrient</TableHead>
+                            <TableHead className="text-right">% of Daily Calories</TableHead>
+                            <TableHead className="text-right">Grams per Day</TableHead>
+                            <TableHead className="text-right">Calories per Day</TableHead>
+                        </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        <TableRow>
+                            <TableCell className="font-medium">Protein</TableCell>
+                            <TableCell className="text-right">{results.proteinTargetPct}%</TableCell>
+                            <TableCell className="text-right">{results.proteinGrams} g</TableCell>
+                            <TableCell className="text-right">{results.proteinCalories} kcal</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium">Carbohydrates</TableCell>
+                            <TableCell className="text-right">{results.carbsTargetPct}%</TableCell>
+                            <TableCell className="text-right">{results.carbsGrams} g</TableCell>
+                            <TableCell className="text-right">{results.carbsCalories} kcal</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium">Fat</TableCell>
+                            <TableCell className="text-right">{results.fatTargetPct}%</TableCell>
+                            <TableCell className="text-right">{results.fatGrams} g</TableCell>
+                            <TableCell className="text-right">{results.fatCalories} kcal</TableCell>
+                        </TableRow>
+                        </TableBody>
+                        <TableCaption className="text-xs text-muted-foreground mt-2 text-left">
+                        This breakdown is based on your inputs and calculated goal. For custom macro adjustments, visit the 'Daily Macro Breakdown' tool.
+                        </TableCaption>
+                    </Table>
                 </div>
               </CardContent>
             </Card>
@@ -445,3 +517,4 @@ export default function SmartCaloriePlannerPage() {
     </div>
   );
 }
+
