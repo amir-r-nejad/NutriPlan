@@ -26,7 +26,6 @@ interface TotalMacros {
   fat_g: number;
 }
 
-// Helper function to fetch profile data (remains the same)
 async function getProfileDataForMacroSplitter(userId: string): Promise<Partial<ProfileFormValues>> {
   console.log("Fetching profile for macro splitter, user:", userId);
   const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
@@ -178,23 +177,20 @@ export default function MacroSplitterPage() {
     carbs_pct: calculateColumnSum('carbs_pct'),
     fat_pct: calculateColumnSum('fat_pct'),
   };
-
-  const macroLabels = {
-    calories_pct: '% Calories',
-    protein_pct: '% Protein',
-    carbs_pct: '% Carbs',
-    fat_pct: '% Fat',
-  };
   
-  const macroPctKeys = Object.keys(macroLabels) as (keyof typeof macroLabels)[];
-
-  const calculatedValueLabels = {
-    calc_calories: "Calc. Calories",
-    calc_protein_g: "Calc. Protein (g)",
-    calc_carbs_g: "Calc. Carbs (g)",
-    calc_fat_g: "Calc. Fat (g)",
-  };
-  const calculatedValueKeys = Object.keys(calculatedValueLabels) as (keyof typeof calculatedValueLabels)[];
+  const headerLabels = [
+    { key: "meal", label: "Meal", className: "sticky left-0 bg-background z-10 w-[150px] text-left font-medium" },
+    { key: "cal_pct", label: "%Cal", className: "text-right min-w-[70px]" },
+    { key: "p_pct", label: "%P", className: "text-right min-w-[70px]" },
+    { key: "c_pct", label: "%C", className: "text-right min-w-[70px]" },
+    { key: "f_pct", label: "%F", className: "text-right min-w-[70px] border-r" },
+    { key: "kcal", label: "kcal", className: "text-right min-w-[70px]" },
+    { key: "p_g", label: "P(g)", className: "text-right min-w-[70px]" },
+    { key: "c_g", label: "C(g)", className: "text-right min-w-[70px]" },
+    { key: "f_g", label: "F(g)", className: "text-right min-w-[70px]" },
+  ];
+  
+  const macroPctKeys: (keyof Omit<MealMacroDistribution, 'mealName'>)[] = ['calories_pct', 'protein_pct', 'carbs_pct', 'fat_pct'];
 
 
   if (isLoading) {
@@ -241,17 +237,19 @@ export default function MacroSplitterPage() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="text-2xl">Meal Macro Percentage & Value Distribution</CardTitle>
+              <CardTitle className="text-2xl">Meal Macro Percentage &amp; Value Distribution</CardTitle>
               <CardDescription>Enter percentages. Each percentage column must sum to 100%. Calculated values update live.</CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="w-full">
-                <Table>
+                <Table className="min-w-[800px]"> {/* Ensure table has min-width for scroll */}
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[150px] sticky left-0 bg-background z-10">Meal</TableHead>
-                      {macroPctKeys.map(key => <TableHead key={key} className="text-right min-w-[120px]">{macroLabels[key]}</TableHead>)}
-                      {calculatedValueKeys.map(key => <TableHead key={key} className="text-right min-w-[120px]">{calculatedValueLabels[key]}</TableHead>)}
+                      {headerLabels.map(header => (
+                        <TableHead key={header.key} className={cn("px-2 py-2 text-xs font-medium", header.className)}>
+                          {header.label}
+                        </TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -268,74 +266,75 @@ export default function MacroSplitterPage() {
                       
                       return (
                         <TableRow key={field.id}>
-                          <TableCell className="font-medium sticky left-0 bg-background z-10">{field.mealName}</TableCell>
+                          <TableCell className="font-medium sticky left-0 bg-background z-10 px-2 py-1 text-sm">{field.mealName}</TableCell>
                           {macroPctKeys.map(macroKey => (
-                            <TableCell key={macroKey} className="text-right">
+                            <TableCell key={macroKey} className={cn("px-1 py-1 text-right", macroKey === 'fat_pct' ? 'border-r' : '')}>
                               <FormField
                                 control={form.control}
                                 name={`mealDistributions.${index}.${macroKey}`}
                                 render={({ field: itemField }) => (
-                                  <FormItem className="inline-block w-20">
+                                  <FormItem className="inline-block">
                                     <FormControl>
                                       <Input
                                         type="number"
                                         {...itemField}
                                         value={itemField.value ?? 0}
                                         onChange={e => itemField.onChange(parseFloat(e.target.value) || 0)}
-                                        className="text-right tabular-nums"
+                                        className="w-16 text-right tabular-nums text-sm px-1 py-0.5 h-8"
                                         min="0"
                                         max="100"
                                       />
                                     </FormControl>
-                                    <FormMessage /> 
+                                    {/* Minimal FormMessage or none for compactness in table */}
+                                    {/* <FormMessage className="text-xs"/>  */}
                                   </FormItem>
                                 )}
                               />
                             </TableCell>
                           ))}
-                          <TableCell className="text-right tabular-nums">{isNaN(mealCalories) ? 'N/A' : mealCalories.toFixed(0)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{isNaN(mealProteinGrams) ? 'N/A' : mealProteinGrams.toFixed(1)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{isNaN(mealCarbsGrams) ? 'N/A' : mealCarbsGrams.toFixed(1)}</TableCell>
-                          <TableCell className="text-right tabular-nums">{isNaN(mealFatGrams) ? 'N/A' : mealFatGrams.toFixed(1)}</TableCell>
+                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{isNaN(mealCalories) ? 'N/A' : mealCalories.toFixed(0)}</TableCell>
+                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{isNaN(mealProteinGrams) ? 'N/A' : mealProteinGrams.toFixed(1)}</TableCell>
+                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{isNaN(mealCarbsGrams) ? 'N/A' : mealCarbsGrams.toFixed(1)}</TableCell>
+                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{isNaN(mealFatGrams) ? 'N/A' : mealFatGrams.toFixed(1)}</TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
                   <TableFooter>
-                    <TableRow className="font-semibold">
-                      <TableCell className="sticky left-0 bg-background z-10">Input % Totals:</TableCell>
+                    <TableRow className="font-semibold text-sm">
+                      <TableCell className="sticky left-0 bg-background z-10 px-2 py-1">Input % Totals:</TableCell>
                       {macroPctKeys.map(key => {
                           const sum = columnSums[key];
                           const isSum100 = Math.round(sum) === 100;
                           return (
-                              <TableCell key={`sum-${key}`} className={`text-right ${isSum100 ? 'text-green-600' : 'text-destructive'}`}>
+                              <TableCell key={`sum-${key}`} className={cn("px-2 py-1 text-right tabular-nums", isSum100 ? 'text-green-600' : 'text-destructive', key === 'fat_pct' ? 'border-r' : '')}>
                                   {sum.toFixed(1)}%
-                                  {isSum100 ? <CheckCircle2 className="ml-1 h-4 w-4 inline-block" /> : <AlertTriangle className="ml-1 h-4 w-4 inline-block" />}
+                                  {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
                               </TableCell>
                           );
                       })}
-                      <TableCell colSpan={4}></TableCell> 
+                      <TableCell colSpan={4} className="px-2 py-1"></TableCell> 
                     </TableRow>
-                    <TableRow className="font-semibold">
-                       <TableCell className="sticky left-0 bg-background z-10">Calculated Value Totals:</TableCell>
-                       <TableCell colSpan={4}></TableCell>
+                    <TableRow className="font-semibold text-sm bg-muted/70">
+                       <TableCell className="sticky left-0 bg-muted/70 z-10 px-2 py-1">Calc. Value Totals:</TableCell>
+                       <TableCell colSpan={4} className="px-2 py-1 border-r"></TableCell>
                        {dailyTargets ? (
                         <>
-                          <TableCell className="text-right tabular-nums">
+                          <TableCell className="px-2 py-1 text-right tabular-nums">
                             {watchedMealDistributions.reduce((sum, meal) => sum + (dailyTargets.calories * ((meal.calories_pct || 0) / 100)), 0).toFixed(0)}
                           </TableCell>
-                          <TableCell className="text-right tabular-nums">
+                          <TableCell className="px-2 py-1 text-right tabular-nums">
                             {watchedMealDistributions.reduce((sum, meal) => sum + (dailyTargets.protein_g * ((meal.protein_pct || 0) / 100)), 0).toFixed(1)}
                           </TableCell>
-                          <TableCell className="text-right tabular-nums">
+                          <TableCell className="px-2 py-1 text-right tabular-nums">
                             {watchedMealDistributions.reduce((sum, meal) => sum + (dailyTargets.carbs_g * ((meal.carbs_pct || 0) / 100)), 0).toFixed(1)}
                           </TableCell>
-                          <TableCell className="text-right tabular-nums">
+                          <TableCell className="px-2 py-1 text-right tabular-nums">
                             {watchedMealDistributions.reduce((sum, meal) => sum + (dailyTargets.fat_g * ((meal.fat_pct || 0) / 100)), 0).toFixed(1)}
                           </TableCell>
                         </>
                        ) : (
-                        <TableCell colSpan={4} className="text-right">N/A</TableCell>
+                        <TableCell colSpan={4} className="px-2 py-1 text-right">N/A</TableCell>
                        )}
                     </TableRow>
                   </TableFooter>
@@ -353,7 +352,7 @@ export default function MacroSplitterPage() {
             <Button type="submit" className="flex-1 text-lg py-3" disabled={!dailyTargets || form.formState.isSubmitting || isLoading}>
               <Calculator className="mr-2 h-5 w-5" />
               {form.formState.isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-              Save & Show Final Split
+              Save &amp; Show Final Split
             </Button>
             <Button type="button" variant="outline" onClick={handleReset} className="flex-1 text-lg py-3">
               <RefreshCw className="mr-2 h-5 w-5" /> Reset
@@ -366,47 +365,48 @@ export default function MacroSplitterPage() {
         <Card className="shadow-lg mt-8">
           <CardHeader>
             <CardTitle className="text-2xl">Final Meal Macros (Snapshot)</CardTitle>
-            <CardDescription>This was the calculated split when you last clicked "Save & Show Final Split".</CardDescription>
+            <CardDescription>This was the calculated split when you last clicked "Save &amp; Show Final Split".</CardDescription>
           </CardHeader>
           <CardContent>
             <ScrollArea className="w-full">
-            <Table>
+            <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[150px] sticky left-0 bg-background z-10">Meal</TableHead>
-                  <TableHead className="text-right">Calories (kcal)</TableHead>
-                  <TableHead className="text-right">Protein (g)</TableHead>
-                  <TableHead className="text-right">Carbs (g)</TableHead>
-                  <TableHead className="text-right">Fat (g)</TableHead>
-                  <TableHead className="text-right w-[180px]">Actions</TableHead>
+                  <TableHead className="sticky left-0 bg-background z-10 w-[150px] px-2 py-2 text-left text-xs font-medium">Meal</TableHead>
+                  <TableHead className="px-2 py-2 text-right text-xs font-medium">Calories (kcal)</TableHead>
+                  <TableHead className="px-2 py-2 text-right text-xs font-medium">Protein (g)</TableHead>
+                  <TableHead className="px-2 py-2 text-right text-xs font-medium">Carbs (g)</TableHead>
+                  <TableHead className="px-2 py-2 text-right text-xs font-medium">Fat (g)</TableHead>
+                  <TableHead className="px-2 py-2 text-right text-xs font-medium w-[180px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {calculatedSplit.map((mealData) => (
                   <TableRow key={mealData.mealName}>
-                    <TableCell className="font-medium sticky left-0 bg-background z-10">{mealData.mealName}</TableCell>
-                    <TableCell className="text-right tabular-nums">{mealData.Calories}</TableCell>
-                    <TableCell className="text-right tabular-nums">{mealData['Protein (g)']}</TableCell>
-                    <TableCell className="text-right tabular-nums">{mealData['Carbs (g)']}</TableCell>
-                    <TableCell className="text-right tabular-nums">{mealData['Fat (g)']}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="font-medium sticky left-0 bg-background z-10 px-2 py-1 text-sm">{mealData.mealName}</TableCell>
+                    <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{mealData.Calories}</TableCell>
+                    <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{mealData['Protein (g)']}</TableCell>
+                    <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{mealData['Carbs (g)']}</TableCell>
+                    <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{mealData['Fat (g)']}</TableCell>
+                    <TableCell className="px-2 py-1 text-right">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleSuggestMeals(mealData)}
+                        className="h-8 text-xs"
                       >
-                        <Lightbulb className="mr-2 h-4 w-4" /> Suggest Meals
+                        <Lightbulb className="mr-1.5 h-3.5 w-3.5" /> Suggest Meals
                       </Button>
                     </TableCell>
                   </TableRow>
                 ))}
-                <TableRow className="font-semibold border-t-2">
-                    <TableCell className="sticky left-0 bg-background z-10">Total</TableCell>
-                    <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal.Calories, 0)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Protein (g)'], 0)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Carbs (g)'], 0)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Fat (g)'], 0)}</TableCell>
-                    <TableCell></TableCell>
+                <TableRow className="font-semibold border-t-2 text-sm bg-muted/70">
+                    <TableCell className="sticky left-0 bg-muted/70 z-10 px-2 py-1">Total</TableCell>
+                    <TableCell className="px-2 py-1 text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal.Calories, 0)}</TableCell>
+                    <TableCell className="px-2 py-1 text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Protein (g)'], 0)}</TableCell>
+                    <TableCell className="px-2 py-1 text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Carbs (g)'], 0)}</TableCell>
+                    <TableCell className="px-2 py-1 text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Fat (g)'], 0)}</TableCell>
+                    <TableCell className="px-2 py-1"></TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -417,7 +417,3 @@ export default function MacroSplitterPage() {
     </div>
   );
 }
-
-    
-
-    
