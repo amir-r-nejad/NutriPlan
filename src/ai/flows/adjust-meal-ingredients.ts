@@ -116,7 +116,6 @@ Instructions:
 Return the 'adjustedMeal' and 'explanation' in the specified JSON format.
 Ensure the 'adjustedMeal.ingredients' list accurately reflects the new composition and that the total macros for 'adjustedMeal' are correctly summed from these new ingredients.
 If the original meal was empty or targets are impossible to meet with sensible food choices, try your best to create a new simple meal that fits the targets and preferences, and explain this.
-{{$instructions=JSON}}
 `,
 });
 
