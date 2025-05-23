@@ -6,15 +6,13 @@ import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-// Label import was removed in a previous step as it wasn't used in the form, but it's good practice to keep imports minimal.
-// import { Label } from '@/components/ui/label'; 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { MacroSplitterFormSchema, type MacroSplitterFormValues, type ProfileFormValues, type CalculatedMealMacros } from '@/lib/schemas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { mealNames as defaultMealNames } from '@/lib/constants';
+import { mealNames as defaultMealNames, defaultMacroPercentages } from '@/lib/constants';
 import { Loader2, RefreshCw, Calculator, AlertTriangle, CheckCircle2, SplitSquareHorizontal, Lightbulb } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
@@ -70,15 +68,6 @@ function customMacroSplit(
   }));
 }
 
-const defaultMacroPercentages: { [key: string]: { calories_pct: number; protein_pct: number; carbs_pct: number; fat_pct: number } } = {
-  "Breakfast": { calories_pct: 20, protein_pct: 25, carbs_pct: 20, fat_pct: 15 },
-  "Morning Snack": { calories_pct: 10, protein_pct: 10, carbs_pct: 15, fat_pct: 10 },
-  "Lunch": { calories_pct: 25, protein_pct: 25, carbs_pct: 25, fat_pct: 25 },
-  "Afternoon Snack": { calories_pct: 10, protein_pct: 10, carbs_pct: 10, fat_pct: 10 },
-  "Dinner": { calories_pct: 25, protein_pct: 25, carbs_pct: 25, fat_pct: 30 },
-  "Evening Snack": { calories_pct: 10, protein_pct: 5, carbs_pct: 5, fat_pct: 10 },
-};
-
 
 export default function MacroSplitterPage() {
   const { user } = useAuth();
@@ -87,7 +76,7 @@ export default function MacroSplitterPage() {
   const [dailyTargets, setDailyTargets] = useState<TotalMacros | null>(null);
   const [calculatedSplit, setCalculatedSplit] = useState<CalculatedMealMacros[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [profileData, setProfileData] = useState<Partial<ProfileFormValues> | null>(null); // Added this state
+  const [profileData, setProfileData] = useState<Partial<ProfileFormValues> | null>(null);
 
 
   const form = useForm<MacroSplitterFormValues>({
@@ -113,7 +102,7 @@ export default function MacroSplitterPage() {
     setIsLoading(true);
     try {
       const fetchedProfileData = await getProfileDataForMacroSplitter(user.id);
-      setProfileData(fetchedProfileData); // Store profile data
+      setProfileData(fetchedProfileData); 
       if (fetchedProfileData.age && fetchedProfileData.gender && fetchedProfileData.currentWeight && fetchedProfileData.height && fetchedProfileData.activityLevel && fetchedProfileData.dietGoal) {
         const estimatedTargets = calculateEstimatedDailyTargets(fetchedProfileData);
         if (estimatedTargets.targetCalories && estimatedTargets.targetProtein && estimatedTargets.targetCarbs && estimatedTargets.targetFat) {
@@ -197,7 +186,15 @@ export default function MacroSplitterPage() {
     fat_pct: '% Fat',
   };
   
-  const macroKeys = Object.keys(macroLabels) as (keyof typeof macroLabels)[];
+  const macroPctKeys = Object.keys(macroLabels) as (keyof typeof macroLabels)[];
+
+  const calculatedValueLabels = {
+    calc_calories: "Calc. Calories",
+    calc_protein_g: "Calc. Protein (g)",
+    calc_carbs_g: "Calc. Carbs (g)",
+    calc_fat_g: "Calc. Fat (g)",
+  };
+  const calculatedValueKeys = Object.keys(calculatedValueLabels) as (keyof typeof calculatedValueLabels)[];
 
 
   if (isLoading) {
@@ -244,64 +241,104 @@ export default function MacroSplitterPage() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle className="text-2xl">Meal Macro Percentage Distribution</CardTitle>
-              <CardDescription>Enter the percentage of each macro for each meal. Each column must sum to 100%.</CardDescription>
+              <CardTitle className="text-2xl">Meal Macro Percentage & Value Distribution</CardTitle>
+              <CardDescription>Enter percentages. Each percentage column must sum to 100%. Calculated values update live.</CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="w-full">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[150px]">Meal</TableHead>
-                      {macroKeys.map(key => <TableHead key={key} className="text-right">{macroLabels[key]}</TableHead>)}
+                      <TableHead className="w-[150px] sticky left-0 bg-background z-10">Meal</TableHead>
+                      {macroPctKeys.map(key => <TableHead key={key} className="text-right min-w-[120px]">{macroLabels[key]}</TableHead>)}
+                      {calculatedValueKeys.map(key => <TableHead key={key} className="text-right min-w-[120px]">{calculatedValueLabels[key]}</TableHead>)}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {fields.map((field, index) => (
-                      <TableRow key={field.id}>
-                        <TableCell className="font-medium">{field.mealName}</TableCell>
-                        {macroKeys.map(macroKey => (
-                          <TableCell key={macroKey} className="text-right">
-                            <FormField
-                              control={form.control}
-                              name={`mealDistributions.${index}.${macroKey}`}
-                              render={({ field: itemField }) => (
-                                <FormItem className="inline-block w-20">
-                                  <FormControl>
-                                    <Input
-                                      type="number"
-                                      {...itemField}
-                                      value={itemField.value ?? 0}
-                                      onChange={e => itemField.onChange(parseFloat(e.target.value) || 0)}
-                                      className="text-right tabular-nums"
-                                      min="0"
-                                      max="100"
-                                    />
-                                  </FormControl>
-                                  <FormMessage /> 
-                                </FormItem>
-                              )}
-                            />
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
+                    {fields.map((field, index) => {
+                      const currentPercentages = watchedMealDistributions[index];
+                      let mealCalories = NaN, mealProteinGrams = NaN, mealCarbsGrams = NaN, mealFatGrams = NaN;
+
+                      if (dailyTargets && currentPercentages) {
+                        mealCalories = dailyTargets.calories * ((currentPercentages.calories_pct || 0) / 100);
+                        mealProteinGrams = dailyTargets.protein_g * ((currentPercentages.protein_pct || 0) / 100);
+                        mealCarbsGrams = dailyTargets.carbs_g * ((currentPercentages.carbs_pct || 0) / 100);
+                        mealFatGrams = dailyTargets.fat_g * ((currentPercentages.fat_pct || 0) / 100);
+                      }
+                      
+                      return (
+                        <TableRow key={field.id}>
+                          <TableCell className="font-medium sticky left-0 bg-background z-10">{field.mealName}</TableCell>
+                          {macroPctKeys.map(macroKey => (
+                            <TableCell key={macroKey} className="text-right">
+                              <FormField
+                                control={form.control}
+                                name={`mealDistributions.${index}.${macroKey}`}
+                                render={({ field: itemField }) => (
+                                  <FormItem className="inline-block w-20">
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        {...itemField}
+                                        value={itemField.value ?? 0}
+                                        onChange={e => itemField.onChange(parseFloat(e.target.value) || 0)}
+                                        className="text-right tabular-nums"
+                                        min="0"
+                                        max="100"
+                                      />
+                                    </FormControl>
+                                    <FormMessage /> 
+                                  </FormItem>
+                                )}
+                              />
+                            </TableCell>
+                          ))}
+                          <TableCell className="text-right tabular-nums">{isNaN(mealCalories) ? 'N/A' : mealCalories.toFixed(0)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{isNaN(mealProteinGrams) ? 'N/A' : mealProteinGrams.toFixed(1)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{isNaN(mealCarbsGrams) ? 'N/A' : mealCarbsGrams.toFixed(1)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{isNaN(mealFatGrams) ? 'N/A' : mealFatGrams.toFixed(1)}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
-                   <TableCaption className="mt-4">
-                    <div className="grid grid-cols-5 gap-2 items-center font-semibold p-2 border-t">
-                        <div className="text-left">Column Totals:</div>
-                        {macroKeys.map(key => {
-                            const sum = columnSums[key];
-                            const isSum100 = Math.round(sum) === 100;
-                            return (
-                                <div key={key} className={`flex items-center justify-end text-right ${isSum100 ? 'text-green-600' : 'text-destructive'}`}>
-                                     {sum.toFixed(1)}%
-                                    {isSum100 ? <CheckCircle2 className="ml-1 h-4 w-4" /> : <AlertTriangle className="ml-1 h-4 w-4" />}
-                                </div>
-                            );
-                        })}
-                    </div>
-                  </TableCaption>
+                  <TableFooter>
+                    <TableRow className="font-semibold">
+                      <TableCell className="sticky left-0 bg-background z-10">Input % Totals:</TableCell>
+                      {macroPctKeys.map(key => {
+                          const sum = columnSums[key];
+                          const isSum100 = Math.round(sum) === 100;
+                          return (
+                              <TableCell key={`sum-${key}`} className={`text-right ${isSum100 ? 'text-green-600' : 'text-destructive'}`}>
+                                  {sum.toFixed(1)}%
+                                  {isSum100 ? <CheckCircle2 className="ml-1 h-4 w-4 inline-block" /> : <AlertTriangle className="ml-1 h-4 w-4 inline-block" />}
+                              </TableCell>
+                          );
+                      })}
+                      <TableCell colSpan={4}></TableCell> 
+                    </TableRow>
+                    <TableRow className="font-semibold">
+                       <TableCell className="sticky left-0 bg-background z-10">Calculated Value Totals:</TableCell>
+                       <TableCell colSpan={4}></TableCell>
+                       {dailyTargets ? (
+                        <>
+                          <TableCell className="text-right tabular-nums">
+                            {watchedMealDistributions.reduce((sum, meal) => sum + (dailyTargets.calories * ((meal.calories_pct || 0) / 100)), 0).toFixed(0)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {watchedMealDistributions.reduce((sum, meal) => sum + (dailyTargets.protein_g * ((meal.protein_pct || 0) / 100)), 0).toFixed(1)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {watchedMealDistributions.reduce((sum, meal) => sum + (dailyTargets.carbs_g * ((meal.carbs_pct || 0) / 100)), 0).toFixed(1)}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {watchedMealDistributions.reduce((sum, meal) => sum + (dailyTargets.fat_g * ((meal.fat_pct || 0) / 100)), 0).toFixed(1)}
+                          </TableCell>
+                        </>
+                       ) : (
+                        <TableCell colSpan={4} className="text-right">N/A</TableCell>
+                       )}
+                    </TableRow>
+                  </TableFooter>
                 </Table>
               </ScrollArea>
               {form.formState.errors.mealDistributions?.root?.message && (
@@ -316,7 +353,7 @@ export default function MacroSplitterPage() {
             <Button type="submit" className="flex-1 text-lg py-3" disabled={!dailyTargets || form.formState.isSubmitting || isLoading}>
               <Calculator className="mr-2 h-5 w-5" />
               {form.formState.isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-              Calculate Split
+              Save & Show Final Split
             </Button>
             <Button type="button" variant="outline" onClick={handleReset} className="flex-1 text-lg py-3">
               <RefreshCw className="mr-2 h-5 w-5" /> Reset
@@ -328,14 +365,15 @@ export default function MacroSplitterPage() {
       {calculatedSplit && (
         <Card className="shadow-lg mt-8">
           <CardHeader>
-            <CardTitle className="text-2xl">Calculated Meal Macros</CardTitle>
+            <CardTitle className="text-2xl">Final Meal Macros (Snapshot)</CardTitle>
+            <CardDescription>This was the calculated split when you last clicked "Save & Show Final Split".</CardDescription>
           </CardHeader>
           <CardContent>
             <ScrollArea className="w-full">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[150px]">Meal</TableHead>
+                  <TableHead className="w-[150px] sticky left-0 bg-background z-10">Meal</TableHead>
                   <TableHead className="text-right">Calories (kcal)</TableHead>
                   <TableHead className="text-right">Protein (g)</TableHead>
                   <TableHead className="text-right">Carbs (g)</TableHead>
@@ -346,7 +384,7 @@ export default function MacroSplitterPage() {
               <TableBody>
                 {calculatedSplit.map((mealData) => (
                   <TableRow key={mealData.mealName}>
-                    <TableCell className="font-medium">{mealData.mealName}</TableCell>
+                    <TableCell className="font-medium sticky left-0 bg-background z-10">{mealData.mealName}</TableCell>
                     <TableCell className="text-right tabular-nums">{mealData.Calories}</TableCell>
                     <TableCell className="text-right tabular-nums">{mealData['Protein (g)']}</TableCell>
                     <TableCell className="text-right tabular-nums">{mealData['Carbs (g)']}</TableCell>
@@ -363,12 +401,12 @@ export default function MacroSplitterPage() {
                   </TableRow>
                 ))}
                 <TableRow className="font-semibold border-t-2">
-                    <TableCell>Total</TableCell>{/*
-                 */}<TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal.Calories, 0)}</TableCell>{/*
-                 */}<TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Protein (g)'], 0)}</TableCell>{/*
-                 */}<TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Carbs (g)'], 0)}</TableCell>{/*
-                 */}<TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Fat (g)'], 0)}</TableCell>{/*
-                 */}<TableCell></TableCell>
+                    <TableCell className="sticky left-0 bg-background z-10">Total</TableCell>
+                    <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal.Calories, 0)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Protein (g)'], 0)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Carbs (g)'], 0)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Fat (g)'], 0)}</TableCell>
+                    <TableCell></TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -379,5 +417,7 @@ export default function MacroSplitterPage() {
     </div>
   );
 }
+
+    
 
     
