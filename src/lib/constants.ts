@@ -71,3 +71,12 @@ export const daysOfWeek = [
   "Saturday",
   "Sunday",
 ];
+
+export const defaultMacroPercentages: { [key: string]: { calories_pct: number; protein_pct: number; carbs_pct: number; fat_pct: number } } = {
+  "Breakfast": { calories_pct: 20, protein_pct: 25, carbs_pct: 20, fat_pct: 15 },
+  "Morning Snack": { calories_pct: 10, protein_pct: 10, carbs_pct: 15, fat_pct: 10 },
+  "Lunch": { calories_pct: 25, protein_pct: 25, carbs_pct: 25, fat_pct: 25 },
+  "Afternoon Snack": { calories_pct: 10, protein_pct: 10, carbs_pct: 10, fat_pct: 10 },
+  "Dinner": { calories_pct: 25, protein_pct: 25, carbs_pct: 25, fat_pct: 30 },
+  "Evening Snack": { calories_pct: 10, protein_pct: 5, carbs_pct: 5, fat_pct: 10 },
+};
