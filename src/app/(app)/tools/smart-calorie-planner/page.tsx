@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -40,36 +39,12 @@ interface CalculationResults {
   waistChangeWarning?: string;
 }
 
-// Standard function declaration for the helper
-function renderOptionalNumberInput(form: any, name: keyof SmartCaloriePlannerFormValues, label: string, placeholder?: string, unit?: string) {
-  return (
-    <FormField
-      control={form.control}
-      name={name}
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel>{label}</FormLabel>
-          <FormControl>
-            <div className="flex items-center">
-              <Input type="number" placeholder={placeholder} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
-              {unit && <span className="ml-2 text-sm text-muted-foreground">{unit}</span>}
-            </div>
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-}
-
-
 export default function SmartCaloriePlannerPage() {
   const [results, setResults] = useState<CalculationResults | null>(null);
 
   const form = useForm<SmartCaloriePlannerFormValues>({
     resolver: zodResolver(SmartCaloriePlannerFormSchema),
     defaultValues: {
-      // Basic Info
       age: undefined,
       gender: undefined,
       height_cm: undefined,
@@ -77,15 +52,13 @@ export default function SmartCaloriePlannerPage() {
       goal_weight_1m: undefined,
       ideal_goal_weight: undefined,
       activity_factor_key: undefined,
-      dietGoal: undefined, // Initialize dietGoal
-      // Body Comp
+      dietGoal: "fat_loss",
       bf_current: undefined,
       bf_target: undefined,
       mm_current: undefined,
       mm_target: undefined,
       bw_current: undefined,
       bw_target: undefined,
-      // Measurements
       waist_current: undefined,
       waist_goal_1m: undefined,
       waist_ideal: undefined,
@@ -106,37 +79,30 @@ export default function SmartCaloriePlannerPage() {
     const bmr = calculateBMR(data.gender, data.current_weight, data.height_cm, data.age);
     const tdee = Math.round(bmr * activityFactor);
 
-    // Scenario 1: Basic Goal (Required Fields Only)
-    const weightDeltaS1 = data.current_weight - data.goal_weight_1m;
-    const calorieAdjustmentS1 = (7700 * weightDeltaS1) / 30; // 7700 kcal per kg, over 30 days
-    let S1TargetCalories = tdee - calorieAdjustmentS1;
-
-    // Adjust S1TargetCalories based on dietGoal
-    if (data.dietGoal === "fat_loss") {
-      // If weight goal implies gain or maintenance, force a deficit. Otherwise, ensure at least a mild deficit.
-      if (S1TargetCalories >= tdee - 200) { // If goal is minor loss, maintenance or gain based on weight
-        S1TargetCalories = tdee - 500; // Standard fat loss deficit
-      } else { // If weight goal already implies a deficit larger than 200
-        S1TargetCalories = Math.min(S1TargetCalories, tdee - 200); // Ensure at least a 200 deficit
-      }
-    } else if (data.dietGoal === "muscle_gain") {
-      // If weight goal implies loss or maintenance, force a surplus. Otherwise, ensure at least a mild surplus.
-      if (S1TargetCalories <= tdee + 150) { // If goal is minor gain, maintenance or loss based on weight
-        S1TargetCalories = tdee + 300; // Standard muscle gain surplus
-      } else { // If weight goal already implies a surplus larger than 150
-        S1TargetCalories = Math.max(S1TargetCalories, tdee + 150); // Ensure at least a 150 surplus
-      }
-    } else if (data.dietGoal === "recomp") {
-      S1TargetCalories = tdee - 200; // Aim for a slight deficit for recomposition
+    let S1TargetCaloriesBase = tdee; // Start with TDEE before weight goal adjustment
+    if (data.current_weight !== undefined && data.goal_weight_1m !== undefined) {
+        const weightDeltaS1 = data.current_weight - data.goal_weight_1m;
+        const calorieAdjustmentS1 = (7700 * weightDeltaS1) / 30; 
+        S1TargetCaloriesBase = tdee - calorieAdjustmentS1;
     }
     
-    const targetCaloriesS1 = Math.round(S1TargetCalories);
+    let S1TargetCaloriesAdjusted = S1TargetCaloriesBase;
 
+    if (data.dietGoal === "fat_loss") {
+      S1TargetCaloriesAdjusted = Math.min(S1TargetCaloriesBase, tdee - 200); // Ensure at least 200 deficit, or respect goal if larger
+      if (S1TargetCaloriesBase > tdee - 200) S1TargetCaloriesAdjusted = tdee - 500; // Default fat loss deficit
+    } else if (data.dietGoal === "muscle_gain") {
+      S1TargetCaloriesAdjusted = Math.max(S1TargetCaloriesBase, tdee + 150); // Ensure at least 150 surplus, or respect goal if larger
+      if (S1TargetCaloriesBase < tdee + 150) S1TargetCaloriesAdjusted = tdee + 300; // Default muscle gain surplus
+    } else if (data.dietGoal === "recomp") {
+      S1TargetCaloriesAdjusted = tdee - 200; // Aim for a slight deficit for recomposition
+    }
+    
+    const targetCaloriesS1 = Math.round(S1TargetCaloriesAdjusted);
 
     let targetCaloriesS2: number | undefined = undefined;
     if (data.bf_current !== undefined && data.bf_target !== undefined && data.bf_current > 0 && data.bf_target > 0) {
       const fatMassCurrentKg = data.current_weight * (data.bf_current / 100);
-      // Target fat mass should be based on target weight if specified, or current weight as an approximation
       const referenceWeightForBFTarget = data.goal_weight_1m || data.current_weight;
       const fatMassTargetKg = referenceWeightForBFTarget * (data.bf_target / 100); 
       const fatMassLossKg = fatMassCurrentKg - fatMassTargetKg;
@@ -148,11 +114,9 @@ export default function SmartCaloriePlannerPage() {
     let waistWarning: string | undefined = undefined;
     if (data.waist_current !== undefined && data.waist_goal_1m !== undefined && data.waist_current > 0 && data.waist_goal_1m > 0) {
       const waistChangeCm = data.waist_current - data.waist_goal_1m;
-      if (Math.abs(waistChangeCm) > 5) { // More than ~5cm in 4 weeks
+      if (Math.abs(waistChangeCm) > 5) {
         waistWarning = "Warning: A waist change of more than 4-5 cm in 4 weeks may be unrealistic or unsustainable.";
       }
-      // Heuristic: each cm of waist loss is roughly 0.5% body fat loss of current weight
-      // This is a very rough estimate and varies greatly.
       const estimatedFatLossPercentFromWaist = waistChangeCm * 0.5; 
       const estimatedFatLossKgFromWaist = (estimatedFatLossPercentFromWaist / 100) * data.current_weight;
       const calorieAdjustmentS3 = (7700 * estimatedFatLossKgFromWaist) / 30;
@@ -160,14 +124,12 @@ export default function SmartCaloriePlannerPage() {
     }
 
     let finalTargetCalories = targetCaloriesS1;
-    // If both S1 (adjusted by dietGoal) and S2 (BF%) are available, average them for a more balanced target
     if (targetCaloriesS2 !== undefined) {
       finalTargetCalories = Math.round((targetCaloriesS1 + targetCaloriesS2) / 2);
     }
     
     const weeklyCalorieDelta = (tdee - finalTargetCalories) * 7;
     const estimatedWeeklyWeightChangeKg = parseFloat((weeklyCalorieDelta / 7700).toFixed(2));
-
 
     setResults({
       bmr: Math.round(bmr),
@@ -185,7 +147,7 @@ export default function SmartCaloriePlannerPage() {
     form.reset({
       age: undefined, gender: undefined, height_cm: undefined, current_weight: undefined,
       goal_weight_1m: undefined, ideal_goal_weight: undefined, activity_factor_key: undefined,
-      dietGoal: undefined,
+      dietGoal: "fat_loss",
       bf_current: undefined, bf_target: undefined, mm_current: undefined, mm_target: undefined,
       bw_current: undefined, bw_target: undefined, waist_current: undefined,
       waist_goal_1m: undefined, waist_ideal: undefined, hips_current: undefined,
@@ -193,7 +155,6 @@ export default function SmartCaloriePlannerPage() {
     });
     setResults(null);
   };
-
 
   return (
     <div className="container mx-auto py-8">
@@ -219,7 +180,7 @@ export default function SmartCaloriePlannerPage() {
                     <FormField control={form.control} name="height_cm" render={({ field }) => ( <FormItem> <FormLabel>Height (cm)</FormLabel> <FormControl><Input type="number" placeholder="cm" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)}/></FormControl> <FormMessage /> </FormItem> )} />
                     <FormField control={form.control} name="current_weight" render={({ field }) => ( <FormItem> <FormLabel>Current Weight (kg)</FormLabel> <FormControl><Input type="number" placeholder="kg" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)}/></FormControl> <FormMessage /> </FormItem> )} />
                     <FormField control={form.control} name="goal_weight_1m" render={({ field }) => ( <FormItem> <FormLabel>Target Weight (1 Month) (kg)</FormLabel> <FormControl><Input type="number" placeholder="kg" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)}/></FormControl> <FormMessage /> </FormItem> )} />
-                    {renderOptionalNumberInput(form, "ideal_goal_weight", "Long-Term Goal Weight (kg)", "kg")}
+                    <FormField control={form.control} name="ideal_goal_weight" render={({ field }) => ( <FormItem> <FormLabel>Long-Term Goal Weight (kg)</FormLabel> <FormControl><Input type="number" placeholder="kg (Optional)" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)}/></FormControl> <FormMessage /> </FormItem> )} />
                     <FormField control={form.control} name="activity_factor_key" render={({ field }) => ( <FormItem> <FormLabel>Physical Activity Level</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select activity level" /></SelectTrigger></FormControl> <SelectContent>{activityLevels.map(al => <SelectItem key={al.value} value={al.value}>{al.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
                     <FormField control={form.control} name="dietGoal" render={({ field }) => ( <FormItem> <FormLabel>Diet Goal</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select diet goal" /></SelectTrigger></FormControl> <SelectContent>{smartPlannerDietGoals.map(dg => <SelectItem key={dg.value} value={dg.value}>{dg.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
                   </AccordionContent>
@@ -227,31 +188,101 @@ export default function SmartCaloriePlannerPage() {
 
                 <AccordionItem value="body-comp">
                   <AccordionTrigger className="text-xl font-semibold">💪 Body Composition (Optional)</AccordionTrigger>
-                  <AccordionContent className="grid md:grid-cols-2 gap-6 pt-4">
-                     {renderOptionalNumberInput(form, "bf_current", "Current Body Fat %", "e.g., 20", "%")}
-                     {renderOptionalNumberInput(form, "bf_target", "Target Body Fat % (1 Month)", "e.g., 18", "%")}
-                     {renderOptionalNumberInput(form, "mm_current", "Current Muscle Mass %", "e.g., 35", "%")}
-                     {renderOptionalNumberInput(form, "mm_target", "Target Muscle Mass %", "e.g., 37", "%")}
-                     {renderOptionalNumberInput(form, "bw_current", "Current Body Water %", "e.g., 55", "%")}
-                     {renderOptionalNumberInput(form, "bw_target", "Target Body Water %", "e.g., 58", "%")}
+                  <AccordionContent className="space-y-3 pt-4">
+                    <div className="grid grid-cols-3 gap-x-4 pb-1 border-b">
+                      <span className="text-sm font-medium text-muted-foreground">Metric</span>
+                      <span className="text-sm font-medium text-muted-foreground">Current (%)</span>
+                      <span className="text-sm font-medium text-muted-foreground">Target (1 Month) (%)</span>
+                    </div>
+                    {[
+                      { name: "Body Fat", currentField: "bf_current", targetField: "bf_target", currentPlaceholder: "e.g., 20", targetPlaceholder: "e.g., 18" },
+                      { name: "Muscle Mass", currentField: "mm_current", targetField: "mm_target", currentPlaceholder: "e.g., 35", targetPlaceholder: "e.g., 37" },
+                      { name: "Body Water", currentField: "bw_current", targetField: "bw_target", currentPlaceholder: "e.g., 55", targetPlaceholder: "e.g., 58" },
+                    ].map(metric => (
+                      <div key={metric.name} className="grid grid-cols-3 items-start gap-x-4 py-2">
+                        <span className="text-sm font-medium pt-2">{metric.name}</span>
+                        <FormField
+                          control={form.control}
+                          name={metric.currentField as keyof SmartCaloriePlannerFormValues}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input type="number" placeholder={metric.currentPlaceholder} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={metric.targetField as keyof SmartCaloriePlannerFormValues}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input type="number" placeholder={metric.targetPlaceholder} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    ))}
                   </AccordionContent>
                 </AccordionItem>
 
                 <AccordionItem value="measurements">
                   <AccordionTrigger className="text-xl font-semibold">📏 Measurements (Optional)</AccordionTrigger>
-                  <AccordionContent className="space-y-6 pt-4">
-                    <div className="grid md:grid-cols-3 gap-x-6 gap-y-4">
-                      <h4 className="md:col-span-3 text-md font-medium text-muted-foreground">Waist (cm)</h4>
-                      {renderOptionalNumberInput(form, "waist_current", "Current Waist", "cm")}
-                      {renderOptionalNumberInput(form, "waist_goal_1m", "1-Month Goal Waist", "cm")}
-                      {renderOptionalNumberInput(form, "waist_ideal", "Ideal Waist", "cm")}
+                  <AccordionContent className="space-y-3 pt-4">
+                    <div className="grid grid-cols-4 gap-x-4 pb-1 border-b">
+                      <span className="text-sm font-medium text-muted-foreground">Metric</span>
+                      <span className="text-sm font-medium text-muted-foreground">Current (cm)</span>
+                      <span className="text-sm font-medium text-muted-foreground">1-Month Goal (cm)</span>
+                      <span className="text-sm font-medium text-muted-foreground">Ideal (cm)</span>
                     </div>
-                     <div className="grid md:grid-cols-3 gap-x-6 gap-y-4">
-                      <h4 className="md:col-span-3 text-md font-medium text-muted-foreground">Hips (cm)</h4>
-                      {renderOptionalNumberInput(form, "hips_current", "Current Hips", "cm")}
-                      {renderOptionalNumberInput(form, "hips_goal_1m", "1-Month Goal Hips", "cm")}
-                      {renderOptionalNumberInput(form, "hips_ideal", "Ideal Hips", "cm")}
-                    </div>
+                    {[
+                      { name: "Waist", currentField: "waist_current", goalField: "waist_goal_1m", idealField: "waist_ideal" },
+                      { name: "Hips", currentField: "hips_current", goalField: "hips_goal_1m", idealField: "hips_ideal" },
+                    ].map(metric => (
+                      <div key={metric.name} className="grid grid-cols-4 items-start gap-x-4 py-2">
+                        <span className="text-sm font-medium pt-2">{metric.name}</span>
+                        <FormField
+                          control={form.control}
+                          name={metric.currentField as keyof SmartCaloriePlannerFormValues}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input type="number" placeholder="cm" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={metric.goalField as keyof SmartCaloriePlannerFormValues}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input type="number" placeholder="cm" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={metric.idealField as keyof SmartCaloriePlannerFormValues}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input type="number" placeholder="cm" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    ))}
                   </AccordionContent>
                 </AccordionItem>
 
@@ -261,7 +292,7 @@ export default function SmartCaloriePlannerPage() {
                         <HelpCircle className="mr-2 h-6 w-6 text-primary" /> How is this calculated?
                         </div>
                     </AccordionTrigger>
-                    <AccordionContent className="text-sm space-y-4 pt-3">
+                    <AccordionContent className="text-sm space-y-4 pt-3 max-h-96 overflow-y-auto">
                         <p>This planner helps estimate your daily calorie needs based on established formulas and your goals.</p>
                         
                         <div>
@@ -287,9 +318,10 @@ export default function SmartCaloriePlannerPage() {
                         <h4 className="font-semibold text-base mt-2">3. Target Daily Calories</h4>
                         <p>Your target calories are adjusted from your TDEE based on your goals:</p>
                         <ul className="list-disc pl-5 space-y-1 mt-1">
-                            <li><strong>Weight Goal (Scenario 1):</strong> We estimate the calorie deficit/surplus needed to reach your 1-month weight goal (approx. 7700 kcal per kg of fat). Your selected "Diet Goal" (Fat loss, Muscle gain, Recomp) further refines this estimate.</li>
-                            <li><strong>Body Fat % Goal (Scenario 2):</strong> If you provide current and target body fat percentages, we estimate the calorie adjustment based on the targeted fat mass change. If both Weight Goal (adjusted by Diet Goal) and BF% goals are set, your final target calories will be an average of these two scenarios.</li>
-                            <li><strong>Waist Goal (Scenario 3):</strong> If you provide waist measurements, we use a heuristic (approx. 0.5% body fat change per cm of waist change of current weight) to estimate an alternative target. This is a rough guide and is displayed separately.</li>
+                            <li><strong>Weight Goal (Primary Factor):</strong> We estimate the calorie deficit/surplus needed to reach your 1-month weight goal (approx. 7700 kcal per kg of change).</li>
+                            <li><strong>Diet Goal Adjustment:</strong> Your selected "Diet Goal" (Fat loss, Muscle gain, Recomp) further refines this estimate to better suit your primary objective. For example, "Fat loss" ensures a deficit, "Muscle gain" ensures a surplus, and "Recomp" aims for a slight deficit.</li>
+                            <li><strong>Body Fat % Goal (If provided):</strong> If you provide current and target body fat percentages, we estimate calorie adjustments based on targeted fat mass change. If this and your weight goal (adjusted by diet goal) are set, your final target calories will be an average of these two scenarios for a more balanced approach.</li>
+                            <li><strong>Waist Goal (Alternative Estimate):</strong> If you provide waist measurements, we use a heuristic (approx. 0.5% body fat change of current weight per cm of waist change) to estimate an alternative target. This is shown separately as a rough guide.</li>
                         </ul>
                         </div>
 
@@ -334,16 +366,16 @@ export default function SmartCaloriePlannerPage() {
                 <p><strong>Maintenance Calories (TDEE):</strong> {results.tdee} kcal/day</p>
                 <hr className="my-2 border-border" />
                 <p className="text-primary font-semibold"><strong>Primary Target Daily Calories:</strong> {results.finalTargetCalories} kcal/day</p>
-                {results.targetCaloriesScenario2 !== undefined ? (
+                {results.targetCaloriesScenario2 !== undefined && form.getValues("bf_current") && form.getValues("bf_target") ? (
                     <p className="text-sm text-muted-foreground">
-                        (Based on averaging your 1-month weight goal (adjusted by diet goal: {results.targetCaloriesScenario1} kcal) and body fat % goal ({results.targetCaloriesScenario2} kcal) scenarios.)
+                        (Derived from averaging your weight goal (adjusted by diet goal: {results.targetCaloriesScenario1} kcal) and body fat % goal ({results.targetCaloriesScenario2} kcal) scenarios.)
                     </p>
                 ) : (
                     <p className="text-sm text-muted-foreground">
-                        (Based on your 1-month weight goal adjusted by your diet goal: {results.targetCaloriesScenario1} kcal.)
+                        (Derived from your weight goal, adjusted by your selected diet goal: {results.targetCaloriesScenario1} kcal.)
                     </p>
                 )}
-                 {results.targetCaloriesScenario3 !== undefined && (
+                 {results.targetCaloriesScenario3 !== undefined && form.getValues("waist_current") && form.getValues("waist_goal_1m") && (
                   <div className="mt-2 p-3 border border-dashed rounded-md">
                     <p className="text-indigo-600 dark:text-indigo-400"><strong>Alternative Target (Waist Goal):</strong> {results.targetCaloriesScenario3} kcal/day</p>
                     <p className="text-xs text-muted-foreground">(This is a heuristic estimate based on waist change.)</p>
@@ -376,3 +408,5 @@ export default function SmartCaloriePlannerPage() {
     </div>
   );
 }
+
+    
