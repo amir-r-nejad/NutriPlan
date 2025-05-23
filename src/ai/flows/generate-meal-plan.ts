@@ -16,7 +16,8 @@ const GeneratePersonalizedMealPlanInputSchema = z.object({
   gender: z.string().describe('The gender of the user.'),
   height: z.number().describe('The height of the user in centimeters.'),
   currentWeight: z.number().describe('The current weight of the user in kilograms.'),
-  goalWeight: z.number().describe('The goal weight of the user in kilograms.'),
+  goalWeight1Month: z.number().describe('The goal weight of the user in 1 month in kilograms.'),
+  goalWeightIdeal: z.number().optional().describe('The ideal goal weight of the user in kilograms.'),
   bodyFatPercentage: z.number().optional().describe('The current body fat percentage of the user.'),
   muscleMassPercentage: z.number().optional().describe('The current muscle mass percentage of the user.'),
   waterPercentage: z.number().optional().describe('The current water percentage of the user.'),
@@ -117,7 +118,8 @@ const prompt = ai.definePrompt({
   Gender: {{{gender}}}
   Height: {{{height}}} cm
   Current Weight: {{{currentWeight}}} kg
-  Goal Weight: {{{goalWeight}}} kg
+  Goal Weight (1 Month): {{{goalWeight1Month}}} kg
+  {{#if goalWeightIdeal}}Ideal Goal Weight: {{{goalWeightIdeal}}} kg{{/if}}
   {{#if bodyFatPercentage}}Body Fat Percentage: {{{bodyFatPercentage}}}%{{/if}}
   {{#if muscleMassPercentage}}Muscle Mass Percentage: {{{muscleMassPercentage}}}%{{/if}}
   {{#if waterPercentage}}Water Percentage: {{{waterPercentage}}}%{{/if}}

@@ -60,7 +60,8 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
         gender: undefined,
         height: undefined,
         currentWeight: undefined,
-        goalWeight: undefined,
+        goalWeight1Month: undefined,
+        goalWeightIdeal: undefined,
         activityLevel: "moderate",
         dietGoal: "lose_weight",
         mealsPerDay: 3,
@@ -111,7 +112,8 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
     gender: undefined,
     height: undefined,
     currentWeight: undefined,
-    goalWeight: undefined,
+    goalWeight1Month: undefined,
+    goalWeightIdeal: undefined,
     activityLevel: "moderate",
     dietGoal: "lose_weight",
     mealsPerDay: 3,
@@ -209,7 +211,8 @@ export default function ProfilePage() {
       gender: undefined,
       height: undefined,
       currentWeight: undefined,
-      goalWeight: undefined,
+      goalWeight1Month: undefined,
+      goalWeightIdeal: undefined,
       currentBodyFatPercentage: undefined,
       targetBodyFatPercentage: undefined,
       currentMuscleMassPercentage: undefined,
@@ -328,7 +331,8 @@ export default function ProfilePage() {
                   <FormField control={form.control} name="gender" render={({ field }) => ( <FormItem> <FormLabel>Gender</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl> <SelectContent>{genders.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
                   <FormField control={form.control} name="height" render={({ field }) => ( <FormItem> <FormLabel>Height (cm)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
                   <FormField control={form.control} name="currentWeight" render={({ field }) => ( <FormItem> <FormLabel>Current Weight (kg)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
-                  <FormField control={form.control} name="goalWeight" render={({ field }) => ( <FormItem> <FormLabel>Goal Weight (kg)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="goalWeight1Month" render={({ field }) => ( <FormItem> <FormLabel>Goal Weight (1 Month) (kg)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                  <FormField control={form.control} name="goalWeightIdeal" render={({ field }) => ( <FormItem> <FormLabel>Ideal Goal Weight (kg)</FormLabel> <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
                 </AccordionContent>
               </AccordionItem>
 

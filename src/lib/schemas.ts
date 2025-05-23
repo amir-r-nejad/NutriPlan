@@ -2,7 +2,7 @@
 import * as z from "zod";
 import { activityLevels, dietGoals, preferredDiets, mealsPerDayOptions, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames } from "./constants";
 
-// Helper for preprocessing optional number fields: empty string becomes undefined
+// Helper for preprocessing optional number fields: empty string or null becomes undefined
 const preprocessOptionalNumber = (val: unknown) => (val === "" || val === null ? undefined : val);
 
 export const ProfileFormSchema = z.object({
@@ -11,7 +11,9 @@ export const ProfileFormSchema = z.object({
   gender: z.enum(genders.map(g => g.value) as [string, ...string[]], { required_error: "Gender is required." }),
   height: z.coerce.number().min(50, "Height must be at least 50cm").max(300),
   currentWeight: z.coerce.number().min(20, "Current weight must be at least 20kg").max(500),
-  goalWeight: z.coerce.number().min(20, "Goal weight must be at least 20kg").max(500),
+  goalWeight1Month: z.coerce.number().min(20, "1-Month Goal weight must be at least 20kg").max(500).describe("The goal weight for 1 month."),
+  goalWeightIdeal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(20, "Ideal Goal weight must be at least 20kg").max(500).optional().describe("The ideal goal weight.")),
+
 
   // Body Composition
   currentBodyFatPercentage: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
@@ -237,3 +239,4 @@ export type CalculatedMealMacros = {
   'Carbs (g)': number;
   'Fat (g)': number;
 };
+
