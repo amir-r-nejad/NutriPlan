@@ -254,19 +254,34 @@ export const SmartCaloriePlannerFormSchema = z.object({
   // Body Composition (Optional)
   bf_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100, "Body fat % must be between 0 and 100.").optional()),
   bf_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100, "Target body fat % must be between 0 and 100.").optional()),
-  mm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()), // Muscle Mass %
-  mm_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),  // Target Muscle Mass %
-  bw_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()), // Body Water %
-  bw_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),  // Target Body Water %
+  bf_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100, "Ideal body fat % must be between 0 and 100.").optional()),
+  mm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()), 
+  mm_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),  
+  mm_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
+  bw_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()), 
+  bw_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
+  bw_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
 
-  // Measurements (Optional) - Waist & Hips for now
+  // Measurements (Optional)
   waist_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   waist_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   waist_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   hips_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   hips_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   hips_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  // Add arms/legs later if needed
+  
+  right_leg_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  right_leg_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  right_leg_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  left_leg_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  left_leg_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  left_leg_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  right_arm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  right_arm_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  right_arm_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  left_arm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  left_arm_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  left_arm_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
 });
 
 export type SmartCaloriePlannerFormValues = z.infer<typeof SmartCaloriePlannerFormSchema>;

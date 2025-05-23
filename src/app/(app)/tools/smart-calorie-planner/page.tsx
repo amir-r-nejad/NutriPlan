@@ -52,19 +52,34 @@ export default function SmartCaloriePlannerPage() {
       goal_weight_1m: undefined,
       ideal_goal_weight: undefined,
       activity_factor_key: undefined,
-      dietGoal: "fat_loss",
+      dietGoal: "fat_loss", 
       bf_current: undefined,
       bf_target: undefined,
+      bf_ideal: undefined,
       mm_current: undefined,
       mm_target: undefined,
+      mm_ideal: undefined,
       bw_current: undefined,
       bw_target: undefined,
+      bw_ideal: undefined,
       waist_current: undefined,
       waist_goal_1m: undefined,
       waist_ideal: undefined,
       hips_current: undefined,
       hips_goal_1m: undefined,
       hips_ideal: undefined,
+      right_leg_current: undefined,
+      right_leg_goal_1m: undefined,
+      right_leg_ideal: undefined,
+      left_leg_current: undefined,
+      left_leg_goal_1m: undefined,
+      left_leg_ideal: undefined,
+      right_arm_current: undefined,
+      right_arm_goal_1m: undefined,
+      right_arm_ideal: undefined,
+      left_arm_current: undefined,
+      left_arm_goal_1m: undefined,
+      left_arm_ideal: undefined,
     },
   });
 
@@ -79,7 +94,7 @@ export default function SmartCaloriePlannerPage() {
     const bmr = calculateBMR(data.gender, data.current_weight, data.height_cm, data.age);
     const tdee = Math.round(bmr * activityFactor);
 
-    let S1TargetCaloriesBase = tdee; // Start with TDEE before weight goal adjustment
+    let S1TargetCaloriesBase = tdee; 
     if (data.current_weight !== undefined && data.goal_weight_1m !== undefined) {
         const weightDeltaS1 = data.current_weight - data.goal_weight_1m;
         const calorieAdjustmentS1 = (7700 * weightDeltaS1) / 30; 
@@ -89,13 +104,13 @@ export default function SmartCaloriePlannerPage() {
     let S1TargetCaloriesAdjusted = S1TargetCaloriesBase;
 
     if (data.dietGoal === "fat_loss") {
-      S1TargetCaloriesAdjusted = Math.min(S1TargetCaloriesBase, tdee - 200); // Ensure at least 200 deficit, or respect goal if larger
-      if (S1TargetCaloriesBase > tdee - 200) S1TargetCaloriesAdjusted = tdee - 500; // Default fat loss deficit
+      S1TargetCaloriesAdjusted = Math.min(S1TargetCaloriesBase, tdee - 200); 
+      if (S1TargetCaloriesBase > tdee - 200 && S1TargetCaloriesAdjusted > tdee - 500) S1TargetCaloriesAdjusted = tdee - 500; 
     } else if (data.dietGoal === "muscle_gain") {
-      S1TargetCaloriesAdjusted = Math.max(S1TargetCaloriesBase, tdee + 150); // Ensure at least 150 surplus, or respect goal if larger
-      if (S1TargetCaloriesBase < tdee + 150) S1TargetCaloriesAdjusted = tdee + 300; // Default muscle gain surplus
+      S1TargetCaloriesAdjusted = Math.max(S1TargetCaloriesBase, tdee + 150); 
+      if (S1TargetCaloriesBase < tdee + 150 && S1TargetCaloriesAdjusted < tdee + 300) S1TargetCaloriesAdjusted = tdee + 300; 
     } else if (data.dietGoal === "recomp") {
-      S1TargetCaloriesAdjusted = tdee - 200; // Aim for a slight deficit for recomposition
+      S1TargetCaloriesAdjusted = tdee - 200; 
     }
     
     const targetCaloriesS1 = Math.round(S1TargetCaloriesAdjusted);
@@ -148,10 +163,15 @@ export default function SmartCaloriePlannerPage() {
       age: undefined, gender: undefined, height_cm: undefined, current_weight: undefined,
       goal_weight_1m: undefined, ideal_goal_weight: undefined, activity_factor_key: undefined,
       dietGoal: "fat_loss",
-      bf_current: undefined, bf_target: undefined, mm_current: undefined, mm_target: undefined,
-      bw_current: undefined, bw_target: undefined, waist_current: undefined,
-      waist_goal_1m: undefined, waist_ideal: undefined, hips_current: undefined,
-      hips_goal_1m: undefined, hips_ideal: undefined,
+      bf_current: undefined, bf_target: undefined, bf_ideal: undefined,
+      mm_current: undefined, mm_target: undefined, mm_ideal: undefined,
+      bw_current: undefined, bw_target: undefined, bw_ideal: undefined,
+      waist_current: undefined, waist_goal_1m: undefined, waist_ideal: undefined,
+      hips_current: undefined, hips_goal_1m: undefined, hips_ideal: undefined,
+      right_leg_current: undefined, right_leg_goal_1m: undefined, right_leg_ideal: undefined,
+      left_leg_current: undefined, left_leg_goal_1m: undefined, left_leg_ideal: undefined,
+      right_arm_current: undefined, right_arm_goal_1m: undefined, right_arm_ideal: undefined,
+      left_arm_current: undefined, left_arm_goal_1m: undefined, left_arm_ideal: undefined,
     });
     setResults(null);
   };
@@ -189,17 +209,18 @@ export default function SmartCaloriePlannerPage() {
                 <AccordionItem value="body-comp">
                   <AccordionTrigger className="text-xl font-semibold">💪 Body Composition (Optional)</AccordionTrigger>
                   <AccordionContent className="space-y-3 pt-4">
-                    <div className="grid grid-cols-3 gap-x-4 pb-1 border-b">
+                    <div className="grid grid-cols-4 gap-x-4 pb-1 border-b">
                       <span className="text-sm font-medium text-muted-foreground">Metric</span>
                       <span className="text-sm font-medium text-muted-foreground">Current (%)</span>
                       <span className="text-sm font-medium text-muted-foreground">Target (1 Month) (%)</span>
+                      <span className="text-sm font-medium text-muted-foreground">Ideal (%)</span>
                     </div>
                     {[
-                      { name: "Body Fat", currentField: "bf_current", targetField: "bf_target", currentPlaceholder: "e.g., 20", targetPlaceholder: "e.g., 18" },
-                      { name: "Muscle Mass", currentField: "mm_current", targetField: "mm_target", currentPlaceholder: "e.g., 35", targetPlaceholder: "e.g., 37" },
-                      { name: "Body Water", currentField: "bw_current", targetField: "bw_target", currentPlaceholder: "e.g., 55", targetPlaceholder: "e.g., 58" },
+                      { name: "Body Fat", currentField: "bf_current", targetField: "bf_target", idealField: "bf_ideal", placeholderSuffix: "%" },
+                      { name: "Muscle Mass", currentField: "mm_current", targetField: "mm_target", idealField: "mm_ideal", placeholderSuffix: "%" },
+                      { name: "Body Water", currentField: "bw_current", targetField: "bw_target", idealField: "bw_ideal", placeholderSuffix: "%" },
                     ].map(metric => (
-                      <div key={metric.name} className="grid grid-cols-3 items-start gap-x-4 py-2">
+                      <div key={metric.name} className="grid grid-cols-4 items-start gap-x-4 py-2">
                         <span className="text-sm font-medium pt-2">{metric.name}</span>
                         <FormField
                           control={form.control}
@@ -207,7 +228,7 @@ export default function SmartCaloriePlannerPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormControl>
-                                <Input type="number" placeholder={metric.currentPlaceholder} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                                <Input type="number" placeholder={`e.g., 20${metric.placeholderSuffix}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -219,7 +240,19 @@ export default function SmartCaloriePlannerPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormControl>
-                                <Input type="number" placeholder={metric.targetPlaceholder} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                                <Input type="number" placeholder={`e.g., 18${metric.placeholderSuffix}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={metric.idealField as keyof SmartCaloriePlannerFormValues}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input type="number" placeholder={`e.g., 15${metric.placeholderSuffix}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -242,6 +275,10 @@ export default function SmartCaloriePlannerPage() {
                     {[
                       { name: "Waist", currentField: "waist_current", goalField: "waist_goal_1m", idealField: "waist_ideal" },
                       { name: "Hips", currentField: "hips_current", goalField: "hips_goal_1m", idealField: "hips_ideal" },
+                      { name: "Right Leg", currentField: "right_leg_current", goalField: "right_leg_goal_1m", idealField: "right_leg_ideal" },
+                      { name: "Left Leg", currentField: "left_leg_current", goalField: "left_leg_goal_1m", idealField: "left_leg_ideal" },
+                      { name: "Right Arm", currentField: "right_arm_current", goalField: "right_arm_goal_1m", idealField: "right_arm_ideal" },
+                      { name: "Left Arm", currentField: "left_arm_current", goalField: "left_arm_goal_1m", idealField: "left_arm_ideal" },
                     ].map(metric => (
                       <div key={metric.name} className="grid grid-cols-4 items-start gap-x-4 py-2">
                         <span className="text-sm font-medium pt-2">{metric.name}</span>
@@ -408,5 +445,3 @@ export default function SmartCaloriePlannerPage() {
     </div>
   );
 }
-
-    
