@@ -16,7 +16,8 @@ import {
   NotebookText,
   Calculator,
   SplitSquareHorizontal,
-  ChefHat
+  ChefHat,
+  Scaling // Added for Daily Macro Breakdown
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -41,7 +42,8 @@ import React from 'react';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/profile', label: 'Profile', icon: User },
-  { href: '/tools/macro-calculator', label: 'Macro Calculator', icon: Calculator },
+  { href: '/tools/calorie-calculator', label: 'Calorie Calculator', icon: Calculator },
+  { href: '/tools/macro-calculator', label: 'Daily Macro Breakdown', icon: Scaling },
   { href: '/tools/macro-splitter', label: 'Macro Splitter', icon: SplitSquareHorizontal },
   { href: '/tools/meal-suggestions', label: 'Meal Suggestions', icon: ChefHat },
   { href: '/meal-plan/current', label: 'Current Meal Plan', icon: NotebookText },
