@@ -28,7 +28,7 @@ import { ProfileFormSchema, type ProfileFormValues } from "@/lib/schemas";
 import { useAuth } from "@/contexts/AuthContext"; 
 import { useToast } from "@/hooks/use-toast";
 import React, { useEffect, useState } from "react";
-import { preferredDiets, exerciseFrequencies, exerciseIntensities } from "@/lib/constants";
+import { exerciseFrequencies, exerciseIntensities } from "@/lib/constants";
 
 // This type represents the full profile data structure potentially stored in localStorage
 interface FullProfileData {
@@ -38,10 +38,9 @@ interface FullProfileData {
   currentWeight?: number;
   goalWeight1Month?: number;
   goalWeightIdeal?: number;
-  activityLevel?: string; // Kept for storing/reading full profile
-  dietGoal?: string; // Kept for storing/reading full profile
-  mealsPerDay?: number; // Kept for storing/reading full profile
-  // Body comp and measurements also part of full profile but not directly managed by this form
+  activityLevel?: string; 
+  dietGoal?: string; 
+  mealsPerDay?: number; 
   currentBodyFatPercentage?: number;
   targetBodyFatPercentage?: number;
   currentMuscleMassPercentage?: number;
@@ -67,7 +66,7 @@ interface FullProfileData {
   leftArmMeasurementGoal1Month?: number;
   leftArmMeasurementIdeal?: number;
 
-  // Fields remaining in this form
+  // Fields previously on this form, now moved or managed elsewhere
   preferredDiet?: string;
   preferredCuisines?: string[];
   dispreferredCuisines?: string[];
@@ -77,6 +76,8 @@ interface FullProfileData {
   preferredMicronutrients?: string[];
   medicalConditions?: string[];
   medications?: string[];
+
+  // Fields remaining on this form
   painMobilityIssues?: string;
   injuries?: string[];
   surgeries?: string[];
@@ -96,17 +97,8 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
     try {
       const parsedProfile = JSON.parse(storedProfile) as FullProfileData; 
       
-      // Map only the fields relevant to the current ProfileFormSchema
       const relevantProfileData: Partial<ProfileFormValues> = {
-        preferredDiet: parsedProfile.preferredDiet,
-        preferredCuisines: Array.isArray(parsedProfile.preferredCuisines) ? parsedProfile.preferredCuisines : (typeof parsedProfile.preferredCuisines === 'string' ? parsedProfile.preferredCuisines.split(',').map(s => s.trim()).filter(s => s) : []),
-        dispreferredCuisines: Array.isArray(parsedProfile.dispreferredCuisines) ? parsedProfile.dispreferredCuisines : (typeof parsedProfile.dispreferredCuisines === 'string' ? parsedProfile.dispreferredCuisines.split(',').map(s => s.trim()).filter(s => s) : []),
-        preferredIngredients: Array.isArray(parsedProfile.preferredIngredients) ? parsedProfile.preferredIngredients : (typeof parsedProfile.preferredIngredients === 'string' ? parsedProfile.preferredIngredients.split(',').map(s => s.trim()).filter(s => s) : []),
-        dispreferredIngredients: Array.isArray(parsedProfile.dispreferredIngredients) ? parsedProfile.dispreferredIngredients : (typeof parsedProfile.dispreferredIngredients === 'string' ? parsedProfile.dispreferredIngredients.split(',').map(s => s.trim()).filter(s => s) : []),
-        allergies: Array.isArray(parsedProfile.allergies) ? parsedProfile.allergies : (typeof parsedProfile.allergies === 'string' ? parsedProfile.allergies.split(',').map(s => s.trim()).filter(s => s) : []),
-        preferredMicronutrients: Array.isArray(parsedProfile.preferredMicronutrients) ? parsedProfile.preferredMicronutrients : (typeof parsedProfile.preferredMicronutrients === 'string' ? parsedProfile.preferredMicronutrients.split(',').map(s => s.trim()).filter(s => s) : []),
-        medicalConditions: Array.isArray(parsedProfile.medicalConditions) ? parsedProfile.medicalConditions : (typeof parsedProfile.medicalConditions === 'string' ? parsedProfile.medicalConditions.split(',').map(s => s.trim()).filter(s => s) : []),
-        medications: Array.isArray(parsedProfile.medications) ? parsedProfile.medications : (typeof parsedProfile.medications === 'string' ? parsedProfile.medications.split(',').map(s => s.trim()).filter(s => s) : []),
+        // Only map fields remaining in ProfileFormSchema
         painMobilityIssues: parsedProfile.painMobilityIssues,
         injuries: Array.isArray(parsedProfile.injuries) ? parsedProfile.injuries : (typeof parsedProfile.injuries === 'string' ? parsedProfile.injuries.split(',').map(s => s.trim()).filter(s => s) : []),
         surgeries: Array.isArray(parsedProfile.surgeries) ? parsedProfile.surgeries : (typeof parsedProfile.surgeries === 'string' ? parsedProfile.surgeries.split(',').map(s => s.trim()).filter(s => s) : []),
@@ -123,15 +115,6 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
   }
   // Return default values for the fields managed by this form
   return {
-    preferredDiet: "none",
-    preferredCuisines: [],
-    dispreferredCuisines: [],
-    preferredIngredients: [],
-    dispreferredIngredients: [],
-    allergies: [],
-    preferredMicronutrients: [],
-    medicalConditions: [],
-    medications: [],
     painMobilityIssues: "",
     injuries: [],
     surgeries: [],
@@ -142,7 +125,7 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
 }
 
 async function saveProfileData(userId: string, data: ProfileFormValues) {
-  console.log("Saving profile subset for user:", userId, data);
+  console.log("Saving profile subset (preferences, medical, exercise) for user:", userId, data);
   
   const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
   let fullProfile: FullProfileData = {};
@@ -154,13 +137,16 @@ async function saveProfileData(userId: string, data: ProfileFormValues) {
     }
   }
 
+  // Merge data from this form (ProfileFormValues) into the full profile structure
   const updatedFullProfile: FullProfileData = {
     ...fullProfile, 
-    ...data,     
+    ...data, // This will only update fields present in ProfileFormValues (pain, injuries, exercise etc.)
   };
-
+  
+  // Convert array fields to comma-separated strings for localStorage
   const dataToStore = { ...updatedFullProfile };
   const arrayFieldsToConvert: (keyof FullProfileData)[] = [
+    // Keep all potential array fields from FullProfileData to ensure they are stored as strings if they exist
     'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
     'allergies', 'preferredMicronutrients', 'medicalConditions', 'medications', 
     'injuries', 'surgeries', 'exerciseGoals', 'exercisePreferences', 'equipmentAccess'
@@ -185,21 +171,13 @@ export default function ProfilePage() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(ProfileFormSchema),
     defaultValues: {
-      // activityLevel, dietGoal, mealsPerDay REMOVED
-      preferredDiet: "none",
-      preferredCuisines: [],
-      dispreferredCuisines: [],
-      preferredIngredients: [],
-      dispreferredIngredients: [],
-      allergies: [],
-      preferredMicronutrients: [],
-      medicalConditions: [],
-      medications: [],
       painMobilityIssues: "",
       injuries: [],
       surgeries: [],
       exerciseGoals: [],
       exercisePreferences: [],
+      exerciseFrequency: undefined,
+      exerciseIntensity: undefined,
       equipmentAccess: [],
     },
   });
@@ -236,7 +214,6 @@ export default function ProfilePage() {
       control={form.control}
       name={fieldName}
       render={({ field }) => {
-        // Ensure field.value is always treated as an array for join, or provide empty string if undefined/null
         const displayValue = Array.isArray(field.value) ? field.value.join(', ') : '';
         return (
           <FormItem>
@@ -264,56 +241,40 @@ export default function ProfilePage() {
   return (
     <Card className="max-w-4xl mx-auto shadow-lg">
       <CardHeader>
-        <CardTitle className="text-3xl font-bold">Your Profile Preferences</CardTitle>
-        <CardDescription>Manage your dietary preferences, medical information, and activity levels. Detailed physical metrics are managed in the Smart Calorie Planner.</CardDescription>
+        <CardTitle className="text-3xl font-bold">Your Profile</CardTitle>
+        <CardDescription>Manage your general medical information and activity preferences. Detailed dietary preferences are managed on the Meal Suggestions page. Physical metrics are on the Smart Calorie Planner.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <Accordion type="multiple" defaultValue={["item-4", "item-5", "item-6"]} className="w-full">
-              <AccordionItem value="item-4">
-                <AccordionTrigger className="text-xl font-semibold">Dietary Preferences & Restrictions</AccordionTrigger>
+            <Accordion type="multiple" defaultValue={["item-1", "item-2"]} className="w-full">
+              {/* Dietary Preferences & Restrictions AccordionItem REMOVED */}
+              <AccordionItem value="item-1">
+                <AccordionTrigger className="text-xl font-semibold">Medical Info & Physical Limitations</AccordionTrigger>
                 <AccordionContent className="space-y-6 pt-4">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Activity Level, Diet Goal, Meals Per Day fields are removed */}
-                    <FormField control={form.control} name="preferredDiet" render={({ field }) => ( <FormItem> <FormLabel>Preferred Diet</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select preferred diet" /></SelectTrigger></FormControl> <SelectContent>{preferredDiets.map(pd => <SelectItem key={pd.value} value={pd.value}>{pd.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-                  </div>
-                  {renderCommaSeparatedInput("preferredCuisines" as keyof ProfileFormValues, "Preferred Cuisines", "e.g., Italian, Mexican, Indian")}
-                  {renderCommaSeparatedInput("dispreferredCuisines" as keyof ProfileFormValues, "Dispreferred Cuisines", "e.g., Thai, French")}
-                  {renderCommaSeparatedInput("preferredIngredients" as keyof ProfileFormValues, "Preferred Ingredients", "e.g., Chicken, Broccoli, Avocado")}
-                  {renderCommaSeparatedInput("dispreferredIngredients" as keyof ProfileFormValues, "Dispreferred Ingredients", "e.g., Tofu, Mushrooms")}
-                  {renderCommaSeparatedInput("allergies" as keyof ProfileFormValues, "Allergies", "e.g., Peanuts, Shellfish, Gluten")}
-                  {renderCommaSeparatedInput("preferredMicronutrients" as keyof ProfileFormValues, "Preferred Micronutrients", "e.g., Vitamin D, Iron, Omega-3")}
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="item-5">
-                <AccordionTrigger className="text-xl font-semibold">Medical Info</AccordionTrigger>
-                <AccordionContent className="space-y-6 pt-4">
-                  {renderCommaSeparatedInput("medicalConditions" as keyof ProfileFormValues, "Medical Conditions", "e.g., Diabetes, Hypertension")}
-                  {renderCommaSeparatedInput("medications" as keyof ProfileFormValues, "Medications", "e.g., Metformin, Lisinopril")}
+                  {/* medicalConditions and medications fields REMOVED */}
                   <FormField control={form.control} name="painMobilityIssues" render={({ field }) => ( <FormItem> <FormLabel>Pain/Mobility Issues</FormLabel> <FormControl><Textarea placeholder="Describe any pain or mobility issues" value={field.value ?? ''} onChange={field.onChange} /></FormControl> <FormMessage /> </FormItem> )} />
-                  {renderCommaSeparatedInput("injuries" as keyof ProfileFormValues, "Injuries", "e.g., ACL tear, Rotator cuff injury")}
-                  {renderCommaSeparatedInput("surgeries" as keyof ProfileFormValues, "Surgeries", "e.g., Appendectomy, Knee replacement")}
+                  {renderCommaSeparatedInput("injuries" as keyof ProfileFormValues, "Injuries (comma-separated)", "e.g., ACL tear, Rotator cuff injury")}
+                  {renderCommaSeparatedInput("surgeries" as keyof ProfileFormValues, "Surgeries (comma-separated)", "e.g., Appendectomy, Knee replacement")}
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="item-6">
+              <AccordionItem value="item-2">
                 <AccordionTrigger className="text-xl font-semibold">Exercise Preferences</AccordionTrigger>
                 <AccordionContent className="space-y-6 pt-4">
                    <div className="grid md:grid-cols-2 gap-6">
                     <FormField control={form.control} name="exerciseFrequency" render={({ field }) => ( <FormItem> <FormLabel>Exercise Frequency</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select frequency" /></SelectTrigger></FormControl> <SelectContent>{exerciseFrequencies.map(ef => <SelectItem key={ef.value} value={ef.value}>{ef.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
                     <FormField control={form.control} name="exerciseIntensity" render={({ field }) => ( <FormItem> <FormLabel>Exercise Intensity</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select intensity" /></SelectTrigger></FormControl> <SelectContent>{exerciseIntensities.map(ei => <SelectItem key={ei.value} value={ei.value}>{ei.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
                   </div>
-                  {renderCommaSeparatedInput("exerciseGoals" as keyof ProfileFormValues, "Exercise Goals", "e.g., Weight loss, Muscle gain, Endurance")}
-                  {renderCommaSeparatedInput("exercisePreferences" as keyof ProfileFormValues, "Exercise Preferences", "e.g., Running, Weightlifting, Yoga")}
-                  {renderCommaSeparatedInput("equipmentAccess" as keyof ProfileFormValues, "Equipment Access", "e.g., Dumbbells, Treadmill, Home gym")}
+                  {renderCommaSeparatedInput("exerciseGoals" as keyof ProfileFormValues, "Exercise Goals (comma-separated)", "e.g., Weight loss, Muscle gain, Endurance")}
+                  {renderCommaSeparatedInput("exercisePreferences" as keyof ProfileFormValues, "Exercise Preferences (comma-separated)", "e.g., Running, Weightlifting, Yoga")}
+                  {renderCommaSeparatedInput("equipmentAccess" as keyof ProfileFormValues, "Equipment Access (comma-separated)", "e.g., Dumbbells, Treadmill, Home gym")}
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
 
             <Button type="submit" className="w-full text-lg py-6" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? "Saving..." : "Save Profile Preferences"}
+              {form.formState.isSubmitting ? "Saving..." : "Save Profile Information"}
             </Button>
           </form>
         </Form>

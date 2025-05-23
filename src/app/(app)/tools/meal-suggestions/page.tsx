@@ -3,32 +3,39 @@
 
 import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { zodResolver } from "@hookform/resolvers/zod"; // Added
+import { useForm, Controller } from "react-hook-form"; // Added
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
-import { Loader2, ChefHat, AlertTriangle, Sparkles } from 'lucide-react';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"; // Added
+import { Textarea } from "@/components/ui/textarea"; // Added
+import { Loader2, ChefHat, AlertTriangle, Sparkles, Settings } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; // Added
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { ProfileFormValues } from '@/lib/schemas';
+import type { ProfileFormValues as FullProfileType } from '@/lib/schemas'; // Renamed to avoid conflict
+import { MealSuggestionPreferencesSchema, type MealSuggestionPreferencesValues } from '@/lib/schemas'; // Added
 import { suggestMealsForMacros, type SuggestMealsForMacrosInput, type SuggestMealsForMacrosOutput } from '@/ai/flows/suggest-meals-for-macros';
-import { mealNames, defaultMacroPercentages } from '@/lib/constants';
+import { mealNames, defaultMacroPercentages, preferredDiets } from '@/lib/constants'; // Added preferredDiets
 import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
 
-async function getProfileDataForSuggestions(userId: string): Promise<Partial<ProfileFormValues>> {
+async function getProfileDataForSuggestions(userId: string): Promise<Partial<FullProfileType>> {
   const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
   if (storedProfile) {
     try {
-      const parsedProfile = JSON.parse(storedProfile) as ProfileFormValues;
-      const arrayFields: (keyof ProfileFormValues)[] = [
+      const parsedProfile = JSON.parse(storedProfile) as FullProfileType;
+      const arrayFields: (keyof FullProfileType)[] = [
+        // These are fields from the FULL profile, some of which are now managed here
         'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
-        'allergies', 'preferredMicronutrients', 'medicalConditions', 'medications',
+        'allergies', 'preferredMicronutrients', 'medicalConditions', 'medications', 
         'injuries', 'surgeries', 'exerciseGoals', 'exercisePreferences', 'equipmentAccess'
       ];
       arrayFields.forEach(field => {
-        if (parsedProfile[field] && typeof parsedProfile[field] === 'string') {
-           (parsedProfile as any)[field] = (parsedProfile[field] as unknown as string).split(',').map((s: string) => s.trim()).filter((s: string) => s !== '');
-        } else if (!Array.isArray(parsedProfile[field])) {
+        if ((parsedProfile as any)[field] && typeof (parsedProfile as any)[field] === 'string') {
+           (parsedProfile as any)[field] = ((parsedProfile as any)[field] as string).split(',').map((s: string) => s.trim()).filter((s: string) => s !== '');
+        } else if (!Array.isArray((parsedProfile as any)[field])) {
             (parsedProfile as any)[field] = [];
         }
       });
@@ -56,7 +63,7 @@ function MealSuggestionsContent() {
     fat: number;
   } | null>(null);
 
-  const [profileData, setProfileData] = useState<Partial<ProfileFormValues> | null>(null);
+  const [fullProfileData, setFullProfileData] = useState<Partial<FullProfileType> | null>(null);
   const [isLoadingAiSuggestions, setIsLoadingAiSuggestions] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isLoadingTargets, setIsLoadingTargets] = useState(false);
@@ -64,20 +71,47 @@ function MealSuggestionsContent() {
   const [error, setError] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
+  const preferenceForm = useForm<MealSuggestionPreferencesValues>({
+    resolver: zodResolver(MealSuggestionPreferencesSchema),
+    defaultValues: {
+      preferredDiet: undefined,
+      preferredCuisines: [],
+      dispreferredCuisines: [],
+      preferredIngredients: [],
+      dispreferredIngredients: [],
+      allergies: [],
+      preferredMicronutrients: [],
+      medicalConditions: [],
+      medications: [],
+    },
+  });
+
   // Fetch profile data on mount or when user changes
   useEffect(() => {
     if (user?.id) {
       setIsLoadingProfile(true);
       getProfileDataForSuggestions(user.id)
         .then(data => {
-          setProfileData(data);
+          setFullProfileData(data);
+          // Populate preference form with relevant data from full profile
+          preferenceForm.reset({
+            preferredDiet: data.preferredDiet,
+            preferredCuisines: data.preferredCuisines,
+            dispreferredCuisines: data.dispreferredCuisines,
+            preferredIngredients: data.preferredIngredients,
+            dispreferredIngredients: data.dispreferredIngredients,
+            allergies: data.allergies,
+            preferredMicronutrients: data.preferredMicronutrients,
+            medicalConditions: data.medicalConditions,
+            medications: data.medications,
+          });
         })
         .catch(() => toast({title: "Error", description: "Could not load profile data.", variant: "destructive"}))
         .finally(() => setIsLoadingProfile(false));
     } else {
       setIsLoadingProfile(false);
     }
-  }, [user, toast]);
+  }, [user, toast, preferenceForm]);
 
   // Handle initial URL parameters
   useEffect(() => {
@@ -101,22 +135,20 @@ function MealSuggestionsContent() {
     }
   }, [searchParams]);
 
-
-  // Calculate target macros when selectedMealName or profileData changes
   const calculateTargetsForSelectedMeal = useCallback(() => {
     if (!selectedMealName) {
-      setTargetMacros(null); // Clear targets if no meal is selected
+      setTargetMacros(null);
       return;
     }
 
     if (isLoadingProfile) {
-      setIsLoadingTargets(true); // Still waiting for profile
+      setIsLoadingTargets(true);
       return;
     }
     setIsLoadingTargets(true);
 
-    if (profileData && profileData.age) { // Basic check for profile completeness
-      const dailyTotals = calculateEstimatedDailyTargets(profileData);
+    if (fullProfileData && fullProfileData.age) {
+      const dailyTotals = calculateEstimatedDailyTargets(fullProfileData);
       const mealDistribution = defaultMacroPercentages[selectedMealName];
 
       if (dailyTotals.targetCalories && dailyTotals.targetProtein && dailyTotals.targetCarbs && dailyTotals.targetFat && mealDistribution) {
@@ -130,33 +162,28 @@ function MealSuggestionsContent() {
         setIsDemoMode(false);
         setError(null);
       } else {
-         // Fallback to demo if calculation is not possible
-        setTargetMacros({ mealName: selectedMealName, calories: 500, protein: 30, carbs: 60, fat: 20 }); // Example targets
+        setTargetMacros({ mealName: selectedMealName, calories: 500, protein: 30, carbs: 60, fat: 20 });
         setIsDemoMode(true);
         if(!isDemoMode) toast({ title: "Using Example Targets", description: `Could not calculate specific targets for ${selectedMealName} from profile.`, duration: 4000 });
       }
     } else {
-      // Profile incomplete, use generic demo targets for the selected meal
-      setTargetMacros({ mealName: selectedMealName, calories: 500, protein: 30, carbs: 60, fat: 20 }); // Example targets
+      setTargetMacros({ mealName: selectedMealName, calories: 500, protein: 30, carbs: 60, fat: 20 });
       setIsDemoMode(true);
       if(!isDemoMode) toast({ title: "Profile Incomplete", description: `Showing example targets for ${selectedMealName}. Please complete your profile for personalized calculations.`, duration: 5000 });
     }
-    setSuggestions([]); // Clear previous suggestions
+    setSuggestions([]);
     setError(null);
     setIsLoadingTargets(false);
-  }, [selectedMealName, profileData, toast, isLoadingProfile, isDemoMode]);
+  }, [selectedMealName, fullProfileData, toast, isLoadingProfile, isDemoMode]);
 
   useEffect(() => {
-    // Only auto-calculate if targetMacros aren't already set from URL params for the current selectedMealName
     if (selectedMealName && (!targetMacros || targetMacros.mealName !== selectedMealName)) {
         calculateTargetsForSelectedMeal();
     }
-  }, [selectedMealName, profileData, calculateTargetsForSelectedMeal, targetMacros]);
-
+  }, [selectedMealName, fullProfileData, calculateTargetsForSelectedMeal, targetMacros]);
 
   const handleMealSelectionChange = (mealValue: string) => {
     setSelectedMealName(mealValue);
-    // Target macros will be recalculated by the useEffect hook watching selectedMealName
   };
 
   const handleGetSuggestions = async () => {
@@ -177,22 +204,27 @@ function MealSuggestionsContent() {
     setSuggestions([]);
     setError(null);
 
+    const currentPreferences = preferenceForm.getValues();
+
     const aiInput: SuggestMealsForMacrosInput = {
       mealName: targetMacros.mealName,
       targetCalories: targetMacros.calories,
       targetProteinGrams: targetMacros.protein,
       targetCarbsGrams: targetMacros.carbs,
       targetFatGrams: targetMacros.fat,
-      age: profileData?.age,
-      gender: profileData?.gender,
-      activityLevel: profileData?.activityLevel,
-      dietGoal: profileData?.dietGoal,
-      preferredDiet: profileData?.preferredDiet,
-      preferredCuisines: profileData?.preferredCuisines,
-      dispreferredCuisines: profileData?.dispreferredCuisines,
-      preferredIngredients: profileData?.preferredIngredients,
-      dispreferredIngredients: profileData?.dispreferredIngredients,
-      allergies: profileData?.allergies,
+      age: fullProfileData?.age,
+      gender: fullProfileData?.gender,
+      activityLevel: fullProfileData?.activityLevel,
+      dietGoal: fullProfileData?.dietGoal,
+      // Use preferences from the local form
+      preferredDiet: currentPreferences.preferredDiet,
+      preferredCuisines: currentPreferences.preferredCuisines,
+      dispreferredCuisines: currentPreferences.dispreferredCuisines,
+      preferredIngredients: currentPreferences.preferredIngredients,
+      dispreferredIngredients: currentPreferences.dispreferredIngredients,
+      allergies: currentPreferences.allergies,
+      // Ensure all fields from SuggestMealsForMacrosInput are covered
+      // 'preferredMicronutrients' and 'medicalConditions' are available in currentPreferences
     };
 
     try {
@@ -213,6 +245,35 @@ function MealSuggestionsContent() {
     }
   };
 
+  const renderPreferenceTextarea = (
+    fieldName: keyof MealSuggestionPreferencesValues, 
+    label: string, 
+    placeholder: string
+  ) => (
+    <FormField
+      control={preferenceForm.control}
+      name={fieldName}
+      render={({ field }) => {
+        // Ensure field.value is always treated as an array for join, or provide empty string if undefined/null
+        const displayValue = Array.isArray(field.value) ? field.value.join(', ') : '';
+        return (
+          <FormItem>
+            <FormLabel>{label}</FormLabel>
+            <FormControl>
+              <Textarea
+                placeholder={placeholder}
+                value={displayValue}
+                onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(s => s))}
+                className="h-10 resize-none" 
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        );
+      }}
+    />
+  );
+
   return (
     <div className="space-y-6">
       <Card className="shadow-xl">
@@ -222,7 +283,7 @@ function MealSuggestionsContent() {
             AI Meal Suggestions
           </CardTitle>
           <CardDescription>
-            Select a meal to get AI-powered ideas tailored to your macronutrient targets.
+            Select a meal, adjust preferences if needed, and get AI-powered ideas tailored to your macronutrient targets.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -239,6 +300,58 @@ function MealSuggestionsContent() {
               </SelectContent>
             </Select>
           </div>
+          
+          {selectedMealName && (
+            <Accordion type="single" collapsible className="w-full mb-6">
+              <AccordionItem value="preferences">
+                <AccordionTrigger>
+                  <div className="flex items-center gap-2">
+                     <Settings className="h-5 w-5 text-primary" /> 
+                     <span className="text-lg font-semibold">Adjust Preferences for this Suggestion</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <Form {...preferenceForm}>
+                    <form className="space-y-6 pt-4"> {/* Removed onSubmit from form tag as it's not for saving */}
+                      <Card>
+                        <CardHeader><CardTitle className="text-xl">Dietary Preferences & Restrictions</CardTitle></CardHeader>
+                        <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
+                          <FormField
+                            control={preferenceForm.control}
+                            name="preferredDiet"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Preferred Diet</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value ?? undefined}>
+                                  <FormControl><SelectTrigger><SelectValue placeholder="Select preferred diet" /></SelectTrigger></FormControl>
+                                  <SelectContent>{preferredDiets.map(pd => <SelectItem key={pd.value} value={pd.value}>{pd.label}</SelectItem>)}</SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          {renderPreferenceTextarea("allergies" as keyof MealSuggestionPreferencesValues, "Allergies (comma-separated)", "e.g., Peanuts, Shellfish")}
+                          {renderPreferenceTextarea("preferredCuisines" as keyof MealSuggestionPreferencesValues, "Preferred Cuisines", "e.g., Italian, Mexican")}
+                          {renderPreferenceTextarea("dispreferredCuisines" as keyof MealSuggestionPreferencesValues, "Dispreferred Cuisines", "e.g., Thai, French")}
+                          {renderPreferenceTextarea("preferredIngredients" as keyof MealSuggestionPreferencesValues, "Preferred Ingredients", "e.g., Chicken, Broccoli")}
+                          {renderPreferenceTextarea("dispreferredIngredients" as keyof MealSuggestionPreferencesValues, "Dispreferred Ingredients", "e.g., Tofu, Mushrooms")}
+                          {renderPreferenceTextarea("preferredMicronutrients" as keyof MealSuggestionPreferencesValues, "Targeted Micronutrients", "e.g., Vitamin D, Iron")}
+                        </CardContent>
+                      </Card>
+                       <Card>
+                        <CardHeader><CardTitle className="text-xl">Medical Information (for AI awareness)</CardTitle></CardHeader>
+                        <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
+                          {renderPreferenceTextarea("medicalConditions" as keyof MealSuggestionPreferencesValues, "Medical Conditions", "e.g., Diabetes, Hypertension")}
+                          {renderPreferenceTextarea("medications" as keyof MealSuggestionPreferencesValues, "Medications", "e.g., Metformin, Lisinopril")}
+                        </CardContent>
+                      </Card>
+                    </form>
+                  </Form>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          )}
+
 
           {isLoadingTargets && selectedMealName && (
             <div className="flex justify-center items-center py-4">
@@ -280,7 +393,7 @@ function MealSuggestionsContent() {
 
       {suggestions.length > 0 && !isLoadingAiSuggestions && (
         <div className="space-y-4">
-          <h2 className="text-2xl font-semibold text-primary">Here are some ideas for {selectedMealName}:</h2>
+          <h2 className="text-2xl font-semibold text-primary">Here are some ideas for your {selectedMealName || 'meal'}:</h2>
           {suggestions.map((suggestion, index) => (
             <Card key={index} className="shadow-md hover:shadow-lg transition-shadow">
               <CardHeader>

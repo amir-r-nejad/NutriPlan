@@ -1,33 +1,27 @@
 import * as z from "zod";
-import { preferredDiets, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames, smartPlannerDietGoals, activityLevels as allActivityLevels } from "./constants"; // Added allActivityLevels
+import { preferredDiets, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames, smartPlannerDietGoals, activityLevels as allActivityLevels } from "./constants";
 
 // Helper for preprocessing optional number fields: empty string or null becomes undefined
-const preprocessOptionalNumber = (val: unknown) => (val === "" || val === null || val === undefined || (typeof val === 'string' && val.trim() === '') ? undefined : val);
+const preprocessOptionalNumber = (val: unknown) => {
+  if (val === "" || val === null || val === undefined || (typeof val === 'string' && val.trim() === '')) {
+    return undefined;
+  }
+  const num = Number(val);
+  return isNaN(num) ? val : num; // Keep non-numeric string for Zod to catch as invalid number
+};
 
 
 export const ProfileFormSchema = z.object({
-  // Basic Info, Body Composition, and Measurements are removed from this page's schema.
-  // They are now managed by the Smart Calorie Planner or exist in the full profile data in localStorage.
+  // Fields removed:
+  // preferredDiet, preferredCuisines, dispreferredCuisines, preferredIngredients, dispreferredIngredients,
+  // allergies, preferredMicronutrients, medicalConditions, medications
 
-  // Activity & Diet Preferences
-  // activityLevel, dietGoal, mealsPerDay REMOVED from this form
-  preferredDiet: z.enum(preferredDiets.map(pd => pd.value) as [string, ...string[]]).optional(),
-  
-  preferredCuisines: z.array(z.string()).optional(),
-  dispreferredCuisines: z.array(z.string()).optional(),
-  preferredIngredients: z.array(z.string()).optional(),
-  dispreferredIngredients: z.array(z.string()).optional(),
-  allergies: z.array(z.string()).optional(),
-  preferredMicronutrients: z.array(z.string()).optional(),
-
-  // Medical Info
-  medicalConditions: z.array(z.string()).optional(),
-  medications: z.array(z.string()).optional(),
+  // Medical Info (Remaining)
   painMobilityIssues: z.string().optional(),
   injuries: z.array(z.string()).optional(),
   surgeries: z.array(z.string()).optional(),
 
-  // Exercise Preferences
+  // Exercise Preferences (Remaining)
   exerciseGoals: z.array(z.string()).optional(),
   exercisePreferences: z.array(z.string()).optional(),
   exerciseFrequency: z.enum(exerciseFrequencies.map(ef => ef.value) as [string, ...string[]]).optional(),
@@ -41,8 +35,8 @@ export type ProfileFormValues = z.infer<typeof ProfileFormSchema>;
 export const IngredientSchema = z.object({
   name: z.string().min(1, "Ingredient name is required"),
   quantity: z.coerce.number().min(0, "Quantity must be non-negative"),
-  unit: z.string().min(1, "Unit is required (e.g., g, ml, piece)"), // Keeping unit flexible
-  calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()), 
+  unit: z.string().min(1, "Unit is required (e.g., g, ml, piece)"),
+  calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   protein: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   carbs: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   fat: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
@@ -51,9 +45,9 @@ export type Ingredient = z.infer<typeof IngredientSchema>;
 
 // Schema for a single meal
 export const MealSchema = z.object({
-  id: z.string().optional(), // For database ID
-  name: z.string().min(1, "Meal name is required"), // e.g., Breakfast, Lunch
-  customName: z.string().optional(), // e.g., "Chicken Salad with Avocado"
+  id: z.string().optional(),
+  name: z.string().min(1, "Meal name is required"),
+  customName: z.string().optional(),
   ingredients: z.array(IngredientSchema),
   totalCalories: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   totalProtein: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
@@ -64,8 +58,8 @@ export type Meal = z.infer<typeof MealSchema>;
 
 // Schema for a day's meal plan
 export const DailyMealPlanSchema = z.object({
-  dayOfWeek: z.string(), // e.g., "Monday"
-  meals: z.array(MealSchema), // Should have 6 meals by default
+  dayOfWeek: z.string(),
+  meals: z.array(MealSchema),
 });
 export type DailyMealPlan = z.infer<typeof DailyMealPlanSchema>;
 
@@ -75,7 +69,6 @@ export const WeeklyMealPlanSchema = z.object({
   userId: z.string().optional(),
   startDate: z.date().optional(),
   days: z.array(DailyMealPlanSchema),
-  // For AI generated plan, include summary
   weeklySummary: z.object({
     totalCalories: z.number(),
     totalProtein: z.number(),
@@ -90,10 +83,10 @@ export type WeeklyMealPlan = z.infer<typeof WeeklyMealPlanSchema>;
 export const DailyTargetsSchema = z.object({
   id: z.string().optional(),
   userId: z.string().optional(),
-  date: z.date().optional(), // Or string representation
+  date: z.date().optional(),
   caloriesBurned: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  targetCalories: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()), // Allow blank for auto-calc
-  targetProtein: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()), // Allow blank for auto-calc
+  targetCalories: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  targetProtein: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   targetCarbs: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   targetFat: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   mealsPerDay: z.coerce.number().min(2).max(7),
@@ -103,7 +96,7 @@ export type DailyTargets = z.infer<typeof DailyTargetsSchema>;
 
 // Schema for Meal-Level Nutrient Breakdown
 export const MealTargetSchema = z.object({
-  mealName: z.string(), // Breakfast, Snack, etc.
+  mealName: z.string(),
   targetCalories: z.coerce.number().min(0),
   targetProtein: z.coerce.number().min(0),
   targetCarbs: z.coerce.number().min(0),
@@ -115,7 +108,7 @@ export const MealLevelTargetsSchema = z.object({
   id: z.string().optional(),
   userId: z.string().optional(),
   date: z.date().optional(),
-  mealTargets: z.array(MealTargetSchema), // Should sum up to daily targets
+  mealTargets: z.array(MealTargetSchema),
 });
 export type MealLevelTargets = z.infer<typeof MealLevelTargetsSchema>;
 
@@ -139,7 +132,7 @@ export const AiGeneratedMealSchema = z.object({
 });
 
 export const AiGeneratedDayPlanSchema = z.object({
-  day: z.string(), // e.g., "Monday"
+  day: z.string(), 
   meals: z.array(AiGeneratedMealSchema),
 });
 
@@ -148,7 +141,7 @@ export const AiGeneratedMealPlanOutputSchema = z.object({
   weeklySummary: z.object({
     totalCalories: z.number(),
     totalProtein: z.number(),
-    totalCarbs: z.number(), 
+    totalCarbs: z.number(),
     totalFat: z.number(),
   }),
 });
@@ -182,7 +175,7 @@ export const MacroSplitterFormSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `Total ${macroName} percentages must sum to 100%. Current sum: ${sum.toFixed(1)}%`,
-        path: ['mealDistributions', 0, macroKey], 
+        path: ['mealDistributions', 0, macroKey],
       });
     }
   };
@@ -254,3 +247,18 @@ export const SmartCaloriePlannerFormSchema = z.object({
 });
 
 export type SmartCaloriePlannerFormValues = z.infer<typeof SmartCaloriePlannerFormSchema>;
+
+// Schema for preferences on Meal Suggestions page
+export const MealSuggestionPreferencesSchema = z.object({
+  preferredDiet: z.enum(preferredDiets.map(pd => pd.value) as [string, ...string[]]).optional(),
+  preferredCuisines: z.array(z.string()).optional(),
+  dispreferredCuisines: z.array(z.string()).optional(),
+  preferredIngredients: z.array(z.string()).optional(),
+  dispreferredIngredients: z.array(z.string()).optional(),
+  allergies: z.array(z.string()).optional(),
+  preferredMicronutrients: z.array(z.string()).optional(), // Note: micronutrients field name alignment
+  medicalConditions: z.array(z.string()).optional(),
+  medications: z.array(z.string()).optional(),
+});
+
+export type MealSuggestionPreferencesValues = z.infer<typeof MealSuggestionPreferencesSchema>;
