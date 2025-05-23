@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { MacroSplitterFormSchema, type MacroSplitterFormValues, type ProfileFormValues, type CalculatedMealMacros } from '@/lib/schemas';
+import { MacroSplitterFormSchema, type MacroSplitterFormValues, type ProfileFormValues, type CalculatedMealMacros, type MealMacroDistribution } from '@/lib/schemas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { mealNames as defaultMealNames, defaultMacroPercentages } from '@/lib/constants';
@@ -18,6 +18,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { cn } from "@/lib/utils";
 
 interface TotalMacros {
   calories: number;
@@ -167,7 +168,7 @@ export default function MacroSplitterPage() {
   
   const watchedMealDistributions = form.watch("mealDistributions");
 
-  const calculateColumnSum = (macroKey: keyof Omit<MacroSplitterFormValues['mealDistributions'][0], 'mealName'>) => {
+  const calculateColumnSum = (macroKey: keyof Omit<MealMacroDistribution, 'mealName'>) => {
     return watchedMealDistributions.reduce((sum, meal) => sum + (Number(meal[macroKey]) || 0), 0);
   };
 
@@ -268,7 +269,7 @@ export default function MacroSplitterPage() {
                         <TableRow key={field.id}>
                           <TableCell className="font-medium sticky left-0 bg-background z-10 px-2 py-1 text-sm">{field.mealName}</TableCell>
                           {macroPctKeys.map(macroKey => (
-                            <TableCell key={macroKey} className={cn("px-1 py-1 text-right", macroKey === 'fat_pct' ? 'border-r' : '')}>
+                            <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums", macroKey === 'fat_pct' ? 'border-r' : '')}>
                               <FormField
                                 control={form.control}
                                 name={`mealDistributions.${index}.${macroKey}`}
@@ -417,3 +418,4 @@ export default function MacroSplitterPage() {
     </div>
   );
 }
+
