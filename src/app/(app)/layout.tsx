@@ -13,8 +13,8 @@ import {
   NotebookText,
   Bot,
   LogOut,
-  MessageSquareQuestion, // Added
-  HelpCircle, // Added
+  MessageSquareQuote, // Changed from MessageSquareQuestion
+  HelpCircle, 
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -27,7 +27,7 @@ import {
   SidebarMenuButton,
   SidebarInset,
   SidebarTrigger,
-  SidebarSeparator, // Added for visual separation
+  SidebarSeparator, 
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -40,16 +40,16 @@ import React from 'react';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/profile', label: 'Profile', icon: User },
-  { section: "Tools & Planning" }, // Section separator
+  { section: "Tools & Planning" },
   { href: '/tools/smart-calorie-planner', label: 'Smart Calorie Planner', icon: BrainCircuit },
   { href: '/tools/macro-calculator', label: 'Daily Macro Breakdown', icon: Scaling },
   { href: '/tools/macro-splitter', label: 'Macro Splitter', icon: SplitSquareHorizontal },
   { href: '/tools/meal-suggestions', label: 'Meal Suggestions', icon: ChefHat },
-  { section: "Meal Management" }, // Section separator
+  { section: "Meal Management" }, 
   { href: '/meal-plan/current', label: 'Current Meal Plan', icon: NotebookText },
   { href: '/meal-plan/optimized', label: 'AI Meal Plan', icon: Bot },
-  { section: "Support" }, // Section separator
-  { href: '/support/chatbot', label: 'Chatbot Support', icon: MessageSquareQuestion },
+  { section: "Support" }, 
+  { href: '/support/chatbot', label: 'Chatbot Support', icon: MessageSquareQuote }, // Changed
   { href: '/support/faq', label: 'FAQ & Chatbot', icon: HelpCircle },
 ];
 
@@ -89,7 +89,6 @@ export default function AppLayout({
                 return (
                   <React.Fragment key={`separator-${index}`}>
                     {index !== 0 && <SidebarSeparator className="my-2" />} 
-                    {/* Add a label for the section if desired, e.g., <SidebarGroupLabel>{item.section}</SidebarGroupLabel> */}
                   </React.Fragment>
                 );
               }
@@ -128,7 +127,6 @@ export default function AppLayout({
       <SidebarInset>
         <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6 py-4">
           <SidebarTrigger className="sm:hidden" />
-          {/* You can add breadcrumbs or page title here */}
         </header>
         <main className="flex-1 p-4 md:p-6 overflow-auto">
           {children}

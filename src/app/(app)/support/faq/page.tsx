@@ -4,7 +4,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { SupportChat } from "@/components/SupportChat";
-import { HelpCircle, MessageSquareQuestion } from "lucide-react";
+import { HelpCircle, MessageSquareQuote } from "lucide-react"; // Changed from MessageSquareQuestion
 
 const faqItems = [
   {
@@ -61,7 +61,7 @@ export default function FaqAndChatbotPage() {
       <Card className="shadow-xl">
         <CardHeader>
            <div className="flex items-center gap-3 mb-2">
-            <MessageSquareQuestion className="h-8 w-8 text-primary" />
+            <MessageSquareQuote className="h-8 w-8 text-primary" /> 
             <CardTitle className="text-3xl font-bold">Still Have Questions?</CardTitle>
           </div>
           <CardDescription>
