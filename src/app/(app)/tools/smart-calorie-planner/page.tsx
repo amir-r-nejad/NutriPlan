@@ -40,6 +40,29 @@ interface CalculationResults {
   waistChangeWarning?: string;
 }
 
+// Standard function declaration for the helper
+function renderOptionalNumberInput(form: any, name: keyof SmartCaloriePlannerFormValues, label: string, placeholder?: string, unit?: string) {
+  return (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>{label}</FormLabel>
+          <FormControl>
+            <div className="flex items-center">
+              <Input type="number" placeholder={placeholder} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
+              {unit && <span className="ml-2 text-sm text-muted-foreground">{unit}</span>}
+            </div>
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
+
 export default function SmartCaloriePlannerPage() {
   const [results, setResults] = useState<CalculationResults | null>(null);
 
@@ -127,8 +150,8 @@ export default function SmartCaloriePlannerPage() {
       bmr: Math.round(bmr),
       tdee,
       targetCaloriesScenario1: targetCaloriesS1,
-      targetCaloriesScenario2,
-      targetCaloriesScenario3,
+      targetCaloriesScenario2: targetCaloriesS2,
+      targetCaloriesScenario3: targetCaloriesS3,
       finalTargetCalories,
       estimatedWeeklyWeightChangeKg,
       waistChangeWarning: waistWarning,
@@ -147,27 +170,6 @@ export default function SmartCaloriePlannerPage() {
     setResults(null);
   };
 
-  // Helper function to render optional number inputs
-  function renderOptionalNumberInput(name: keyof SmartCaloriePlannerFormValues, label: string, placeholder?: string, unit?: string) {
-    return (
-      <FormField
-        control={form.control}
-        name={name}
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{label}</FormLabel>
-            <FormControl>
-              <div className="flex items-center">
-                <Input type="number" placeholder={placeholder} {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} />
-                {unit && <span className="ml-2 text-sm text-muted-foreground">{unit}</span>}
-              </div>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-    );
-  }
 
   return (
     <div className="container mx-auto py-8">
@@ -188,12 +190,12 @@ export default function SmartCaloriePlannerPage() {
                 <AccordionItem value="basic-info">
                   <AccordionTrigger className="text-xl font-semibold">📋 Basic Info (Required)</AccordionTrigger>
                   <AccordionContent className="grid md:grid-cols-2 gap-6 pt-4">
-                    <FormField control={form.control} name="age" render={({ field }) => ( <FormItem> <FormLabel>Age</FormLabel> <FormControl><Input type="number" placeholder="Years" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="age" render={({ field }) => ( <FormItem> <FormLabel>Age</FormLabel> <FormControl><Input type="number" placeholder="Years" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)} /></FormControl> <FormMessage /> </FormItem> )} />
                     <FormField control={form.control} name="gender" render={({ field }) => ( <FormItem> <FormLabel>Biological Sex</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger></FormControl> <SelectContent>{genders.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="height_cm" render={({ field }) => ( <FormItem> <FormLabel>Height (cm)</FormLabel> <FormControl><Input type="number" placeholder="cm" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="current_weight" render={({ field }) => ( <FormItem> <FormLabel>Current Weight (kg)</FormLabel> <FormControl><Input type="number" placeholder="kg" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
-                    <FormField control={form.control} name="goal_weight_1m" render={({ field }) => ( <FormItem> <FormLabel>Target Weight (1 Month) (kg)</FormLabel> <FormControl><Input type="number" placeholder="kg" {...field} value={field.value ?? ''} /></FormControl> <FormMessage /> </FormItem> )} />
-                    {renderOptionalNumberInput("ideal_goal_weight", "Long-Term Goal Weight (kg)", "kg")}
+                    <FormField control={form.control} name="height_cm" render={({ field }) => ( <FormItem> <FormLabel>Height (cm)</FormLabel> <FormControl><Input type="number" placeholder="cm" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)}/></FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="current_weight" render={({ field }) => ( <FormItem> <FormLabel>Current Weight (kg)</FormLabel> <FormControl><Input type="number" placeholder="kg" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)}/></FormControl> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="goal_weight_1m" render={({ field }) => ( <FormItem> <FormLabel>Target Weight (1 Month) (kg)</FormLabel> <FormControl><Input type="number" placeholder="kg" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)}/></FormControl> <FormMessage /> </FormItem> )} />
+                    {renderOptionalNumberInput(form, "ideal_goal_weight", "Long-Term Goal Weight (kg)", "kg")}
                     <FormField control={form.control} name="activity_factor_key" render={({ field }) => ( <FormItem className="md:col-span-2"> <FormLabel>Physical Activity Level</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select activity level" /></SelectTrigger></FormControl> <SelectContent>{activityLevels.map(al => <SelectItem key={al.value} value={al.value}>{al.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
                   </AccordionContent>
                 </AccordionItem>
@@ -201,12 +203,12 @@ export default function SmartCaloriePlannerPage() {
                 <AccordionItem value="body-comp">
                   <AccordionTrigger className="text-xl font-semibold">💪 Body Composition (Optional)</AccordionTrigger>
                   <AccordionContent className="grid md:grid-cols-2 gap-6 pt-4">
-                     {renderOptionalNumberInput("bf_current", "Current Body Fat %", "e.g., 20", "%")}
-                     {renderOptionalNumberInput("bf_target", "Target Body Fat % (1 Month)", "e.g., 18", "%")}
-                     {renderOptionalNumberInput("mm_current", "Current Muscle Mass %", "e.g., 35", "%")}
-                     {renderOptionalNumberInput("mm_target", "Target Muscle Mass %", "e.g., 37", "%")}
-                     {renderOptionalNumberInput("bw_current", "Current Body Water %", "e.g., 55", "%")}
-                     {renderOptionalNumberInput("bw_target", "Target Body Water %", "e.g., 58", "%")}
+                     {renderOptionalNumberInput(form, "bf_current", "Current Body Fat %", "e.g., 20", "%")}
+                     {renderOptionalNumberInput(form, "bf_target", "Target Body Fat % (1 Month)", "e.g., 18", "%")}
+                     {renderOptionalNumberInput(form, "mm_current", "Current Muscle Mass %", "e.g., 35", "%")}
+                     {renderOptionalNumberInput(form, "mm_target", "Target Muscle Mass %", "e.g., 37", "%")}
+                     {renderOptionalNumberInput(form, "bw_current", "Current Body Water %", "e.g., 55", "%")}
+                     {renderOptionalNumberInput(form, "bw_target", "Target Body Water %", "e.g., 58", "%")}
                   </AccordionContent>
                 </AccordionItem>
 
@@ -215,15 +217,15 @@ export default function SmartCaloriePlannerPage() {
                   <AccordionContent className="space-y-6 pt-4">
                     <div className="grid md:grid-cols-3 gap-x-6 gap-y-4">
                       <h4 className="md:col-span-3 text-md font-medium text-muted-foreground">Waist (cm)</h4>
-                      {renderOptionalNumberInput("waist_current", "Current Waist", "cm")}
-                      {renderOptionalNumberInput("waist_goal_1m", "1-Month Goal Waist", "cm")}
-                      {renderOptionalNumberInput("waist_ideal", "Ideal Waist", "cm")}
+                      {renderOptionalNumberInput(form, "waist_current", "Current Waist", "cm")}
+                      {renderOptionalNumberInput(form, "waist_goal_1m", "1-Month Goal Waist", "cm")}
+                      {renderOptionalNumberInput(form, "waist_ideal", "Ideal Waist", "cm")}
                     </div>
                      <div className="grid md:grid-cols-3 gap-x-6 gap-y-4">
                       <h4 className="md:col-span-3 text-md font-medium text-muted-foreground">Hips (cm)</h4>
-                      {renderOptionalNumberInput("hips_current", "Current Hips", "cm")}
-                      {renderOptionalNumberInput("hips_goal_1m", "1-Month Goal Hips", "cm")}
-                      {renderOptionalNumberInput("hips_ideal", "Ideal Hips", "cm")}
+                      {renderOptionalNumberInput(form, "hips_current", "Current Hips", "cm")}
+                      {renderOptionalNumberInput(form, "hips_goal_1m", "1-Month Goal Hips", "cm")}
+                      {renderOptionalNumberInput(form, "hips_ideal", "Ideal Hips", "cm")}
                     </div>
                     {/* Add Arms/Legs later if needed, mirroring the profile page structure */}
                   </AccordionContent>
