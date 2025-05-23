@@ -105,7 +105,6 @@ For each meal suggestion, provide:
 
 Generate practical and appealing meal ideas.
 Return the output in the specified JSON format. Ensure all numeric values are actual numbers.
-{{$instructions=JSON}}
 `,
 });
 
