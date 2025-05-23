@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { activityLevels, dietGoals, preferredDiets, mealsPerDayOptions, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames } from "./constants";
+import { activityLevels, dietGoals, preferredDiets, mealsPerDayOptions, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames, smartPlannerDietGoals } from "./constants";
 
 // Helper for preprocessing optional number fields: empty string or null becomes undefined
 const preprocessOptionalNumber = (val: unknown) => (val === "" || val === null || val === undefined || (typeof val === 'string' && val.trim() === '') ? undefined : val);
@@ -249,6 +249,7 @@ export const SmartCaloriePlannerFormSchema = z.object({
   goal_weight_1m: z.coerce.number().positive("1-Month Goal Weight must be a positive number."),
   ideal_goal_weight: z.preprocess(preprocessOptionalNumber, z.coerce.number().positive("Ideal Goal Weight must be positive if provided.").optional()),
   activity_factor_key: z.enum(activityLevels.map(al => al.value) as [string, ...string[]], { required_error: "Activity level is required." }),
+  dietGoal: z.enum(smartPlannerDietGoals.map(g => g.value) as [string, ...string[]], { required_error: "Diet goal is required." }),
 
   // Body Composition (Optional)
   bf_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100, "Body fat % must be between 0 and 100.").optional()),

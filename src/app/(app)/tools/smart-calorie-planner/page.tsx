@@ -26,7 +26,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { BrainCircuit, Calculator, HelpCircle, Info, RefreshCw, AlertTriangle } from "lucide-react";
 import { SmartCaloriePlannerFormSchema, type SmartCaloriePlannerFormValues } from "@/lib/schemas";
-import { activityLevels, genders } from "@/lib/constants";
+import { activityLevels, genders, smartPlannerDietGoals } from "@/lib/constants";
 import { calculateBMR } from "@/lib/nutrition-calculator";
 
 interface CalculationResults {
@@ -77,6 +77,7 @@ export default function SmartCaloriePlannerPage() {
       goal_weight_1m: undefined,
       ideal_goal_weight: undefined,
       activity_factor_key: undefined,
+      dietGoal: undefined,
       // Body Comp
       bf_current: undefined,
       bf_target: undefined,
@@ -106,9 +107,25 @@ export default function SmartCaloriePlannerPage() {
     const tdee = Math.round(bmr * activityFactor);
 
     // Scenario 1: Basic Goal (Required Fields Only)
-    const weightDelta = data.current_weight - data.goal_weight_1m;
-    const calorieAdjustmentS1 = (7700 * weightDelta) / 30; // 7700 kcal per kg, over 30 days
-    const targetCaloriesS1 = Math.round(tdee - calorieAdjustmentS1);
+    const weightDeltaS1 = data.current_weight - data.goal_weight_1m;
+    const calorieAdjustmentS1 = (7700 * weightDeltaS1) / 30; // 7700 kcal per kg, over 30 days
+    let S1TargetCalories = tdee - calorieAdjustmentS1;
+
+    // Adjust S1TargetCalories based on dietGoal
+    if (data.dietGoal === "fat_loss") {
+      // If weight goal implies gain or maintenance, force a deficit. Otherwise, ensure at least a mild deficit.
+      S1TargetCalories = Math.min(S1TargetCalories, tdee - 200); 
+      if (S1TargetCalories > tdee - 200) S1TargetCalories = tdee - 500; // Ensure a more significant deficit if weight goal was maintenance/gain
+    } else if (data.dietGoal === "muscle_gain") {
+      // If weight goal implies loss or maintenance, force a surplus. Otherwise, ensure at least a mild surplus.
+      S1TargetCalories = Math.max(S1TargetCalories, tdee + 150);
+      if (S1TargetCalories < tdee + 150) S1TargetCalories = tdee + 300; // Ensure a more significant surplus if weight goal was maintenance/loss
+    } else if (data.dietGoal === "recomp") {
+      S1TargetCalories = tdee - 200; // Aim for a slight deficit for recomposition
+    }
+    
+    const targetCaloriesS1 = Math.round(S1TargetCalories);
+
 
     let targetCaloriesS2: number | undefined = undefined;
     if (data.bf_current !== undefined && data.bf_target !== undefined) {
@@ -137,7 +154,7 @@ export default function SmartCaloriePlannerPage() {
     }
 
     let finalTargetCalories = targetCaloriesS1;
-    // If both S1 and S2 are available, average them for a more balanced target
+    // If both S1 (adjusted by dietGoal) and S2 (BF%) are available, average them for a more balanced target
     if (targetCaloriesS2 !== undefined) {
       finalTargetCalories = Math.round((targetCaloriesS1 + targetCaloriesS2) / 2);
     }
@@ -162,6 +179,7 @@ export default function SmartCaloriePlannerPage() {
     form.reset({
       age: undefined, gender: undefined, height_cm: undefined, current_weight: undefined,
       goal_weight_1m: undefined, ideal_goal_weight: undefined, activity_factor_key: undefined,
+      dietGoal: undefined,
       bf_current: undefined, bf_target: undefined, mm_current: undefined, mm_target: undefined,
       bw_current: undefined, bw_target: undefined, waist_current: undefined,
       waist_goal_1m: undefined, waist_ideal: undefined, hips_current: undefined,
@@ -197,6 +215,7 @@ export default function SmartCaloriePlannerPage() {
                     <FormField control={form.control} name="goal_weight_1m" render={({ field }) => ( <FormItem> <FormLabel>Target Weight (1 Month) (kg)</FormLabel> <FormControl><Input type="number" placeholder="kg" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || undefined)}/></FormControl> <FormMessage /> </FormItem> )} />
                     {renderOptionalNumberInput(form, "ideal_goal_weight", "Long-Term Goal Weight (kg)", "kg")}
                     <FormField control={form.control} name="activity_factor_key" render={({ field }) => ( <FormItem className="md:col-span-2"> <FormLabel>Physical Activity Level</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select activity level" /></SelectTrigger></FormControl> <SelectContent>{activityLevels.map(al => <SelectItem key={al.value} value={al.value}>{al.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
+                    <FormField control={form.control} name="dietGoal" render={({ field }) => ( <FormItem className="md:col-span-2"> <FormLabel>Diet Goal</FormLabel> <Select onValueChange={field.onChange} value={field.value ?? undefined}> <FormControl><SelectTrigger><SelectValue placeholder="Select diet goal" /></SelectTrigger></FormControl> <SelectContent>{smartPlannerDietGoals.map(dg => <SelectItem key={dg.value} value={dg.value}>{dg.label}</SelectItem>)}</SelectContent> </Select> <FormMessage /> </FormItem> )} />
                   </AccordionContent>
                 </AccordionItem>
 
@@ -263,8 +282,8 @@ export default function SmartCaloriePlannerPage() {
                         <h4 className="font-semibold text-base mt-2">3. Target Daily Calories</h4>
                         <p>Your target calories are adjusted from your TDEE based on your goals:</p>
                         <ul className="list-disc pl-5 space-y-1 mt-1">
-                            <li><strong>Weight Goal (Scenario 1):</strong> We estimate the calorie deficit/surplus needed to reach your 1-month weight goal (approx. 7700 kcal per kg of fat).</li>
-                            <li><strong>Body Fat % Goal (Scenario 2):</strong> If you provide current and target body fat percentages, we estimate the calorie adjustment based on the targeted fat mass change. If both weight and BF% goals are set, your target calories will be an average of these two scenarios.</li>
+                            <li><strong>Weight Goal (Scenario 1):</strong> We estimate the calorie deficit/surplus needed to reach your 1-month weight goal (approx. 7700 kcal per kg of fat). Your selected "Diet Goal" (Fat loss, Muscle gain, Recomp) further refines this estimate.</li>
+                            <li><strong>Body Fat % Goal (Scenario 2):</strong> If you provide current and target body fat percentages, we estimate the calorie adjustment based on the targeted fat mass change. If both weight and BF% goals are set, your final target calories will be an average of these two scenarios (after S1 is adjusted by Diet Goal).</li>
                             <li><strong>Waist Goal (Scenario 3):</strong> If you provide waist measurements, we use a heuristic (approx. 0.5% body fat change per cm of waist change of current weight) to estimate an alternative target. This is a rough guide.</li>
                         </ul>
                         </div>
@@ -312,9 +331,14 @@ export default function SmartCaloriePlannerPage() {
                 <p className="text-primary font-semibold"><strong>Primary Target Daily Calories:</strong> {results.finalTargetCalories} kcal/day</p>
                 {results.targetCaloriesScenario2 !== undefined && (
                     <p className="text-sm text-muted-foreground">
-                        (Based on averaging weight goal and body fat % goal scenarios. 
-                        Weight goal alone: {results.targetCaloriesScenario1} kcal, 
+                        (Based on averaging weight goal (adjusted by diet goal) and body fat % goal scenarios. 
+                        Weight/Diet goal alone: {results.targetCaloriesScenario1} kcal, 
                         BF% goal alone: {results.targetCaloriesScenario2} kcal)
+                    </p>
+                )}
+                 {results.targetCaloriesScenario2 === undefined && (
+                    <p className="text-sm text-muted-foreground">
+                        (Based on weight goal adjusted by diet goal: {results.targetCaloriesScenario1} kcal)
                     </p>
                 )}
                 {results.targetCaloriesScenario3 !== undefined && (
@@ -350,5 +374,3 @@ export default function SmartCaloriePlannerPage() {
     </div>
   );
 }
-
-    

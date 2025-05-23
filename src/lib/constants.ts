@@ -4,13 +4,19 @@ export const activityLevels = [
   { value: "light", label: "Lightly active (light exercise/sports 1-3 days/week)", activityFactor: 1.375, proteinFactorPerKg: 1.2 },
   { value: "moderate", label: "Moderately active (moderate exercise/sports 3-5 days/week)", activityFactor: 1.55, proteinFactorPerKg: 1.6 },
   { value: "active", label: "Very active (hard exercise/sports 6-7 days a week)", activityFactor: 1.725, proteinFactorPerKg: 2.0 },
-  { value: "extra_active", label: "Super active (physical job or intense training)", activityFactor: 1.9, proteinFactorPerKg: 2.2 }, // Matched "Super active" and its factor
+  { value: "extra_active", label: "Super active (physical job or intense training)", activityFactor: 1.9, proteinFactorPerKg: 2.2 },
 ];
 
 export const dietGoals = [
   { value: "lose_weight", label: "Lose Weight" },
   { value: "maintain_weight", label: "Maintain Weight" },
   { value: "gain_weight", label: "Gain Weight (Muscle)" },
+];
+
+export const smartPlannerDietGoals = [
+  { value: "fat_loss", label: "Fat loss" },
+  { value: "muscle_gain", label: "Muscle gain" },
+  { value: "recomp", label: "Muscle gain and fat loss (Recomposition)" },
 ];
 
 export const preferredDiets = [
