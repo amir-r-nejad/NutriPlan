@@ -15,7 +15,21 @@ async function getProfileDataForSuggestions(userId: string): Promise<Partial<Pro
   const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
   if (storedProfile) {
     try {
-      return JSON.parse(storedProfile) as ProfileFormValues;
+      // Ensure array fields are correctly parsed if stored as strings
+      const parsedProfile = JSON.parse(storedProfile) as ProfileFormValues;
+      const arrayFields: (keyof ProfileFormValues)[] = [
+        'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
+        'allergies', 'preferredMicronutrients', 'medicalConditions', 'medications', 
+        'injuries', 'surgeries', 'exerciseGoals', 'exercisePreferences', 'equipmentAccess'
+      ];
+      arrayFields.forEach(field => {
+        if (parsedProfile[field] && typeof parsedProfile[field] === 'string') {
+           (parsedProfile as any)[field] = (parsedProfile[field] as unknown as string).split(',').map((s: string) => s.trim()).filter((s: string) => s !== '');
+        } else if (!Array.isArray(parsedProfile[field])) {
+            (parsedProfile as any)[field] = [];
+        }
+      });
+      return parsedProfile;
     } catch (error) {
       console.error("Error parsing stored profile data for suggestions:", error);
       return {};
@@ -43,24 +57,41 @@ function MealSuggestionsContent() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [suggestions, setSuggestions] = useState<SuggestMealsForMacrosOutput['suggestions']>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   useEffect(() => {
-    const mealName = searchParams.get('mealName');
-    const calories = searchParams.get('calories');
-    const protein = searchParams.get('protein');
-    const carbs = searchParams.get('carbs');
-    const fat = searchParams.get('fat');
+    const mealNameParam = searchParams.get('mealName');
+    const caloriesParam = searchParams.get('calories');
+    const proteinParam = searchParams.get('protein');
+    const carbsParam = searchParams.get('carbs');
+    const fatParam = searchParams.get('fat');
 
-    if (mealName && calories && protein && carbs && fat) {
+    if (mealNameParam && caloriesParam && proteinParam && carbsParam && fatParam) {
       setTargetMacros({
-        mealName,
-        calories: parseFloat(calories),
-        protein: parseFloat(protein),
-        carbs: parseFloat(carbs),
-        fat: parseFloat(fat),
+        mealName: mealNameParam,
+        calories: parseFloat(caloriesParam),
+        protein: parseFloat(proteinParam),
+        carbs: parseFloat(carbsParam),
+        fat: parseFloat(fatParam),
       });
+      setIsDemoMode(false);
+      setError(null); 
     } else {
-      setError("Missing required meal macro information in URL.");
+      // Set default values for demonstration if params are missing
+      setTargetMacros({
+        mealName: "Lunch (Example)",
+        calories: 500,
+        protein: 30,
+        carbs: 60,
+        fat: 20,
+      });
+      setIsDemoMode(true);
+      toast({
+        title: "Demo Mode",
+        description: "Displaying example targets. Navigate from Macro Splitter for specific values.",
+        duration: 5000,
+      });
+      setError(null); // Clear any previous error
     }
 
     if (user?.id) {
@@ -68,7 +99,7 @@ function MealSuggestionsContent() {
       getProfileDataForSuggestions(user.id)
         .then(data => {
           setProfileData(data);
-          if (!data.age) { // Simple check for incomplete profile
+          if (!data.age && !isDemoMode) { // Simple check for incomplete profile, don't show if in demo mode already
             toast({
               title: "Profile Incomplete",
               description: "For best suggestions, please complete your user profile.",
@@ -85,17 +116,22 @@ function MealSuggestionsContent() {
         setIsLoadingProfile(false);
     }
 
-  }, [searchParams, user, toast]);
+  }, [searchParams, user, toast, isDemoMode]); // Added isDemoMode to dependency array to avoid re-triggering toast
 
   const handleGetSuggestions = async () => {
     if (!targetMacros) {
       toast({title: "Error", description: "Target macros not loaded.", variant: "destructive"});
       return;
     }
-    if (!user || isLoadingProfile) {
+    if (!user && !isDemoMode) { // Allow suggestions in demo mode even without user
         toast({title: "Please wait", description: "User profile is still loading or not available.", variant: "default"});
         return;
     }
+    if (isLoadingProfile && !isDemoMode){
+        toast({title: "Please wait", description: "User profile is still loading.", variant: "default"});
+        return;
+    }
+
 
     setIsLoading(true);
     setSuggestions([]);
@@ -129,14 +165,15 @@ function MealSuggestionsContent() {
       }
     } catch (err) {
       console.error("Error getting meal suggestions:", err);
-      setError("Failed to fetch meal suggestions. Please try again.");
-      toast({title: "AI Error", description: "Could not get meal suggestions from AI.", variant: "destructive"});
+      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred";
+      setError(`Failed to fetch meal suggestions: ${errorMessage}. Please try again.`);
+      toast({title: "AI Error", description: `Could not get meal suggestions from AI: ${errorMessage}`, variant: "destructive", duration: 7000});
     } finally {
       setIsLoading(false);
     }
   };
-
-  if (error) {
+  
+  if (error && !targetMacros) { // Only show critical error if targetMacros couldn't be set at all
     return (
       <Card className="shadow-xl">
         <CardHeader>
@@ -152,7 +189,8 @@ function MealSuggestionsContent() {
     );
   }
 
-  if (!targetMacros) {
+
+  if (!targetMacros && !isDemoMode) { // Show loader only if not in demo mode and targetMacros still null
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -160,6 +198,19 @@ function MealSuggestionsContent() {
       </div>
     );
   }
+  
+  // If targetMacros is null but we are in demo mode due to missing params, it means useEffect is still running or defaults weren't set.
+  // This case should ideally not be hit if useEffect correctly sets defaults.
+  // However, to be safe, show loading if targetMacros is still null.
+  if (!targetMacros) {
+     return (
+      <div className="flex justify-center items-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Initializing...</p>
+      </div>
+    );
+  }
+
 
   return (
     <div className="space-y-6">
@@ -171,6 +222,7 @@ function MealSuggestionsContent() {
           </CardTitle>
           <CardDescription>
             Get AI-powered meal ideas tailored to your specific macronutrient targets for this meal.
+            {isDemoMode && <span className="block text-sm text-amber-600 dark:text-amber-400 mt-1">(Displaying example targets as URL parameters were missing)</span>}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -184,10 +236,15 @@ function MealSuggestionsContent() {
             </div>
           </div>
 
-          <Button onClick={handleGetSuggestions} disabled={isLoading || isLoadingProfile} size="lg" className="w-full md:w-auto">
+          <Button onClick={handleGetSuggestions} disabled={isLoading || (isLoadingProfile && !isDemoMode)} size="lg" className="w-full md:w-auto">
             {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
-            {isLoadingProfile && !isLoading ? "Loading Profile..." : (isLoading ? "Getting Suggestions..." : "Get AI Meal Suggestions")}
+            {(isLoadingProfile && !isDemoMode) && !isLoading ? "Loading Profile..." : (isLoading ? "Getting Suggestions..." : "Get AI Meal Suggestions")}
           </Button>
+          
+          {error && targetMacros && ( // Show non-critical errors (e.g. AI call failed) here
+             <p className="text-destructive mt-4"><AlertTriangle className="inline mr-1 h-4 w-4" />{error}</p>
+          )}
+
         </CardContent>
       </Card>
 
@@ -238,3 +295,4 @@ export default function MealSuggestionsPage() {
     </Suspense>
   );
 }
+
