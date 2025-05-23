@@ -2,7 +2,8 @@ import * as z from "zod";
 import { activityLevels, dietGoals, preferredDiets, mealsPerDayOptions, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames } from "./constants";
 
 // Helper for preprocessing optional number fields: empty string or null becomes undefined
-const preprocessOptionalNumber = (val: unknown) => (val === "" || val === null ? undefined : val);
+const preprocessOptionalNumber = (val: unknown) => (val === "" || val === null || val === undefined || (typeof val === 'string' && val.trim() === '') ? undefined : val);
+
 
 export const ProfileFormSchema = z.object({
   // Basic Info
@@ -11,7 +12,7 @@ export const ProfileFormSchema = z.object({
   height: z.coerce.number().min(50, "Height must be at least 50cm").max(300),
   currentWeight: z.coerce.number().min(20, "Current weight must be at least 20kg").max(500),
   goalWeight1Month: z.coerce.number().min(20, "1-Month Goal weight must be at least 20kg").max(500).describe("The goal weight for 1 month."),
-  goalWeightIdeal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(20, "Ideal Goal weight must be at least 20kg").max(500).optional().describe("The ideal goal weight.")),
+  goalWeightIdeal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(20).max(500).optional().describe("The ideal goal weight.")),
 
 
   // Body Composition
@@ -268,4 +269,3 @@ export const SmartCaloriePlannerFormSchema = z.object({
 });
 
 export type SmartCaloriePlannerFormValues = z.infer<typeof SmartCaloriePlannerFormSchema>;
-```
