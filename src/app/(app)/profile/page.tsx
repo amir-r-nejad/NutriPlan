@@ -11,6 +11,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription, // Added FormDescription
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
@@ -32,10 +33,26 @@ import { subscriptionStatuses } from "@/lib/constants";
 interface FullProfileData {
   name?: string;
   subscriptionStatus?: string;
+  // Fields previously managed by profile page, now managed elsewhere (e.g., Smart Planner or Onboarding)
+  // but might still exist in the full localStorage object.
   age?: number;
   gender?: string;
   height?: number;
-  // ... other fields from smart planner or onboarding ...
+  currentWeight?: number;
+  goalWeight1Month?: number;
+  goalWeightIdeal?: number;
+  activityLevel?: string;
+  dietGoal?: string;
+  mealsPerDay?: number;
+  preferredDiet?: string;
+  preferredCuisines?: string[];
+  dispreferredCuisines?: string[];
+  preferredIngredients?: string[];
+  dispreferredIngredients?: string[];
+  allergies?: string[];
+  preferredMicronutrients?: string[];
+  medicalConditions?: string[];
+  medications?: string[];
   painMobilityIssues?: string;
   injuries?: string[];
   surgeries?: string[];
@@ -44,6 +61,33 @@ interface FullProfileData {
   exerciseFrequency?: string;
   exerciseIntensity?: string;
   equipmentAccess?: string[];
+  bf_current?: number;
+  bf_target?: number;
+  bf_ideal?: number;
+  mm_current?: number;
+  mm_target?: number;
+  mm_ideal?: number;
+  bw_current?: number;
+  bw_target?: number;
+  bw_ideal?: number;
+  waist_current?: number;
+  waist_goal_1m?: number;
+  waist_ideal?: number;
+  hips_current?: number;
+  hips_goal_1m?: number;
+  hips_ideal?: number;
+  right_leg_current?: number;
+  right_leg_goal_1m?: number;
+  right_leg_ideal?: number;
+  left_leg_current?: number;
+  left_leg_goal_1m?: number;
+  left_leg_ideal?: number;
+  right_arm_current?: number;
+  right_arm_goal_1m?: number;
+  right_arm_ideal?: number;
+  left_arm_current?: number;
+  left_arm_goal_1m?: number;
+  left_arm_ideal?: number;
 }
 
 
