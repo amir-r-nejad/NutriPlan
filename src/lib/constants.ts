@@ -59,6 +59,14 @@ export const exerciseIntensities = [
   { value: "vigorous", label: "Vigorous" },
 ];
 
+export const subscriptionStatuses = [
+  { value: "free", label: "Free Tier" },
+  { value: "premium", label: "Premium Monthly" },
+  { value: "premium_annual", label: "Premium Annual" },
+  { value: "trial", label: "Trial Period" },
+  { value: "trial_ended", label: "Trial Ended" },
+];
+
 export const mealNames = [
   "Breakfast",
   "Morning Snack",

@@ -1,6 +1,6 @@
 
 import * as z from "zod";
-import { preferredDiets, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames, smartPlannerDietGoals, activityLevels as allActivityLevels } from "./constants";
+import { preferredDiets, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames, smartPlannerDietGoals, activityLevels as allActivityLevels, subscriptionStatuses } from "./constants";
 
 // Helper for preprocessing optional number fields: empty string, null, or non-numeric becomes undefined
 const preprocessOptionalNumber = (val: unknown) => {
@@ -13,17 +13,11 @@ const preprocessOptionalNumber = (val: unknown) => {
 
 
 export const ProfileFormSchema = z.object({
-  // Medical Info (Remaining)
-  painMobilityIssues: z.string().optional(),
-  injuries: z.array(z.string()).optional(),
-  surgeries: z.array(z.string()).optional(),
-
-  // Exercise Preferences (Remaining)
-  exerciseGoals: z.array(z.string()).optional(),
-  exercisePreferences: z.array(z.string()).optional(),
-  exerciseFrequency: z.enum(exerciseFrequencies.map(ef => ef.value) as [string, ...string[]]).optional(),
-  exerciseIntensity: z.enum(exerciseIntensities.map(ei => ei.value) as [string, ...string[]]).optional(),
-  equipmentAccess: z.array(z.string()).optional(),
+  name: z.string().min(1, "Name is required.").optional(),
+  subscriptionStatus: z.string().optional(), // Or z.enum(subscriptionStatuses.map(s => s.value) as [string, ...string[]]).optional()
+  
+  // Fields previously here (medical, exercise preferences) are removed from this specific form's schema
+  // They might still exist in the full profile data in localStorage if set by other tools/onboarding
 });
 
 export type ProfileFormValues = z.infer<typeof ProfileFormSchema>;
@@ -207,7 +201,7 @@ export const SmartCaloriePlannerFormSchema = z.object({
   // Body Composition (Optional)
   bf_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100, "Body fat % must be between 0 and 100.").optional()),
   bf_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100, "Target body fat % must be between 0 and 100.").optional()),
-  bf_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100, "Ideal body fat % must be between 0 and 100.").optional()),
+  bf_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100).optional()),
   
   mm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100).optional()), 
   mm_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").max(100).optional()),  
@@ -242,7 +236,7 @@ export const SmartCaloriePlannerFormSchema = z.object({
   left_arm_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
   left_arm_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
 
-  // Custom Plan Inputs
+  // Custom Plan Inputs for Smart Calorie Planner
   custom_total_calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().positive("Custom calories must be positive if provided.").optional()),
   custom_protein_per_kg: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Protein per kg must be non-negative if provided.").optional()),
   remaining_calories_carb_pct: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Carb percentage must be between 0 and 100.").max(100, "Carb percentage must be between 0 and 100.").optional().default(50)),
@@ -287,4 +281,3 @@ export interface MacroResults {
   Carb_pct: number;
   Fat_pct: number;
 }
-
