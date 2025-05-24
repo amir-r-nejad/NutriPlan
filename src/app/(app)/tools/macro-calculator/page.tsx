@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -20,6 +20,8 @@ import { Slider } from "@/components/ui/slider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { Calculator, RefreshCw } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const macroCalculatorSchema = z.object({
   weight_kg: z.coerce.number().positive({ message: "Weight must be greater than 0." }),
@@ -60,7 +62,6 @@ function calculateMacros(
 
   let remaining_cals_for_carbs_fat = target_calories - protein_cals;
   
-  // If protein calories alone exceed target, cap protein and set others to 0
   if (remaining_cals_for_carbs_fat < 0) {
     protein_cals = target_calories;
     protein_grams = protein_cals / CAL_PER_GRAM_PROTEIN;
@@ -74,7 +75,6 @@ function calculateMacros(
   const carb_grams = carb_cals / CAL_PER_GRAM_CARB;
   const fat_grams = fat_cals / CAL_PER_GRAM_FAT;
   
-  // Ensure individual macros are not negative after all calculations
   const final_protein_grams = Math.max(0, protein_grams);
   const final_carb_grams = Math.max(0, carb_grams);
   const final_fat_grams = Math.max(0, fat_grams);
@@ -87,16 +87,14 @@ function calculateMacros(
   
   const protein_pct = target_calories > 0 ? Math.round((final_protein_cals / target_calories) * 100) : 0;
   const carb_pct = target_calories > 0 ? Math.round((final_carb_cals / target_calories) * 100) : 0;
-  // Adjust fat_pct to make sum 100% with the already rounded protein and carb percentages
   let fat_pct_calculated = target_calories > 0 ? Math.round((final_fat_cals / target_calories) * 100) : 0;
   
   if (target_calories > 0) {
     const current_sum_pct = protein_pct + carb_pct + fat_pct_calculated;
-    if (current_sum_pct !== 100 && current_sum_pct > 0) { // avoid adjusting if all are zero
+    if (current_sum_pct !== 100 && current_sum_pct > 0) { 
         fat_pct_calculated = 100 - protein_pct - carb_pct;
     }
   }
-
 
   return {
     Protein_g: Math.round(final_protein_grams),
@@ -108,22 +106,44 @@ function calculateMacros(
     Total_cals: Math.round(total_cals_calculated),
     Protein_pct: protein_pct,
     Carb_pct: carb_pct,
-    Fat_pct: Math.max(0, fat_pct_calculated), // Ensure fat_pct is not negative after adjustment
+    Fat_pct: Math.max(0, fat_pct_calculated), 
   };
 }
 
 export default function MacroCalculatorPage() {
   const [results, setResults] = useState<MacroResults | null>(null);
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const form = useForm<MacroCalculatorFormValues>({
     resolver: zodResolver(macroCalculatorSchema),
     defaultValues: {
-      weight_kg: undefined, // Or some sensible default like 70
+      weight_kg: undefined, 
       protein_per_kg: 1.5,
       target_calories: 2000,
       percent_carb: 60,
     },
   });
+
+  // Load saved results on mount
+  useEffect(() => {
+    if (user?.id) {
+      const savedResultsRaw = localStorage.getItem(`nutriplan_macro_calculator_results_${user.id}`);
+      if (savedResultsRaw) {
+        try {
+          const savedResults = JSON.parse(savedResultsRaw) as MacroResults;
+          setResults(savedResults);
+          // Optionally, you could also try to re-populate form fields if they were saved alongside results
+          // For now, just displaying the saved result summary.
+          toast({title: "Loaded Saved Results", description: "Previously calculated macro breakdown loaded."});
+        } catch (e) {
+          console.error("Failed to parse saved macro calculator results:", e);
+          localStorage.removeItem(`nutriplan_macro_calculator_results_${user.id}`);
+        }
+      }
+    }
+  }, [user, toast]);
+
 
   const watchedPercentCarb = form.watch("percent_carb");
 
@@ -135,6 +155,10 @@ export default function MacroCalculatorPage() {
       data.percent_carb
     );
     setResults(calculated);
+    if (user?.id) {
+      localStorage.setItem(`nutriplan_macro_calculator_results_${user.id}`, JSON.stringify(calculated));
+      toast({title: "Calculation Saved", description: "Your macro breakdown has been calculated and saved."});
+    }
   }
 
   const handleReset = () => {
@@ -145,13 +169,17 @@ export default function MacroCalculatorPage() {
         percent_carb: 60,
     });
     setResults(null);
+    if (user?.id) {
+        localStorage.removeItem(`nutriplan_macro_calculator_results_${user.id}`);
+        toast({title: "Results Cleared", description: "Saved macro breakdown has been cleared."});
+    }
   }
 
   return (
     <div className="container mx-auto py-8">
       <Card className="max-w-2xl mx-auto shadow-xl">
         <CardHeader>
-          <CardTitle className="text-3xl font-bold flex items-center"><Calculator className="mr-2 h-7 w-7 text-primary"/>Macro Calculator</CardTitle>
+          <CardTitle className="text-3xl font-bold flex items-center"><Calculator className="mr-2 h-7 w-7 text-primary"/>Daily Macro Breakdown</CardTitle>
           <CardDescription>
             Enter your details to calculate your estimated daily macronutrient breakdown.
           </CardDescription>
@@ -208,7 +236,7 @@ export default function MacroCalculatorPage() {
                       <FormLabel>% of Remaining Calories from Carbs</FormLabel>
                       <FormControl>
                         <Slider
-                          value={[field.value ?? 0]} // Ensure slider value is always defined
+                          value={[field.value ?? 0]} 
                           max={100}
                           step={1}
                           onValueChange={(value) => field.onChange(value[0])}
@@ -284,5 +312,3 @@ export default function MacroCalculatorPage() {
     </div>
   );
 }
-
-    
