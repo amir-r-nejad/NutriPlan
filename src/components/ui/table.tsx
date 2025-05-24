@@ -11,9 +11,7 @@ const Table = React.forwardRef<
       ref={ref}
       className={cn("w-full caption-bottom text-sm", className)}
       {...props}
-    >
-      {children}
-    </table>
+    >{children}</table>
   </div>
 ))
 Table.displayName = "Table"
@@ -22,9 +20,7 @@ const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, children, ...props }, ref) => (
-  <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props}>
-    {children}
-  </thead>
+  <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props}>{children}</thead>
 ))
 TableHeader.displayName = "TableHeader"
 
@@ -36,9 +32,7 @@ const TableBody = React.forwardRef<
     ref={ref}
     className={cn("[&_tr:last-child]:border-0", className)}
     {...props}
-  >
-    {children}
-  </tbody>
+  >{children}</tbody>
 ))
 TableBody.displayName = "TableBody"
 
@@ -53,9 +47,7 @@ const TableFooter = React.forwardRef<
       className
     )}
     {...props}
-  >
-    {children}
-  </tfoot>
+  >{children}</tfoot>
 ))
 TableFooter.displayName = "TableFooter"
 
