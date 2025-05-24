@@ -2,13 +2,13 @@
 import * as z from "zod";
 import { preferredDiets, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames, smartPlannerDietGoals, activityLevels as allActivityLevels } from "./constants";
 
-// Helper for preprocessing optional number fields: empty string or null becomes undefined
+// Helper for preprocessing optional number fields: empty string, null, or non-numeric becomes undefined
 const preprocessOptionalNumber = (val: unknown) => {
-  if (val === "" || val === null || val === undefined || (typeof val === 'string' && val.trim() === '')) {
+  if (val === "" || val === null || val === undefined) {
     return undefined;
   }
   const num = Number(val);
-  return isNaN(num) ? val : num; // Keep non-numeric string for Zod to catch as invalid number
+  return isNaN(num) ? undefined : num; // If not a valid number, treat as undefined for optional check
 };
 
 
@@ -76,7 +76,7 @@ export const WeeklyMealPlanSchema = z.object({
 export type WeeklyMealPlan = z.infer<typeof WeeklyMealPlanSchema>;
 
 
-// Schema for Daily Calorie & Micro Nutrient Targets
+// Schema for Daily Calorie & Micro Nutrient Targets (Now largely superseded by SmartCaloriePlanner)
 export const DailyTargetsSchema = z.object({
   id: z.string().optional(),
   userId: z.string().optional(),
@@ -86,12 +86,12 @@ export const DailyTargetsSchema = z.object({
   targetProtein: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   targetCarbs: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   targetFat: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  mealsPerDay: z.coerce.number().min(2).max(7),
+  mealsPerDay: z.coerce.number().min(2).max(7).optional(),
 });
 export type DailyTargets = z.infer<typeof DailyTargetsSchema>;
 
 
-// Schema for Meal-Level Nutrient Breakdown
+// Schema for Meal-Level Nutrient Breakdown (Now largely superseded by MacroSplitter)
 export const MealTargetSchema = z.object({
   mealName: z.string(),
   targetCalories: z.coerce.number().min(0),
@@ -167,12 +167,12 @@ export const MacroSplitterFormSchema = z.object({
     .length(defaultSplitterMealNames.length, `Must have ${defaultSplitterMealNames.length} meal entries.`),
 }).superRefine((data, ctx) => {
   const checkSum = (macroKey: keyof Omit<MealMacroDistribution, 'mealName'>, macroName: string) => {
-    const sum = data.mealDistributions.reduce((acc, meal) => acc + meal[macroKey], 0);
+    const sum = data.mealDistributions.reduce((acc, meal) => acc + (Number(meal[macroKey]) || 0), 0);
     if (Math.round(sum) !== 100) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `Total ${macroName} percentages must sum to 100%. Current sum: ${sum.toFixed(1)}%`,
-        path: ['mealDistributions', 0, macroKey], // Simplified path for general error
+        path: ['mealDistributions', 0, macroKey], 
       });
     }
   };
@@ -241,6 +241,11 @@ export const SmartCaloriePlannerFormSchema = z.object({
   left_arm_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
   left_arm_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
   left_arm_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Must be >= 0").optional()),
+
+  // Custom Plan Inputs
+  custom_total_calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().positive("Custom calories must be positive if provided.").optional()),
+  custom_protein_per_kg: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Protein per kg must be non-negative if provided.").optional()),
+  remaining_calories_split_focus: z.enum(["carbs", "fat"]).default("carbs").optional(),
 });
 
 export type SmartCaloriePlannerFormValues = z.infer<typeof SmartCaloriePlannerFormSchema>;
@@ -253,7 +258,7 @@ export const MealSuggestionPreferencesSchema = z.object({
   preferredIngredients: z.array(z.string()).optional(),
   dispreferredIngredients: z.array(z.string()).optional(),
   allergies: z.array(z.string()).optional(),
-  preferredMicronutrients: z.array(z.string()).optional(), // Note: micronutrients field name alignment
+  preferredMicronutrients: z.array(z.string()).optional(), 
   medicalConditions: z.array(z.string()).optional(),
   medications: z.array(z.string()).optional(),
 });
@@ -282,5 +287,3 @@ export interface MacroResults {
   Carb_pct: number;
   Fat_pct: number;
 }
-
-    
