@@ -245,7 +245,7 @@ export const SmartCaloriePlannerFormSchema = z.object({
   // Custom Plan Inputs
   custom_total_calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().positive("Custom calories must be positive if provided.").optional()),
   custom_protein_per_kg: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Protein per kg must be non-negative if provided.").optional()),
-  remaining_calories_split_focus: z.enum(["carbs", "fat"]).default("carbs").optional(),
+  remaining_calories_carb_pct: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Carb percentage must be between 0 and 100.").max(100, "Carb percentage must be between 0 and 100.").optional().default(50)),
 });
 
 export type SmartCaloriePlannerFormValues = z.infer<typeof SmartCaloriePlannerFormSchema>;
@@ -287,3 +287,4 @@ export interface MacroResults {
   Carb_pct: number;
   Fat_pct: number;
 }
+

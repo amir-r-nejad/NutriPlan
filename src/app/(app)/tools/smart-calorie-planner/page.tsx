@@ -116,7 +116,7 @@ export default function SmartCaloriePlannerPage() {
       left_arm_ideal: undefined,
       custom_total_calories: undefined,
       custom_protein_per_kg: undefined,
-      remaining_calories_split_focus: "carbs",
+      remaining_calories_carb_pct: 50,
     },
   });
 
@@ -212,9 +212,6 @@ export default function SmartCaloriePlannerPage() {
     } else if (data.dietGoal === 'muscle_gain') { 
       targetCaloriesS1 = Math.max(targetCaloriesS1, tdee + 150); // Ensure at least a small surplus or use weight goal surplus
     } else if (data.dietGoal === 'recomp') { 
-      // For recomp, aim for slight deficit or maintenance, but prioritize the weight goal if it implies a larger shift.
-      // Let's use a tighter range around TDEE, but if weight goal calculation is far from TDEE, it suggests a more aggressive goal.
-      // We can simply use the targetCaloriesS1 as calculated from weight goal, then cap it if needed.
       targetCaloriesS1 = Math.min(Math.max(targetCaloriesS1, tdee - 300), tdee + 100); // Cap between -300 to +100 of TDEE
       targetCaloriesS1 = Math.max(targetCaloriesS1, bmr + 100, 1400); // Min safe calories
     }
@@ -348,7 +345,7 @@ export default function SmartCaloriePlannerPage() {
       hips_current: undefined, hips_goal_1m: undefined, hips_ideal: undefined,
       right_leg_current: undefined, right_leg_goal_1m: undefined, right_leg_ideal: undefined, left_leg_current: undefined, left_leg_goal_1m: undefined, left_leg_ideal: undefined,
       right_arm_current: undefined, right_arm_goal_1m: undefined, right_arm_ideal: undefined, left_arm_current: undefined, left_arm_goal_1m: undefined, left_arm_ideal: undefined,
-      custom_total_calories: undefined, custom_protein_per_kg: undefined, remaining_calories_split_focus: "carbs",
+      custom_total_calories: undefined, custom_protein_per_kg: undefined, remaining_calories_carb_pct: 50,
     });
     setResults(null);
     setCustomPlanResults(null); 
@@ -374,7 +371,7 @@ export default function SmartCaloriePlannerPage() {
         ...smartPlannerForm.getValues(), 
         custom_total_calories: undefined,
         custom_protein_per_kg: undefined,
-        remaining_calories_split_focus: "carbs",
+        remaining_calories_carb_pct: 50,
     });
     setCustomPlanResults(null); 
     toast({ title: "Custom Plan Reset", description: "Custom plan inputs have been reset." });
@@ -383,7 +380,7 @@ export default function SmartCaloriePlannerPage() {
   const watchedCustomInputs = smartPlannerForm.watch([
     "custom_total_calories",
     "custom_protein_per_kg",
-    "remaining_calories_split_focus",
+    "remaining_calories_carb_pct",
     "current_weight" 
   ]);
 
@@ -391,7 +388,7 @@ export default function SmartCaloriePlannerPage() {
   const percentFatManual = 100 - (watchedPercentCarbManual || 0);
   
   useEffect(() => {
-    const [customTotalCalories, customProteinPerKg, splitFocus, currentWeightMainForm] = watchedCustomInputs;
+    const [customTotalCalories, customProteinPerKg, remainingCarbPct, currentWeightMainForm] = watchedCustomInputs;
 
     if (!results || currentWeightMainForm === undefined || currentWeightMainForm <= 0) {
         if (customPlanResults !== null) setCustomPlanResults(null);
@@ -422,7 +419,7 @@ export default function SmartCaloriePlannerPage() {
     let calculatedFatCalories = 0;
 
     if (remainingCaloriesForCustom > 0) {
-      const carbRatio = splitFocus === "carbs" ? 0.7 : (splitFocus === "fat" ? 0.3 : 0.5);
+      const carbRatio = (remainingCarbPct ?? 50) / 100; // Use form value, fallback to 50%
       const fatRatio = 1 - carbRatio;
 
       calculatedCarbCalories = remainingCaloriesForCustom * carbRatio;
@@ -432,12 +429,6 @@ export default function SmartCaloriePlannerPage() {
       calculatedFatGrams = calculatedFatCalories / 9;
 
     } else if (remainingCaloriesForCustom < 0) {
-      // toast({
-      //   title: "Custom Plan Alert",
-      //   description: "Protein calories exceed your custom total calories. Carbs and Fat will be zero.",
-      //   variant: "default",
-      //   duration: 5000,
-      // });
       remainingCaloriesForCustom = 0; 
     }
     
@@ -465,7 +456,7 @@ export default function SmartCaloriePlannerPage() {
         setCustomPlanResults(newCustomPlan);
     }
     
-  }, [watchedCustomInputs, results, customPlanResults]);
+  }, [watchedCustomInputs, results, customPlanResults, smartPlannerForm]);
   
 
   return (
@@ -499,7 +490,7 @@ export default function SmartCaloriePlannerPage() {
                   </AccordionContent>
                 </AccordionItem>
 
-                <AccordionItem value="body-comp">
+                 <AccordionItem value="body-comp">
                     <AccordionTrigger className="text-xl font-semibold">💪 Body Composition (Optional)</AccordionTrigger>
                     <AccordionContent className="space-y-1 pt-4">
                         <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground">
@@ -516,14 +507,16 @@ export default function SmartCaloriePlannerPage() {
                             }[metric] as [keyof SmartCaloriePlannerFormValues, keyof SmartCaloriePlannerFormValues, keyof SmartCaloriePlannerFormValues];
                             return (
                                 <div key={metric} className="grid grid-cols-4 gap-x-2 items-center py-1">
-                                    <span>{metric}</span>
+                                    <span className="text-sm">{metric}</span>
                                     {keys.map(key => (
-                                        <FormField key={key} control={smartPlannerForm.control} name={key} render={({ field }) => (
+                                        <FormField key={key} control={smartPlannerForm.control} name={key}>
+                                            {({ field }) => (
                                             <FormItem className="text-center">
-                                                <FormControl><Input type="number" placeholder="e.g., 20" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center" /></FormControl>
+                                                <FormControl><Input type="number" placeholder="e.g., 20" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" /></FormControl>
                                                 <FormMessage className="text-xs text-center"/>
                                             </FormItem>
-                                        )} />
+                                            )}
+                                        </FormField>
                                     ))}
                                 </div>
                             );
@@ -551,14 +544,16 @@ export default function SmartCaloriePlannerPage() {
                             }[metric] as [keyof SmartCaloriePlannerFormValues, keyof SmartCaloriePlannerFormValues, keyof SmartCaloriePlannerFormValues];
                             return (
                                 <div key={metric} className="grid grid-cols-4 gap-x-2 items-center py-1">
-                                    <span>{metric}</span>
+                                    <span className="text-sm">{metric}</span>
                                     {keys.map(key => (
-                                        <FormField key={key} control={smartPlannerForm.control} name={key} render={({ field }) => (
+                                        <FormField key={key} control={smartPlannerForm.control} name={key}>
+                                            {({ field }) => (
                                             <FormItem className="text-center">
-                                                <FormControl><Input type="number" placeholder="e.g., 80" {...field} value={field.value ?? ''}  onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center" /></FormControl>
+                                                <FormControl><Input type="number" placeholder="e.g., 80" {...field} value={field.value ?? ''}  onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" /></FormControl>
                                                 <FormMessage className="text-xs text-center"/>
                                             </FormItem>
-                                        )} />
+                                            )}
+                                        </FormField>
                                     ))}
                                 </div>
                             );
@@ -653,7 +648,7 @@ export default function SmartCaloriePlannerPage() {
                                 <TableCell className="text-right">{results.fatCalories?.toFixed(0) ?? 'N/A'} kcal</TableCell>
                             </TableRow>
                         </TableBody>
-                         <TableCaption className="text-xs mt-2 text-left"> This breakdown is based on your inputs and calculated goal. For custom macro adjustments, use the &apos;Customize Your Plan&apos; section below or toggle the &apos;Manual Macro Breakdown&apos; tool. </TableCaption>
+                         <TableCaption className="text-xs mt-2 text-left"> This breakdown is based on your inputs and calculated goal. For custom macro adjustments, use the 'Customize Your Plan' section below or toggle the 'Manual Macro Breakdown' tool. </TableCaption>
                     </Table>
                 </div>
               </CardContent>
@@ -671,7 +666,7 @@ export default function SmartCaloriePlannerPage() {
                 <CardContent>
                     <Form {...smartPlannerForm}> 
                         <form className="space-y-6"> 
-                            <div className="grid md:grid-cols-3 gap-x-6 gap-y-4 items-start">
+                            <div className="grid md:grid-cols-2 gap-x-6 gap-y-4 items-start">
                                 <FormField
                                     control={smartPlannerForm.control}
                                     name="custom_total_calories"
@@ -706,28 +701,40 @@ export default function SmartCaloriePlannerPage() {
                                         </FormItem>
                                     )}
                                 />
-                                <FormField
+                                 <FormField
                                     control={smartPlannerForm.control}
-                                    name="remaining_calories_split_focus"
-                                    render={({ field }) => (
-                                        <FormItem>
+                                    name="remaining_calories_carb_pct"
+                                    render={({ field }) => {
+                                      const currentCarbPct = field.value ?? 50;
+                                      const currentFatPct = 100 - currentCarbPct;
+                                      return (
+                                        <FormItem className="md:col-span-2">
                                             <FormLabel className="flex items-center">
-                                                Remaining Calories Focus
+                                                Remaining Calories from Carbs (%)
                                                  <Tooltip>
                                                     <TooltipTrigger asChild><Button variant="ghost" size="icon" className="h-5 w-5 ml-1 p-0"><Info className="h-3 w-3"/></Button></TooltipTrigger>
-                                                    <TooltipContent className="w-64"><p>After protein is set, how should the remaining calories be primarily allocated between carbs and fat? (e.g. 70% to focus, 30% to other)</p></TooltipContent>
+                                                    <TooltipContent className="w-64"><p>After protein is set, this slider determines how the remaining calories are split between carbohydrates and fat. Slide to adjust the carbohydrate percentage; fat will be the remainder.</p></TooltipContent>
                                                 </Tooltip>
                                             </FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value || "carbs"}>
-                                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                                <SelectContent>
-                                                    <SelectItem value="carbs">Prioritize Carbohydrates</SelectItem>
-                                                    <SelectItem value="fat">Prioritize Fat</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                            <FormControl>
+                                                <div className="flex flex-col space-y-2 pt-1">
+                                                    <Slider
+                                                        value={[currentCarbPct]}
+                                                        onValueChange={(value) => field.onChange(value[0])}
+                                                        min={0}
+                                                        max={100}
+                                                        step={1}
+                                                    />
+                                                    <div className="flex justify-between text-xs text-muted-foreground">
+                                                        <span>Carbs: {currentCarbPct.toFixed(0)}%</span>
+                                                        <span>Fat: {currentFatPct.toFixed(0)}%</span>
+                                                    </div>
+                                                </div>
+                                            </FormControl>
                                             <FormMessage />
                                         </FormItem>
-                                    )}
+                                      );
+                                    }}
                                 />
                             </div>
                              <div className="mt-2 flex justify-end">
@@ -800,21 +807,15 @@ export default function SmartCaloriePlannerPage() {
                       <FormField control={manualCalculatorForm.control} name="percent_carb" render={({ field }) => (
                         <FormItem className="md:col-span-2">
                           <FormLabel>Split Remaining Calories: Carb % ({field.value ?? 0}%) vs Fat % ({percentFatManual.toFixed(0)}%)</FormLabel>
-                          <FormControl>
-                            <div className="flex items-center space-x-2">
-                                <span className="text-xs text-muted-foreground">Fat</span>
-                                  <div className="flex-grow"> 
-                                   <div suppressHydrationWarning> {/* Added suppressHydrationWarning here */}
-                                    <Slider
-                                      value={[field.value ?? 0]}
-                                      onValueChange={(value) => field.onChange(value[0])}
-                                      max={100}
-                                      step={1}
-                                      className="w-full"
-                                    />
-                                    </div>
-                                  </div>
-                                <span className="text-xs text-muted-foreground">Carbs</span>
+                           <FormControl>
+                            <div suppressHydrationWarning>
+                              <Slider
+                                value={[field.value ?? 0]}
+                                onValueChange={(value) => field.onChange(value[0])}
+                                max={100}
+                                step={1}
+                                className="w-full"
+                              />
                             </div>
                           </FormControl>
                           <FormMessage />
@@ -850,7 +851,4 @@ export default function SmartCaloriePlannerPage() {
     </div>
     </TooltipProvider>
   );
-}
-;
-
-    
+};
