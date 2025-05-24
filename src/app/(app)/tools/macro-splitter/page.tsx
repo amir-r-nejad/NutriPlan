@@ -35,9 +35,6 @@ async function getProfileDataForMacroSplitter(userId: string): Promise<Partial<P
     try {
       const parsedProfile = JSON.parse(storedProfile) as ProfileFormValues;
        const arrayFields: (keyof ProfileFormValues)[] = [
-        // These are from the ProfileFormValues which is now smaller
-        // 'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
-        // 'allergies', 'preferredMicronutrients', 'medicalConditions', 'medications', 
         'injuries', 'surgeries', 'exerciseGoals', 'exercisePreferences', 'equipmentAccess'
       ];
       arrayFields.forEach(field => {
@@ -108,7 +105,7 @@ export default function MacroSplitterPage() {
     let targets: TotalMacros | null = null;
     let sourceMessage = "";
 
-    // 1. Try Daily Macro Breakdown results
+    // 1. Try Daily Macro Breakdown results (now from smart planner's manual section)
     const macroCalcResultsRaw = localStorage.getItem(`nutriplan_macro_calculator_results_${user.id}`);
     if (macroCalcResultsRaw) {
       try {
@@ -118,10 +115,10 @@ export default function MacroSplitterPage() {
           protein_g: parsed.Protein_g,
           carbs_g: parsed.Carbs_g,
           fat_g: parsed.Fat_g,
-          source: "Daily Macro Breakdown Tool"
+          source: "Manual Macro Breakdown"
         };
-        sourceMessage = "Daily totals sourced from 'Daily Macro Breakdown'. Adjust there for changes.";
-      } catch (e) { console.error("Failed to parse Daily Macro Breakdown results", e); }
+        sourceMessage = "Daily totals sourced from 'Manual Macro Breakdown' in the Smart Planner. Adjust there for changes.";
+      } catch (e) { console.error("Failed to parse Manual Macro Breakdown results", e); }
     }
 
     // 2. Try Smart Calorie Planner results if first source failed
@@ -129,12 +126,12 @@ export default function MacroSplitterPage() {
       const smartPlannerResultsRaw = localStorage.getItem(`nutriplan_smart_planner_results_${user.id}`);
       if (smartPlannerResultsRaw) {
         try {
-          const parsed = JSON.parse(smartPlannerResultsRaw);
+          const parsed = JSON.parse(smartPlannerResultsRaw); // Expects full CalculationResults
           targets = {
-            calories: parsed.calories, // Already named correctly from saving
-            protein_g: parsed.protein_g,
-            carbs_g: parsed.carbs_g,
-            fat_g: parsed.fat_g,
+            calories: parsed.finalTargetCalories, // Adjusted property name
+            protein_g: parsed.proteinGrams,     // Adjusted property name
+            carbs_g: parsed.carbGrams,         // Adjusted property name
+            fat_g: parsed.fatGrams,           // Adjusted property name
             source: "Smart Calorie Planner"
           };
           sourceMessage = "Daily totals sourced from 'Smart Calorie Planner'. Adjust there for changes.";
@@ -293,7 +290,7 @@ export default function MacroSplitterPage() {
           <CardContent>
             <div className="text-destructive text-center p-4 border border-destructive/50 rounded-md bg-destructive/10">
               <p className="mb-2">Could not load or calculate your total daily macros.</p>
-              <p className="text-sm">Please ensure your profile is complete or use the <Link href="/tools/smart-calorie-planner" className="underline hover:text-destructive/80">Smart Calorie Planner</Link> or <Link href="/tools/macro-calculator" className="underline hover:text-destructive/80">Daily Macro Breakdown</Link> tools to set your targets.</p>
+              <p className="text-sm">Please ensure your profile is complete or use the <Link href="/tools/smart-calorie-planner" className="underline hover:text-destructive/80">Smart Calorie Planner</Link> to set your targets.</p>
             </div>
           </CardContent>
         )}
@@ -467,9 +464,9 @@ export default function MacroSplitterPage() {
                 <TableRow className="font-semibold border-t-2 text-sm bg-muted/70">
                     <TableCell className="sticky left-0 bg-muted/70 z-10 px-2 py-1">Total</TableCell>
                     <TableCell className="px-2 py-1 text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal.Calories, 0)}</TableCell>
-                    <TableCell className="px-2 py-1 text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Protein (g)'], 0)}</TableCell>
-                    <TableCell className="px-2 py-1 text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Carbs (g)'], 0)}</TableCell>
-                    <TableCell className="px-2 py-1 text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Fat (g)'], 0)}</TableCell>
+                    <TableCell className="px-2 py-1 text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Protein (g)'], 0).toFixed(1)}</TableCell>
+                    <TableCell className="px-2 py-1 text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Carbs (g)'], 0).toFixed(1)}</TableCell>
+                    <TableCell className="px-2 py-1 text-right tabular-nums">{calculatedSplit.reduce((sum, meal) => sum + meal['Fat (g)'], 0).toFixed(1)}</TableCell>
                     <TableCell className="px-2 py-1"></TableCell>
                 </TableRow>
               </TableBody>
@@ -481,3 +478,4 @@ export default function MacroSplitterPage() {
     </div>
   );
 }
+
