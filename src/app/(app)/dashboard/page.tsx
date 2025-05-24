@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, Bot, NotebookText, Target, User, BrainCircuit, Scaling, SplitSquareHorizontal } from "lucide-react";
+import { ArrowRight, Bot, NotebookText, Target, User, BrainCircuit, SplitSquareHorizontal } from "lucide-react"; // Removed Scaling
 import Image from "next/image";
 
 export default function DashboardPage() {
@@ -78,11 +78,7 @@ export default function DashboardPage() {
                   <BrainCircuit className="mr-2 h-4 w-4" /> Smart Calorie Planner
                 </Button>
               </Link>
-              <Link href="/tools/macro-calculator" passHref>
-                <Button variant="secondary">
-                  <Scaling className="mr-2 h-4 w-4" /> Daily Macro Breakdown
-                </Button>
-              </Link>
+              {/* Link to Daily Macro Breakdown removed as it's merged */}
               <Link href="/tools/macro-splitter" passHref>
                 <Button variant="secondary">
                   <SplitSquareHorizontal className="mr-2 h-4 w-4" /> Macro Splitter
@@ -104,3 +100,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

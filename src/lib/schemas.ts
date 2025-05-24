@@ -1,3 +1,4 @@
+
 import * as z from "zod";
 import { preferredDiets, genders, exerciseFrequencies, exerciseIntensities, mealNames as defaultSplitterMealNames, smartPlannerDietGoals, activityLevels as allActivityLevels } from "./constants";
 
@@ -12,10 +13,6 @@ const preprocessOptionalNumber = (val: unknown) => {
 
 
 export const ProfileFormSchema = z.object({
-  // Fields removed:
-  // preferredDiet, preferredCuisines, dispreferredCuisines, preferredIngredients, dispreferredIngredients,
-  // allergies, preferredMicronutrients, medicalConditions, medications
-
   // Medical Info (Remaining)
   painMobilityIssues: z.string().optional(),
   injuries: z.array(z.string()).optional(),
@@ -175,7 +172,7 @@ export const MacroSplitterFormSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `Total ${macroName} percentages must sum to 100%. Current sum: ${sum.toFixed(1)}%`,
-        path: ['mealDistributions', 0, macroKey],
+        path: ['mealDistributions', 0, macroKey], // Simplified path for general error
       });
     }
   };
@@ -262,3 +259,28 @@ export const MealSuggestionPreferencesSchema = z.object({
 });
 
 export type MealSuggestionPreferencesValues = z.infer<typeof MealSuggestionPreferencesSchema>;
+
+
+// Schema for Manual Macro Calculator (now part of SmartCaloriePlannerPage)
+export const MacroCalculatorFormSchema = z.object({
+  weight_kg: z.coerce.number().positive({ message: "Weight must be greater than 0." }),
+  protein_per_kg: z.coerce.number().positive({ message: "Protein per kg must be greater than 0." }),
+  target_calories: z.coerce.number().positive({ message: "Target calories must be greater than 0." }),
+  percent_carb: z.coerce.number().min(0, "Carb percentage must be at least 0.").max(100, "Carb percentage cannot exceed 100."),
+});
+export type MacroCalculatorFormValues = z.infer<typeof MacroCalculatorFormSchema>;
+
+export interface MacroResults {
+  Protein_g: number;
+  Carbs_g: number;
+  Fat_g: number;
+  Protein_cals: number;
+  Carb_cals: number;
+  Fat_cals: number;
+  Total_cals: number;
+  Protein_pct: number;
+  Carb_pct: number;
+  Fat_pct: number;
+}
+
+    

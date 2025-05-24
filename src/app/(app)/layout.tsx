@@ -7,13 +7,13 @@ import {
   LayoutDashboard,
   User,
   BrainCircuit,
-  Scaling,
+  // Scaling, // Removed for Daily Macro Breakdown
   SplitSquareHorizontal,
   ChefHat,
   NotebookText,
   Bot,
   LogOut,
-  MessageSquareQuote, // Changed from MessageSquareQuestion
+  MessageSquareQuote,
   HelpCircle, 
 } from 'lucide-react';
 import {
@@ -42,14 +42,14 @@ const navItems = [
   { href: '/profile', label: 'Profile', icon: User },
   { section: "Tools & Planning" },
   { href: '/tools/smart-calorie-planner', label: 'Smart Calorie Planner', icon: BrainCircuit },
-  { href: '/tools/macro-calculator', label: 'Daily Macro Breakdown', icon: Scaling },
+  // { href: '/tools/macro-calculator', label: 'Daily Macro Breakdown', icon: Scaling }, // Removed
   { href: '/tools/macro-splitter', label: 'Macro Splitter', icon: SplitSquareHorizontal },
   { href: '/tools/meal-suggestions', label: 'Meal Suggestions', icon: ChefHat },
   { section: "Meal Management" }, 
   { href: '/meal-plan/current', label: 'Current Meal Plan', icon: NotebookText },
   { href: '/meal-plan/optimized', label: 'AI Meal Plan', icon: Bot },
   { section: "Support" }, 
-  { href: '/support/chatbot', label: 'Chatbot Support', icon: MessageSquareQuote }, // Changed
+  { href: '/support/chatbot', label: 'Chatbot Support', icon: MessageSquareQuote },
   { href: '/support/faq', label: 'FAQ & Chatbot', icon: HelpCircle },
 ];
 
@@ -136,3 +136,5 @@ export default function AppLayout({
     </SidebarProvider>
   );
 }
+
+    
