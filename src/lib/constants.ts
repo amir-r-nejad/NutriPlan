@@ -7,7 +7,7 @@ export const activityLevels = [
   { value: "extra_active", label: "Super active (physical job or intense training)", activityFactor: 1.9, proteinFactorPerKg: 2.2 },
 ];
 
-export const dietGoals = [
+export const dietGoals = [ // Used in old onboarding, kept for reference if needed elsewhere, but new onboarding uses smartPlannerDietGoals contextually
   { value: "lose_weight", label: "Lose Weight" },
   { value: "maintain_weight", label: "Maintain Weight" },
   { value: "gain_weight", label: "Gain Weight (Muscle)" },
@@ -103,3 +103,73 @@ export const defaultMacroPercentages: { [key: string]: { calories_pct: number; p
   "Dinner": { calories_pct: 20, protein_pct: 21.4, carbs_pct: 20, fat_pct: 18.7 },
   "Evening Snack": { calories_pct: 15, protein_pct: 14.4, carbs_pct: 10, fat_pct: 16.7 },
 };
+
+
+export const onboardingStepsData = [
+  {
+    stepNumber: 1,
+    title: "Welcome to NutriPlan!",
+    explanation: "Let’s personalize your nutrition journey. We’ll ask a few questions about your health and preferences to generate your ideal meal plan. It only takes 3–5 minutes.",
+    tooltipText: "We’ll ask a few questions to personalize your nutrition plan. It only takes 3–5 minutes.",
+    fieldsToValidate: [],
+  },
+  {
+    stepNumber: 2,
+    title: "Basic Profile Setup",
+    explanation: "This helps us calculate your calorie needs and goals. We use your age, sex, height, weight, and activity level to estimate your Basal Metabolic Rate (BMR) and Total Daily Energy Expenditure (TDEE) — the foundation of your meal plan.",
+    tooltipText: "These details help us calculate your calorie needs based on your body and activity level.",
+    fieldsToValidate: ["age", "gender", "height_cm", "current_weight", "goal_weight_1m", "activityLevel", "dietGoalOnboarding"],
+  },
+  {
+    stepNumber: 3,
+    title: "Body Composition (Optional)",
+    explanation: "These numbers help us tailor the plan beyond just weight. Your body fat, muscle mass, and water levels help refine calorie and macro goals, especially if you're focused on body recomposition.",
+    tooltipText: "Used to fine-tune your plan based on your muscle, fat, and water levels — not just weight.",
+    fieldsToValidate: ["bf_current", "bf_target", "bf_ideal", "mm_current", "mm_target", "mm_ideal", "bw_current", "bw_target", "bw_ideal"],
+    isOptional: true,
+  },
+  {
+    stepNumber: 4,
+    title: "Measurements (Optional)",
+    explanation: "Track physical changes, not just weight. Waist, hips, and limb measurements give you visible ways to monitor progress beyond the scale — especially for fitness goals.",
+    tooltipText: "Gives a more complete picture of your body changes and supports better progress tracking.",
+    fieldsToValidate: ["waist_current", "waist_goal_1m", "waist_ideal", "hips_current", "hips_goal_1m", "hips_ideal", "right_leg_current", "right_leg_goal_1m", "right_leg_ideal", "left_leg_current", "left_leg_goal_1m", "left_leg_ideal", "right_arm_current", "right_arm_goal_1m", "right_arm_ideal", "left_arm_current", "left_arm_goal_1m", "left_arm_ideal"],
+    isOptional: true,
+  },
+  {
+    stepNumber: 5,
+    title: "Dietary Preferences & Restrictions",
+    explanation: "We personalize your meals to match your taste and lifestyle. By knowing your dietary style, allergies, and food preferences, the AI avoids what you dislike and suggests what you’ll enjoy and can eat safely.",
+    tooltipText: "Let us know your diet style, allergies, and food likes/dislikes so we can build a plan you’ll enjoy.",
+    fieldsToValidate: ["preferredDiet", "allergies", "preferredCuisines", "dispreferredCuisines", "preferredIngredients", "dispreferredIngredients", "mealsPerDay"],
+  },
+  {
+    stepNumber: 6,
+    title: "Medical Information (Optional)",
+    explanation: "Used only to improve meal recommendations. If you have health conditions or take medications, this helps our AI avoid foods that may conflict and recommend supportive ingredients. Not for diagnosis or treatment.",
+    tooltipText: "Used only to improve suggestions and avoid conflicts — we don’t diagnose or treat any conditions.",
+    fieldsToValidate: ["medicalConditions", "medications"],
+    isOptional: true,
+  },
+  {
+    stepNumber: 7,
+    title: "Smart Calculation & Macros",
+    explanation: "We’ll generate your personal targets using your data. We estimate your daily calories and macronutrients to support your weight or health goals — whether it’s fat loss, muscle gain, or maintenance.",
+    tooltipText: "Based on your inputs, we estimate ideal calories and macronutrients to support your goals.",
+    fieldsToValidate: [],
+  },
+  {
+    stepNumber: 8,
+    title: "Current Meal Plan Input",
+    explanation: "Help us learn what you usually eat. By sharing your current meals, snacks, and eating habits, our AI can better understand your real-world preferences — including foods you enjoy, timing, and portion sizes. This helps us fine-tune your future meal plan to feel natural and sustainable.",
+    tooltipText: "Show us what you typically eat. This helps our AI learn your habits and build a realistic, personalized plan.",
+    fieldsToValidate: ["typicalMealsDescription"],
+  },
+  {
+    stepNumber: 9,
+    title: "AI Meal Plan Generation",
+    explanation: "One click to get your full weekly plan. Based on everything you’ve told us, we’ll generate a personalized weekly meal plan with balanced macros and your food preferences. You can regenerate or tweak anytime.",
+    tooltipText: "Get your first weekly plan — customized to your needs, goals, and preferences. You can always tweak it.",
+    fieldsToValidate: [],
+  }
+];

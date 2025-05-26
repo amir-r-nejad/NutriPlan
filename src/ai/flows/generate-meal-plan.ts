@@ -14,49 +14,68 @@ import {z} from 'genkit';
 const GeneratePersonalizedMealPlanInputSchema = z.object({
   age: z.number().describe('The age of the user.'),
   gender: z.string().describe('The gender of the user.'),
-  height: z.number().describe('The height of the user in centimeters.'),
-  currentWeight: z.number().describe('The current weight of the user in kilograms.'),
-  goalWeight1Month: z.number().describe('The goal weight of the user in 1 month in kilograms.'),
-  goalWeightIdeal: z.number().optional().describe('The ideal goal weight of the user in kilograms.'),
-  bodyFatPercentage: z.number().optional().describe('The current body fat percentage of the user.'),
-  muscleMassPercentage: z.number().optional().describe('The current muscle mass percentage of the user.'),
-  waterPercentage: z.number().optional().describe('The current water percentage of the user.'),
-  waistMeasurement: z.number().optional().describe('The current waist measurement of the user in centimeters.'),
-  hipsMeasurement: z.number().optional().describe('The current hips measurement of the user in centimeters.'),
-  
-  rightLegMeasurementCurrent: z.number().optional().describe('Current right leg measurement in centimeters.'),
-  rightLegMeasurementGoal1Month: z.number().optional().describe('1-Month goal for right leg measurement in centimeters.'),
-  rightLegMeasurementIdeal: z.number().optional().describe('Ideal right leg measurement in centimeters.'),
-  leftLegMeasurementCurrent: z.number().optional().describe('Current left leg measurement in centimeters.'),
-  leftLegMeasurementGoal1Month: z.number().optional().describe('1-Month goal for left leg measurement in centimeters.'),
-  leftLegMeasurementIdeal: z.number().optional().describe('Ideal left leg measurement in centimeters.'),
-  rightArmMeasurementCurrent: z.number().optional().describe('Current right arm measurement in centimeters.'),
-  rightArmMeasurementGoal1Month: z.number().optional().describe('1-Month goal for right arm measurement in centimeters.'),
-  rightArmMeasurementIdeal: z.number().optional().describe('Ideal right arm measurement in centimeters.'),
-  leftArmMeasurementCurrent: z.number().optional().describe('Current left arm measurement in centimeters.'),
-  leftArmMeasurementGoal1Month: z.number().optional().describe('1-Month goal for left arm measurement in centimeters.'),
-  leftArmMeasurementIdeal: z.number().optional().describe('Ideal left arm measurement in centimeters.'),
-
+  height_cm: z.number().describe('The height of the user in centimeters.'),
+  current_weight: z.number().describe('The current weight of the user in kilograms.'),
+  goal_weight_1m: z.number().describe('The goal weight of the user in 1 month in kilograms.'),
   activityLevel: z.string().describe('The activity level of the user (e.g., sedentary, light, moderate, active).'),
-  dietGoal: z.string().describe('The diet goal of the user (e.g., lose weight, maintain weight, gain weight).'),
+  dietGoal: z.string().describe('The diet goal of the user (e.g., fat_loss, muscle_gain, recomp).'), // Matched to smartPlannerDietGoals
+
+  // Optional fields from onboarding/profile
+  ideal_goal_weight: z.number().optional().describe('The ideal goal weight of the user in kilograms.'),
+  
+  bf_current: z.number().optional().describe('Current body fat percentage.'),
+  bf_target: z.number().optional().describe('Target body fat percentage in 1 month.'),
+  bf_ideal: z.number().optional().describe('Ideal body fat percentage.'),
+  mm_current: z.number().optional().describe('Current muscle mass percentage.'),
+  mm_target: z.number().optional().describe('Target muscle mass percentage in 1 month.'),
+  mm_ideal: z.number().optional().describe('Ideal muscle mass percentage.'),
+  bw_current: z.number().optional().describe('Current body water percentage.'),
+  bw_target: z.number().optional().describe('Target body water percentage in 1 month.'),
+  bw_ideal: z.number().optional().describe('Ideal body water percentage.'),
+
+  waist_current: z.number().optional().describe('Current waist measurement in centimeters.'),
+  waist_goal_1m: z.number().optional().describe('1-Month goal for waist measurement in centimeters.'),
+  waist_ideal: z.number().optional().describe('Ideal waist measurement in centimeters.'),
+  hips_current: z.number().optional().describe('Current hips measurement in centimeters.'),
+  hips_goal_1m: z.number().optional().describe('1-Month goal for hips measurement in centimeters.'),
+  hips_ideal: z.number().optional().describe('Ideal hips measurement in centimeters.'),
+  
+  right_leg_current: z.number().optional().describe('Current right leg measurement in centimeters.'),
+  right_leg_goal_1m: z.number().optional().describe('1-Month goal for right leg measurement in centimeters.'),
+  right_leg_ideal: z.number().optional().describe('Ideal right leg measurement in centimeters.'),
+  left_leg_current: z.number().optional().describe('Current left leg measurement in centimeters.'),
+  left_leg_goal_1m: z.number().optional().describe('1-Month goal for left leg measurement in centimeters.'),
+  left_leg_ideal: z.number().optional().describe('Ideal left leg measurement in centimeters.'),
+  right_arm_current: z.number().optional().describe('Current right arm measurement in centimeters.'),
+  right_arm_goal_1m: z.number().optional().describe('1-Month goal for right arm measurement in centimeters.'),
+  right_arm_ideal: z.number().optional().describe('Ideal right arm measurement in centimeters.'),
+  left_arm_current: z.number().optional().describe('Current left arm measurement in centimeters.'),
+  left_arm_goal_1m: z.number().optional().describe('1-Month goal for left arm measurement in centimeters.'),
+  left_arm_ideal: z.number().optional().describe('Ideal left arm measurement in centimeters.'),
+
   preferredDiet: z.string().optional().describe('The preferred diet of the user (e.g., vegetarian, vegan, keto).'),
+  mealsPerDay: z.number().optional().describe('The number of meals per day the user prefers.'),
+  allergies: z.array(z.string()).optional().describe('The allergies of the user.'),
   preferredCuisines: z.array(z.string()).optional().describe('The preferred cuisines of the user.'),
   dispreferredCuisines: z.array(z.string()).optional().describe('The dispreferred cuisines of the user.'),
   preferredIngredients: z.array(z.string()).optional().describe('The preferred ingredients of the user.'),
   dispreferredIngredients: z.array(z.string()).optional().describe('The dispreferred ingredients of the user.'),
-  allergies: z.array(z.string()).optional().describe('The allergies of the user.'),
-  mealsPerDay: z.number().describe('The number of meals per day the user prefers.'),
   preferredMicronutrients: z.array(z.string()).optional().describe('The preferred micronutrients of the user.'),
+  
   medicalConditions: z.array(z.string()).optional().describe('The medical conditions of the user.'),
   medications: z.array(z.string()).optional().describe('The medications the user is taking.'),
-  painMobilityIssues: z.string().optional().describe('The pain or mobility issues of the user.'),
-  injuries: z.array(z.string()).optional().describe('The injuries of the user.'),
-  surgeries: z.array(z.string()).optional().describe('The surgeries the user has had.'),
-  exerciseGoals: z.array(z.string()).optional().describe('The exercise goals of the user.'),
-  exercisePreferences: z.array(z.string()).optional().describe('The exercise preferences of the user.'),
-  exerciseFrequency: z.string().optional().describe('The exercise frequency of the user.'),
-  exerciseIntensity: z.string().optional().describe('The exercise intensity of the user.'),
-  equipmentAccess: z.array(z.string()).optional().describe('The equipment access of the user.'),
+  
+  typicalMealsDescription: z.string().optional().describe('A description of the user’s typical meals and eating habits.'),
+
+  // Exercise preferences (can be added from profile schema if needed for AI context)
+  // painMobilityIssues: z.string().optional(),
+  // injuries: z.array(z.string()).optional(),
+  // surgeries: z.array(z.string()).optional(),
+  // exerciseGoals: z.array(z.string()).optional(),
+  // exercisePreferences: z.array(z.string()).optional(),
+  // exerciseFrequency: z.string().optional(),
+  // exerciseIntensity: z.string().optional(),
+  // equipmentAccess: z.array(z.string()).optional(),
 });
 export type GeneratePersonalizedMealPlanInput = z.infer<
   typeof GeneratePersonalizedMealPlanInputSchema
@@ -116,64 +135,66 @@ const prompt = ai.definePrompt({
   User Profile Data:
   Age: {{{age}}}
   Gender: {{{gender}}}
-  Height: {{{height}}} cm
-  Current Weight: {{{currentWeight}}} kg
-  Goal Weight (1 Month): {{{goalWeight1Month}}} kg
-  {{#if goalWeightIdeal}}Ideal Goal Weight: {{{goalWeightIdeal}}} kg{{/if}}
-  {{#if bodyFatPercentage}}Body Fat Percentage: {{{bodyFatPercentage}}}%{{/if}}
-  {{#if muscleMassPercentage}}Muscle Mass Percentage: {{{muscleMassPercentage}}}%{{/if}}
-  {{#if waterPercentage}}Water Percentage: {{{waterPercentage}}}%{{/if}}
+  Height: {{{height_cm}}} cm
+  Current Weight: {{{current_weight}}} kg
+  Goal Weight (1 Month): {{{goal_weight_1m}}} kg
+  {{#if ideal_goal_weight}}Ideal Goal Weight: {{{ideal_goal_weight}}} kg{{/if}}
   
-  Measurements (cm):
-  {{#if waistMeasurement}}Waist Measurement: {{{waistMeasurement}}} cm{{/if}}
-  {{#if hipsMeasurement}}Hips Measurement: {{{hipsMeasurement}}} cm{{/if}}
-  {{#if rightLegMeasurementCurrent}}Right Leg (Current): {{{rightLegMeasurementCurrent}}} cm{{/if}}
-  {{#if rightLegMeasurementGoal1Month}}Right Leg (1-Month Goal): {{{rightLegMeasurementGoal1Month}}} cm{{/if}}
-  {{#if rightLegMeasurementIdeal}}Right Leg (Ideal): {{{rightLegMeasurementIdeal}}} cm{{/if}}
-  {{#if leftLegMeasurementCurrent}}Left Leg (Current): {{{leftLegMeasurementCurrent}}} cm{{/if}}
-  {{#if leftLegMeasurementGoal1Month}}Left Leg (1-Month Goal): {{{leftLegMeasurementGoal1Month}}} cm{{/if}}
-  {{#if leftLegMeasurementIdeal}}Left Leg (Ideal): {{{leftLegMeasurementIdeal}}} cm{{/if}}
-  {{#if rightArmMeasurementCurrent}}Right Arm (Current): {{{rightArmMeasurementCurrent}}} cm{{/if}}
-  {{#if rightArmMeasurementGoal1Month}}Right Arm (1-Month Goal): {{{rightArmMeasurementGoal1Month}}} cm{{/if}}
-  {{#if rightArmMeasurementIdeal}}Right Arm (Ideal): {{{rightArmMeasurementIdeal}}} cm{{/if}}
-  {{#if leftArmMeasurementCurrent}}Left Arm (Current): {{{leftArmMeasurementCurrent}}} cm{{/if}}
-  {{#if leftArmMeasurementGoal1Month}}Left Arm (1-Month Goal): {{{leftArmMeasurementGoal1Month}}} cm{{/if}}
-  {{#if leftArmMeasurementIdeal}}Left Arm (Ideal): {{{leftArmMeasurementIdeal}}} cm{{/if}}
-
-  Dietary Preferences:
   Activity Level: {{{activityLevel}}}
   Diet Goal: {{{dietGoal}}}
+  {{#if mealsPerDay}}Meals Per Day: {{{mealsPerDay}}}{{/if}}
+
+  {{#if bf_current}}Current Body Fat: {{{bf_current}}}%{{/if}}
+  {{#if bf_target}}Target Body Fat (1 Month): {{{bf_target}}}%{{/if}}
+  {{#if bf_ideal}}Ideal Body Fat: {{{bf_ideal}}}%{{/if}}
+  {{#if mm_current}}Current Muscle Mass: {{{mm_current}}}%{{/if}}
+  {{#if mm_target}}Target Muscle Mass (1 Month): {{{mm_target}}}%{{/if}}
+  {{#if mm_ideal}}Ideal Muscle Mass: {{{mm_ideal}}}%{{/if}}
+  {{#if bw_current}}Current Body Water: {{{bw_current}}}%{{/if}}
+  {{#if bw_target}}Target Body Water (1 Month): {{{bw_target}}}%{{/if}}
+  {{#if bw_ideal}}Ideal Body Water: {{{bw_ideal}}}%{{/if}}
+  
+  Measurements (cm):
+  {{#if waist_current}}Waist (Current): {{{waist_current}}}{{/if}}
+  {{#if waist_goal_1m}}Waist (1-Month Goal): {{{waist_goal_1m}}}{{/if}}
+  {{#if waist_ideal}}Waist (Ideal): {{{waist_ideal}}}{{/if}}
+  {{#if hips_current}}Hips (Current): {{{hips_current}}}{{/if}}
+  {{#if hips_goal_1m}}Hips (1-Month Goal): {{{hips_goal_1m}}}{{/if}}
+  {{#if hips_ideal}}Hips (Ideal): {{{hips_ideal}}}{{/if}}
+  {{#if right_leg_current}}Right Leg (Current): {{{right_leg_current}}}{{/if}}
+  {{#if right_leg_goal_1m}}Right Leg (1-Month Goal): {{{right_leg_goal_1m}}}{{/if}}
+  {{#if right_leg_ideal}}Right Leg (Ideal): {{{right_leg_ideal}}}{{/if}}
+  {{#if left_leg_current}}Left Leg (Current): {{{left_leg_current}}}{{/if}}
+  {{#if left_leg_goal_1m}}Left Leg (1-Month Goal): {{{left_leg_goal_1m}}}{{/if}}
+  {{#if left_leg_ideal}}Left Leg (Ideal): {{{left_leg_ideal}}}{{/if}}
+  {{#if right_arm_current}}Right Arm (Current): {{{right_arm_current}}}{{/if}}
+  {{#if right_arm_goal_1m}}Right Arm (1-Month Goal): {{{right_arm_goal_1m}}}{{/if}}
+  {{#if right_arm_ideal}}Right Arm (Ideal): {{{right_arm_ideal}}}{{/if}}
+  {{#if left_arm_current}}Left Arm (Current): {{{left_arm_current}}}{{/if}}
+  {{#if left_arm_goal_1m}}Left Arm (1-Month Goal): {{{left_arm_goal_1m}}}{{/if}}
+  {{#if left_arm_ideal}}Left Arm (Ideal): {{{left_arm_ideal}}}{{/if}}
+
+  Dietary Preferences & Restrictions:
   {{#if preferredDiet}}Preferred Diet: {{{preferredDiet}}}{{/if}}
+  {{#if allergies.length}}Allergies: {{#each allergies}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}} (Strictly avoid these){{/if}}
   {{#if preferredCuisines.length}}Preferred Cuisines: {{#each preferredCuisines}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
   {{#if dispreferredCuisines.length}}Dispreferred Cuisines: {{#each dispreferredCuisines}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
   {{#if preferredIngredients.length}}Preferred Ingredients: {{#each preferredIngredients}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
   {{#if dispreferredIngredients.length}}Dispreferred Ingredients: {{#each dispreferredIngredients}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
-  {{#if allergies.length}}Allergies: {{#each allergies}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
-  Meals Per Day: {{{mealsPerDay}}}
-  {{#if preferredMicronutrients.length}}Preferred Micronutrients: {{#each preferredMicronutrients}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
+  {{#if preferredMicronutrients.length}}Targeted Micronutrients: {{#each preferredMicronutrients}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
 
-  Medical Information:
+  Medical Information (for AI awareness):
   {{#if medicalConditions.length}}Medical Conditions: {{#each medicalConditions}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
   {{#if medications.length}}Medications: {{#each medications}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
-  {{#if painMobilityIssues}}Pain/Mobility Issues: {{{painMobilityIssues}}}{{/if}}
-  {{#if injuries.length}}Injuries: {{#each injuries}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
-  {{#if surgeries.length}}Surgeries: {{#each surgeries}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
+  
+  {{#if typicalMealsDescription}}User's Typical Meals/Habits: {{{typicalMealsDescription}}}{{/if}}
 
-  Exercise Preferences:
-  {{#if exerciseGoals.length}}Exercise Goals: {{#each exerciseGoals}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
-  {{#if exercisePreferences.length}}Exercise Preferences: {{#each exercisePreferences}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
-  {{#if exerciseFrequency}}Exercise Frequency: {{{exerciseFrequency}}}{{/if}}
-  {{#if exerciseIntensity}}Exercise Intensity: {{{exerciseIntensity}}}{{/if}}
-  {{#if equipmentAccess.length}}Equipment Access: {{#each equipmentAccess}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
-
-  Based on this information, generate a detailed weekly meal plan with 7 days and each day including the prescribed amount of meals. Each meal should be a valid and tasty combination of ingredients.
+  Based on this information, generate a detailed weekly meal plan with 7 days. Each day should include the number of meals specified by 'mealsPerDay' if available, otherwise assume 3 main meals and 2 snacks. Each meal should be a valid and tasty combination of ingredients.
   Make sure to account for all the user's preferences and dietary restrictions. The meal plan should be optimized for nutrition and should help the user achieve their diet goal.
 
   Ensure that the weekly summary accurately reflects the total nutritional content of the generated meal plan.
-  The meal plan must be returned in the following JSON format:
-  {{$instructions=JSON}}
-  `,//Instruct the LLM to respond in JSON format.
-  
+  The meal plan must be returned in the specified JSON format.
+  `,
 });
 
 const generatePersonalizedMealPlanFlow = ai.defineFlow(
@@ -187,4 +208,3 @@ const generatePersonalizedMealPlanFlow = ai.defineFlow(
     return output!;
   }
 );
-
