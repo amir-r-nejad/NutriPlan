@@ -1,7 +1,8 @@
 import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/googleai';
+import openAI, { gpt41Nano } from 'genkitx-openai';
+
 
 export const ai = genkit({
-  plugins: [googleAI()],
-  model: 'googleai/gemini-2.0-flash',
+  plugins: [openAI({apiKey: process.env.OPEN_AI_APIKEY})],
+  model: gpt41Nano,
 });

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,14 +10,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useAuth } from '@/contexts/AuthContext';
 import { Leaf, LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import "./page.css"
+import Image from "next/image";
+import Google from  "../../../public/google.svg"
 
+export const useMounted = () => {
+    const [mounted, setMounted] = useState<boolean>()
+    // effects run only client-side
+    // so we can detect when the component is hydrated/mounted
+    // @see https://react.dev/reference/react/useEffect
+    useEffect(() => {
+        setMounted(true)
+    }, [])
+    return mounted
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login } = useAuth();
+  const { login,Glogin,onRedirectResult } = useAuth();
   const { toast } = useToast();
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Basic validation
@@ -30,13 +42,16 @@ export default function LoginPage() {
       return;
     }
     // Simulate login
-    login(email);
+    login(email,password);
     toast({
       title: "Login Successful",
       description: `Welcome back, ${email}!`,
     });
   };
-
+  useEffect(() => {
+    if(onRedirectResult)
+      onRedirectResult()
+  }, [])
   return (
     <Card className="w-full max-w-sm shadow-xl">
       <CardHeader className="space-y-1 text-center">
@@ -71,7 +86,13 @@ export default function LoginPage() {
           </div>
           <Button type="submit" className="w-full">
             <LogIn className="mr-2 h-4 w-4" /> Login
-          </Button>
+          </Button> 
+
+          <Button onClick={(e) => Glogin()} type="button" className="w-full">
+            <Image src={Google} alt='google' /> Login with Google
+          </Button> 
+
+          <div id="firebaseui-auth-container" className='w-full h-full' />
         </form>
       </CardContent>
       <CardFooter className="flex flex-col items-center space-y-2">

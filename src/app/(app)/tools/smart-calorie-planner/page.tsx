@@ -461,7 +461,7 @@ export default function SmartCaloriePlannerPage() {
 
   return (
     <TooltipProvider>
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto py-4">
       <Card className="max-w-3xl mx-auto shadow-xl">
         <CardHeader>
           <CardTitle className="text-3xl font-bold flex items-center">
@@ -478,7 +478,7 @@ export default function SmartCaloriePlannerPage() {
               <Accordion type="multiple" defaultValue={["basic-info"]} className="w-full">
                 <AccordionItem value="basic-info">
                   <AccordionTrigger className="text-xl font-semibold">📋 Basic Info (Required)</AccordionTrigger>
-                  <AccordionContent className="grid md:grid-cols-2 gap-x-6 gap-y-4 pt-4">
+                  <AccordionContent className="grid md:grid-cols-2 gap-x-6 gap-y-4 pt-4 px-4">
                     <FormField control={smartPlannerForm.control} name="age" render={({ field }) => (<FormItem><FormLabel>Age (Years)</FormLabel><FormControl><Input type="number" placeholder="e.g., 30" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={smartPlannerForm.control} name="gender" render={({ field }) => (<FormItem><FormLabel>Biological Sex</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger></FormControl><SelectContent>{genders.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                     <FormField control={smartPlannerForm.control} name="height_cm" render={({ field }) => (<FormItem><FormLabel>Height (cm)</FormLabel><FormControl><Input type="number" placeholder="e.g., 175" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>)} />
@@ -509,14 +509,14 @@ export default function SmartCaloriePlannerPage() {
                                 <div key={metric} className="grid grid-cols-4 gap-x-2 items-center py-1">
                                     <span className="text-sm">{metric}</span>
                                     {keys.map(key => (
-                                        <FormField key={key} control={smartPlannerForm.control} name={key}>
+                                        <FormField key={key} control={smartPlannerForm.control} name={key} render=
                                             {({ field }) => (
                                             <FormItem className="text-center">
                                                 <FormControl><Input type="number" placeholder="e.g., 20" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" /></FormControl>
                                                 <FormMessage className="text-xs text-center"/>
                                             </FormItem>
                                             )}
-                                        </FormField>
+                                        />
                                     ))}
                                 </div>
                             );
@@ -546,14 +546,14 @@ export default function SmartCaloriePlannerPage() {
                                 <div key={metric} className="grid grid-cols-4 gap-x-2 items-center py-1">
                                     <span className="text-sm">{metric}</span>
                                     {keys.map(key => (
-                                        <FormField key={key} control={smartPlannerForm.control} name={key}>
-                                            {({ field }) => (
+                                        <FormField key={key} control={smartPlannerForm.control} name={key}
+                                            render={({ field }) => (
                                             <FormItem className="text-center">
                                                 <FormControl><Input type="number" placeholder="e.g., 80" {...field} value={field.value ?? ''}  onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" /></FormControl>
                                                 <FormMessage className="text-xs text-center"/>
                                             </FormItem>
                                             )}
-                                        </FormField>
+                                        />
                                     ))}
                                 </div>
                             );
