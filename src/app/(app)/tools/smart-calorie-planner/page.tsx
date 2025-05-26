@@ -50,7 +50,7 @@ interface CalculationResults {
   fatTargetPct: number;
   fatGrams: number;
   fatCalories: number;
-  current_weight_for_custom_calc?: number; // Store current weight used for initial calculation for custom plan
+  current_weight_for_custom_calc?: number; 
 }
 
 interface CustomPlanResults {
@@ -132,7 +132,6 @@ export default function SmartCaloriePlannerPage() {
 
   useEffect(() => {
     if (user?.id) {
-      // Load Smart Planner form data
       const savedSmartPlannerData = localStorage.getItem(`nutriplan_smart_planner_form_${user.id}`);
       if (savedSmartPlannerData) {
         try {
@@ -141,7 +140,6 @@ export default function SmartCaloriePlannerPage() {
           console.error("Failed to parse saved smart planner form data", e);
         }
       }
-      // Load Smart Planner results data
       const savedSmartPlannerResults = localStorage.getItem(`nutriplan_smart_planner_results_${user.id}`);
       if (savedSmartPlannerResults) {
         try {
@@ -156,14 +154,13 @@ export default function SmartCaloriePlannerPage() {
             setResults(parsedResults);
           } else {
             console.warn("Incomplete or old smart planner results found in localStorage. Results will not be loaded.");
-             localStorage.removeItem(`nutriplan_smart_planner_results_${user.id}`); // Optionally remove faulty data
+             localStorage.removeItem(`nutriplan_smart_planner_results_${user.id}`); 
           }
         } catch (e) {
           console.error("Failed to parse saved smart planner results data", e);
         }
       }
 
-      // Load Manual Calculator form data
       const savedManualCalcData = localStorage.getItem(`nutriplan_macro_calculator_form_${user.id}`);
       if (savedManualCalcData) {
         try {
@@ -172,7 +169,6 @@ export default function SmartCaloriePlannerPage() {
           console.error("Failed to parse saved manual calculator form data", e);
         }
       }
-      // Load Manual Calculator results data
       const savedManualResultsData = localStorage.getItem(`nutriplan_macro_calculator_results_${user.id}`);
        if (savedManualResultsData) {
         try {
@@ -205,15 +201,14 @@ export default function SmartCaloriePlannerPage() {
     const calorieAdjustmentS1 = (7700 * weightDeltaKg1M) / 30; 
     targetCaloriesS1 = tdee - calorieAdjustmentS1;
 
-    // Adjust targetCaloriesS1 based on dietGoal before other scenarios
     if (data.dietGoal === 'fat_loss') {
-      targetCaloriesS1 = Math.min(targetCaloriesS1, tdee - 200); // Ensure at least a small deficit or use weight goal deficit
-      targetCaloriesS1 = Math.max(targetCaloriesS1, bmr + 200, 1200); // Min safe calories
+      targetCaloriesS1 = Math.min(targetCaloriesS1, tdee - 200); 
+      targetCaloriesS1 = Math.max(targetCaloriesS1, bmr + 200, 1200); 
     } else if (data.dietGoal === 'muscle_gain') { 
-      targetCaloriesS1 = Math.max(targetCaloriesS1, tdee + 150); // Ensure at least a small surplus or use weight goal surplus
+      targetCaloriesS1 = Math.max(targetCaloriesS1, tdee + 150); 
     } else if (data.dietGoal === 'recomp') { 
-      targetCaloriesS1 = Math.min(Math.max(targetCaloriesS1, tdee - 300), tdee + 100); // Cap between -300 to +100 of TDEE
-      targetCaloriesS1 = Math.max(targetCaloriesS1, bmr + 100, 1400); // Min safe calories
+      targetCaloriesS1 = Math.min(Math.max(targetCaloriesS1, tdee - 300), tdee + 100); 
+      targetCaloriesS1 = Math.max(targetCaloriesS1, bmr + 100, 1400); 
     }
 
 
@@ -237,17 +232,16 @@ export default function SmartCaloriePlannerPage() {
       const estimatedFatLossKg = (estimatedFatLossPercent / 100) * data.current_weight;
       const calorieAdjustmentS3 = (7700 * estimatedFatLossKg) / 30;
       targetCaloriesS3 = tdee - calorieAdjustmentS3;
-      // Note: Scenario 3 (waist) is typically displayed as an alternative, not averaged into finalTargetCalories unless specified.
     }
     
-    finalTargetCalories = Math.max(bmr + 100, Math.round(finalTargetCalories)); // Ensure final target is above BMR + buffer
+    finalTargetCalories = Math.max(bmr + 100, Math.round(finalTargetCalories)); 
 
     const estimatedWeeklyWeightChangeKg = (tdee - finalTargetCalories) * 7 / 7700;
 
     let proteinTargetPct, carbTargetPct, fatTargetPct;
     if (data.dietGoal === 'fat_loss') { proteinTargetPct = 0.35; carbTargetPct = 0.35; fatTargetPct = 0.30; }
     else if (data.dietGoal === 'muscle_gain') { proteinTargetPct = 0.30; carbTargetPct = 0.50; fatTargetPct = 0.20; }
-    else { proteinTargetPct = 0.40; carbTargetPct = 0.35; fatTargetPct = 0.25; } // Default for recomp
+    else { proteinTargetPct = 0.40; carbTargetPct = 0.35; fatTargetPct = 0.25; } 
 
     const proteinCalories = finalTargetCalories * proteinTargetPct;
     const proteinGrams = proteinCalories / 4;
@@ -387,6 +381,7 @@ export default function SmartCaloriePlannerPage() {
   const watchedPercentCarbManual = manualCalculatorForm.watch("percent_carb");
   const percentFatManual = 100 - (watchedPercentCarbManual || 0);
   
+  // useEffect for custom plan calculations
   useEffect(() => {
     const [customTotalCalories, customProteinPerKg, remainingCarbPct, currentWeightMainForm] = watchedCustomInputs;
 
@@ -419,7 +414,7 @@ export default function SmartCaloriePlannerPage() {
     let calculatedFatCalories = 0;
 
     if (remainingCaloriesForCustom > 0) {
-      const carbRatio = (remainingCarbPct ?? 50) / 100; // Use form value, fallback to 50%
+      const carbRatio = (remainingCarbPct ?? 50) / 100; 
       const fatRatio = 1 - carbRatio;
 
       calculatedCarbCalories = remainingCaloriesForCustom * carbRatio;
@@ -457,7 +452,7 @@ export default function SmartCaloriePlannerPage() {
     }
     
   }, [watchedCustomInputs, results, customPlanResults, smartPlannerForm]);
-  
+
 
   return (
     <TooltipProvider>
@@ -512,7 +507,16 @@ export default function SmartCaloriePlannerPage() {
                                         <FormField key={key} control={smartPlannerForm.control} name={key} render=
                                             {({ field }) => (
                                             <FormItem className="text-center">
-                                                <FormControl><Input type="number" placeholder="e.g., 20" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" /></FormControl>
+                                                <FormControl>
+                                                    <Input 
+                                                        type="number" 
+                                                        placeholder="e.g., 20" 
+                                                        {...field} 
+                                                        value={field.value ?? ''} 
+                                                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                                                        className="w-full text-center text-sm h-9" 
+                                                    />
+                                                </FormControl>
                                                 <FormMessage className="text-xs text-center"/>
                                             </FormItem>
                                             )}
@@ -549,7 +553,16 @@ export default function SmartCaloriePlannerPage() {
                                         <FormField key={key} control={smartPlannerForm.control} name={key}
                                             render={({ field }) => (
                                             <FormItem className="text-center">
-                                                <FormControl><Input type="number" placeholder="e.g., 80" {...field} value={field.value ?? ''}  onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" /></FormControl>
+                                                <FormControl>
+                                                    <Input 
+                                                        type="number" 
+                                                        placeholder="e.g., 80" 
+                                                        {...field} 
+                                                        value={field.value ?? ''}  
+                                                        onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
+                                                        className="w-full text-center text-sm h-9" 
+                                                    />
+                                                </FormControl>
                                                 <FormMessage className="text-xs text-center"/>
                                             </FormItem>
                                             )}
@@ -568,21 +581,22 @@ export default function SmartCaloriePlannerPage() {
                         <div> <h4 className="font-semibold text-base">1. Basal Metabolic Rate (BMR) & Total Daily Energy Expenditure (TDEE)</h4> <p>We use the <strong className="text-primary">Mifflin-St Jeor Equation</strong> for BMR, then multiply by an <strong className="text-primary">activity factor</strong> for TDEE.</p></div>
                         <div>
                            <h4 className="font-semibold text-base mt-2">2. Target Daily Calories</h4>
-                           <p>This is determined based on your goals:</p>
+                           <p>This is determined based on your goals and selected "Diet Goal":</p>
                            <ul className="list-disc pl-5 space-y-1 mt-1">
-                            <li><strong>Primary Goal (Weight & Selected Diet Goal):</strong> Calculated from your 1-month weight target. Your selected "Diet Goal" (e.g., "Fat loss," "Muscle gain") further refines this estimate, adjusting for typical calorie deficits or surpluses associated with these goals. For example, "Fat loss" aims for a deficit, while "Muscle gain" aims for a surplus. "Recomposition" targets a slight deficit or near-maintenance calories.</li>
+                            <li><strong>Primary Goal (Weight & Diet Goal):</strong> Initially calculated from your 1-month weight target. Your "Diet Goal" (e.g., "Fat loss," "Muscle gain") then refines this. For example, "Fat loss" aims for a deficit (e.g., TDEE - 200 to -500 kcal), while "Muscle gain" aims for a surplus (e.g., TDEE + 150 to +300 kcal). "Recomposition" targets a slight deficit or near-maintenance calories.</li>
                             <li><strong>Body Fat % Goal (Optional Refinement):</strong> If you provide current and target body fat percentages, the calorie target may be further refined by averaging the weight-goal-based calories with calories estimated to achieve your body fat change.</li>
                             <li><strong>Waist Goal (Alternative View):</strong> If waist goals are provided, an alternative calorie target is estimated for perspective. This is not the primary target but an additional indicator.</li>
                            </ul>
                         </div>
                          <div> 
-                           <h4 className="font-semibold text-base mt-2">3. Suggested Macro Split</h4> 
-                           <p>The suggested protein/carb/fat percentage split is based on your selected "Diet Goal":</p> 
+                           <h4 className="font-semibold text-base mt-2">3. Suggested Macro Split (Default)</h4> 
+                           <p>The default suggested protein/carb/fat percentage split is based on your selected "Diet Goal":</p> 
                            <ul className="list-disc pl-5 space-y-1 mt-1"> 
-                             <li><strong>Fat Loss:</strong> ~35% Protein / ~35% Carbs / ~30% Fat</li> 
-                             <li><strong>Muscle Gain:</strong> ~30% Protein / ~50% Carbs / ~20% Fat</li> 
-                             <li><strong>Recomposition:</strong> ~40% Protein / ~35% Carbs / ~25% Fat</li> 
+                             <li><strong>Fat Loss:</strong> Approx. 35% Protein / 35% Carbs / 30% Fat</li> 
+                             <li><strong>Muscle Gain:</strong> Approx. 30% Protein / 50% Carbs / 20% Fat</li> 
+                             <li><strong>Recomposition:</strong> Approx. 40% Protein / 35% Carbs / 25% Fat</li> 
                            </ul> 
+                            <p className="mt-1">You can further customize this in the "Customize Your Plan" section below or use the "Manual Macro Breakdown" for full control.</p>
                          </div>
                         <div> <h4 className="font-semibold text-base mt-2">4. Safe Pace</h4> <p>Sustainable weight loss is often around 0.5–1 kg (1–2 lbs) per week. Muscle gain is slower, around 0.25–0.5 kg (0.5–1 lb) per week. Large body composition or measurement changes in just 1 month may be unrealistic for many.</p> </div>
                     </AccordionContent>
@@ -717,19 +731,19 @@ export default function SmartCaloriePlannerPage() {
                                                 </Tooltip>
                                             </FormLabel>
                                             <FormControl>
-                                                <div className="flex flex-col space-y-2 pt-1">
-                                                    <Slider
-                                                        value={[currentCarbPct]}
-                                                        onValueChange={(value) => field.onChange(value[0])}
-                                                        min={0}
-                                                        max={100}
-                                                        step={1}
-                                                    />
-                                                    <div className="flex justify-between text-xs text-muted-foreground">
-                                                        <span>Carbs: {currentCarbPct.toFixed(0)}%</span>
-                                                        <span>Fat: {currentFatPct.toFixed(0)}%</span>
-                                                    </div>
+                                              <div className="flex flex-col space-y-2 pt-1">
+                                                <Slider
+                                                    value={[currentCarbPct]}
+                                                    onValueChange={(value) => field.onChange(value[0])}
+                                                    min={0}
+                                                    max={100}
+                                                    step={1}
+                                                />
+                                                <div className="flex justify-between text-xs text-muted-foreground">
+                                                    <span>Carbs: {currentCarbPct.toFixed(0)}%</span>
+                                                    <span>Fat: {currentFatPct.toFixed(0)}%</span>
                                                 </div>
+                                              </div>
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -808,7 +822,7 @@ export default function SmartCaloriePlannerPage() {
                         <FormItem className="md:col-span-2">
                           <FormLabel>Split Remaining Calories: Carb % ({field.value ?? 0}%) vs Fat % ({percentFatManual.toFixed(0)}%)</FormLabel>
                            <FormControl>
-                            <div suppressHydrationWarning>
+                            <div className="flex flex-col space-y-2 pt-1"> 
                               <Slider
                                 value={[field.value ?? 0]}
                                 onValueChange={(value) => field.onChange(value[0])}
@@ -816,6 +830,10 @@ export default function SmartCaloriePlannerPage() {
                                 step={1}
                                 className="w-full"
                               />
+                               <div className="flex justify-between text-xs text-muted-foreground">
+                                  <span>Carbs: {(field.value ?? 0).toFixed(0)}%</span>
+                                  <span>Fat: {percentFatManual.toFixed(0)}%</span>
+                              </div>
                             </div>
                           </FormControl>
                           <FormMessage />
