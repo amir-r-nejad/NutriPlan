@@ -69,15 +69,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (isLoading) return;
 
-    const isAuthPage = pathname?.startsWith('/login') || pathname?.startsWith('/signup');
-    const isOnboardingPage = pathname?.startsWith('/onboarding');
+    const isAuthPage = pathname === '/login' || pathname === '/signup';
+    const isOnboardingPage = pathname === '/onboarding';
 
-    if (!user && !isAuthPage && !isOnboardingPage && pathname !== '/') {
-      router.push('/login');
-    } else if (user && !isOnboarded && !isOnboardingPage && pathname !== '/login' && pathname !== '/signup') {
-      router.push('/onboarding');
-    } else if (user && isOnboarded && (isAuthPage || isOnboardingPage)) {
-      router.push('/dashboard');
+    if (!user) { // User is not logged in
+      // If not on an auth page, not on onboarding, and not on the root page (which handles its own redirect)
+      if (!isAuthPage && !isOnboardingPage && pathname !== '/') {
+        router.push('/login');
+      }
+    } else { // User is logged in
+      if (!isOnboarded) { // User is logged in but not onboarded
+        if (!isOnboardingPage) { // If not already on the onboarding page, redirect there
+          router.push('/onboarding');
+        }
+      } else { // User is logged in AND onboarded
+        if (isAuthPage || isOnboardingPage) { // If they are on login, signup, or onboarding page, redirect to dashboard
+          router.push('/dashboard');
+        }
+      }
     }
   }, [user, isOnboarded, isLoading, pathname, router]);
 
@@ -106,6 +115,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, emailProvided, passwordProvided);
+      // onAuthStateChanged will handle setting user
+      // User will be redirected to onboarding by the useEffect hook as isOnboarded will be false
       toast({ title: "Signup Successful", description: "Welcome! Please complete your profile." });
     } catch (error: any) {
       console.error("Firebase signup error:", error);
@@ -131,11 +142,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       await firebaseSignOut(auth);
-      router.push('/login');
+      router.push('/login'); // Explicitly push to login on logout
     } catch (error) {
       console.error("Firebase logout error:", error);
       toast({ title: "Logout Failed", description: "Could not log out. Please try again.", variant: "destructive" });
     } finally {
+      // Ensure user state is cleared even if router push hasn't completed or if there's an error
+      setUser(null);
+      setIsOnboarded(false);
       setIsLoading(false);
     }
   };
@@ -162,3 +176,4 @@ export const useAuth = () => {
   }
   return context;
 };
+
