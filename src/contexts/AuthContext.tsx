@@ -12,24 +12,26 @@ import {
   signOut as firebaseSignOut,
   type User as FirebaseUser 
 } from 'firebase/auth';
-import { app } from '@/lib/firebase'; 
+import { app, db } from '@/lib/firebase/clientApp'; // Updated import to include db
 import { useToast } from '@/hooks/use-toast';
-import { sendEmailVerificationToUser } from '@/lib/firebase/auth'; // Added
+import { sendEmailVerificationToUser } from '@/lib/firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore'; // Firestore imports
+import type { OnboardingFormValues } from '@/lib/schemas'; // For profile data type
 
 interface User {
   uid: string; 
   email: string | null;
-  emailVerified: boolean; // Added
+  emailVerified: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isOnboarded: boolean;
-  login: (email: string, password_unused?: string) => Promise<void>; 
-  signup: (email: string, password_unused?: string) => Promise<void>; 
+  login: (email: string, password?: string) => Promise<void>; 
+  signup: (email: string, password?: string) => Promise<void>; 
   logout: () => Promise<void>;
-  completeOnboarding: () => void;
+  completeOnboarding: (profileData: OnboardingFormValues) => Promise<void>; // Updated signature
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,20 +46,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => { // Made async
       setIsLoading(true);
       if (firebaseUser) {
         const appUser: User = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
-          emailVerified: firebaseUser.emailVerified, // Added
+          emailVerified: firebaseUser.emailVerified,
         };
         setUser(appUser);
-        const storedOnboardingStatus = localStorage.getItem(`nutriplan_onboarded_${firebaseUser.uid}`);
-        if (storedOnboardingStatus === 'true') {
-          setIsOnboarded(true);
-        } else {
-          setIsOnboarded(false);
+        // Check Firestore for profile to determine onboarding status
+        try {
+          const userProfileRef = doc(db, "users", firebaseUser.uid);
+          const docSnap = await getDoc(userProfileRef);
+          if (docSnap.exists() && docSnap.data()?.onboardingComplete) { // Assuming an 'onboardingComplete' flag
+            setIsOnboarded(true);
+          } else {
+            setIsOnboarded(false);
+          }
+        } catch (error) {
+          console.error("Error checking onboarding status from Firestore:", error);
+          setIsOnboarded(false); // Default to not onboarded on error
         }
       } else {
         setUser(null);
@@ -76,7 +85,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const isUtilityPage = pathname === '/reset-password' || pathname === '/verify-email';
     const isOnboardingPage = pathname === '/onboarding';
     
-
     if (!user) { 
       if (!isAuthPage && !isOnboardingPage && pathname !== '/' && !isUtilityPage) {
         router.push('/login');
@@ -99,7 +107,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await signInWithEmailAndPassword(auth, emailProvided, passwordProvided);
       toast({ title: "Login Successful", description: `Welcome back!` });
-      // onAuthStateChanged handles navigation based on onboarded status
+      // onAuthStateChanged and subsequent useEffect handle navigation
     } catch (error: any) {
       console.error("Firebase login error:", error);
       let errorMessage = "Failed to login. Please check your credentials.";
@@ -126,8 +134,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
          toast({ title: "Signup Successful (Verification Pending)", description: "Welcome! Please check your email to verify your account. User object not immediately available." });
       }
-      // onAuthStateChanged will handle setting user
-      // User will be redirected to onboarding by the useEffect hook as isOnboarded will be false
+      // onAuthStateChanged will handle setting user. They will be considered not onboarded yet.
     } catch (error: any) {
       console.error("Firebase signup error:", error);
       let errorMessage = "Failed to sign up. Please try again.";
@@ -149,27 +156,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    setIsLoading(true); // Set loading state
+    setIsLoading(true);
     try {
       await firebaseSignOut(auth);
-      // Clear local state immediately after sign out success
       setUser(null);
       setIsOnboarded(false);
-      localStorage.clear(); // Consider more targeted removal if needed
+      // localStorage.clear(); // No longer primary for profile data, but could clear other things if needed
       router.push('/login'); 
     } catch (error) {
       console.error("Firebase logout error:", error);
       toast({ title: "Logout Failed", description: "Could not log out. Please try again.", variant: "destructive" });
     } finally {
-      setIsLoading(false); // Reset loading state
+      setIsLoading(false);
     }
   };
 
-  const completeOnboarding = () => {
+  const completeOnboarding = async (profileData: OnboardingFormValues) => {
     if (user) {
-      setIsOnboarded(true);
-      localStorage.setItem(`nutriplan_onboarded_${user.uid}`, 'true'); 
-      router.push('/dashboard');
+      try {
+        const userProfileRef = doc(db, "users", user.uid);
+        await setDoc(userProfileRef, { ...profileData, email: user.email, onboardingComplete: true }, { merge: true });
+        setIsOnboarded(true);
+        router.push('/dashboard');
+      } catch (error) {
+        console.error("Error saving onboarding data to Firestore:", error);
+        toast({ title: "Onboarding Error", description: "Could not save your profile. Please try again.", variant: "destructive" });
+      }
     }
   };
 

@@ -14,43 +14,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"; // Added ScrollBar
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { ProfileFormValues as FullProfileType } from '@/lib/schemas'; 
+import type { ProfileFormValues as FullProfileType, CalculatedTargets, MacroResults } from '@/lib/schemas'; 
 import { MealSuggestionPreferencesSchema, type MealSuggestionPreferencesValues } from '@/lib/schemas'; 
 import { suggestMealsForMacros, type SuggestMealsForMacrosInput, type SuggestMealsForMacrosOutput } from '@/ai/flows/suggest-meals-for-macros';
 import { mealNames, defaultMacroPercentages, preferredDiets } from '@/lib/constants'; 
 import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/clientApp';
 
 async function getProfileDataForSuggestions(userId: string): Promise<Partial<FullProfileType>> {
-  const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
-  if (storedProfile) {
-    try {
-      const parsedProfile = JSON.parse(storedProfile) as FullProfileType;
-      const arrayFields: (keyof FullProfileType)[] = [
-        // 'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
-        // 'allergies', 'preferredMicronutrients', 'medicalConditions', 'medications', 
-        'injuries', 'surgeries', 'exerciseGoals', 'exercisePreferences', 'equipmentAccess'
-      ];
-      // Array fields specific to MealSuggestionPreferencesSchema that might come from the full profile
-      const preferenceArrayFields: (keyof MealSuggestionPreferencesValues)[] = [
-        'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients',
-        'allergies', 'preferredMicronutrients', 'medicalConditions', 'medications'
-      ];
-
-      [...arrayFields, ...preferenceArrayFields].forEach(field => {
-        if ((parsedProfile as any)[field] && typeof (parsedProfile as any)[field] === 'string') {
-           (parsedProfile as any)[field] = ((parsedProfile as any)[field] as string).split(',').map((s: string) => s.trim()).filter((s: string) => s !== '');
-        } else if (!Array.isArray((parsedProfile as any)[field])) {
-            (parsedProfile as any)[field] = [];
-        }
-      });
-      return parsedProfile;
-    } catch (error) {
-      console.error("Error parsing stored profile data for suggestions:", error);
-      return {};
+  if (!userId) return {};
+  try {
+    const userProfileRef = doc(db, "users", userId);
+    const docSnap = await getDoc(userProfileRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as Partial<FullProfileType>;
     }
+  } catch (error) {
+    console.error("Error fetching profile data from Firestore for suggestions:", error);
   }
   return {};
 }
@@ -81,23 +65,16 @@ function MealSuggestionsContent() {
   const preferenceForm = useForm<MealSuggestionPreferencesValues>({
     resolver: zodResolver(MealSuggestionPreferencesSchema),
     defaultValues: {
-      preferredDiet: undefined,
-      preferredCuisines: [],
-      dispreferredCuisines: [],
-      preferredIngredients: [],
-      dispreferredIngredients: [],
-      allergies: [],
-      preferredMicronutrients: [],
-      medicalConditions: [],
-      medications: [],
+      preferredDiet: undefined, preferredCuisines: [], dispreferredCuisines: [],
+      preferredIngredients: [], dispreferredIngredients: [], allergies: [],
+      preferredMicronutrients: [], medicalConditions: [], medications: [],
     },
   });
 
-  // Fetch profile data on mount or when user changes
   useEffect(() => {
-    if (user?.id) {
+    if (user?.uid) {
       setIsLoadingProfile(true);
-      getProfileDataForSuggestions(user.id)
+      getProfileDataForSuggestions(user.uid)
         .then(data => {
           setFullProfileData(data);
           preferenceForm.reset({
@@ -117,15 +94,9 @@ function MealSuggestionsContent() {
     } else {
       setIsLoadingProfile(false);
       preferenceForm.reset({
-            preferredDiet: undefined,
-            preferredCuisines: [],
-            dispreferredCuisines: [],
-            preferredIngredients: [],
-            dispreferredIngredients: [],
-            allergies: [],
-            preferredMicronutrients: [],
-            medicalConditions: [],
-            medications: [],
+            preferredDiet: undefined, preferredCuisines: [], dispreferredCuisines: [],
+            preferredIngredients: [], dispreferredIngredients: [], allergies: [],
+            preferredMicronutrients: [], medicalConditions: [], medications: [],
       });
     }
   }, [user, toast, preferenceForm]);
@@ -136,7 +107,7 @@ function MealSuggestionsContent() {
       return;
     }
 
-    if (isLoadingProfile) {
+    if (isLoadingProfile && (!fullProfileData || Object.keys(fullProfileData).length === 0) ) { // Wait if profile is loading and no data yet
       setIsLoadingTargets(true);
       return;
     }
@@ -145,8 +116,18 @@ function MealSuggestionsContent() {
     let demoModeTriggered = false;
     const exampleTargets = { mealName: selectedMealName, calories: 500, protein: 30, carbs: 60, fat: 20 };
 
-    if (fullProfileData && fullProfileData.age && fullProfileData.currentWeight && fullProfileData.height && fullProfileData.activityLevel && fullProfileData.dietGoal) {
-      const dailyTotals = calculateEstimatedDailyTargets(fullProfileData);
+    // Use profile data from state if available
+    const profileToUse = fullProfileData;
+
+    if (profileToUse && profileToUse.age && profileToUse.current_weight && profileToUse.height_cm && profileToUse.activityLevel && profileToUse.dietGoal) {
+      const dailyTotals = calculateEstimatedDailyTargets({
+          age: profileToUse.age,
+          gender: profileToUse.gender,
+          currentWeight: profileToUse.current_weight,
+          height: profileToUse.height_cm,
+          activityLevel: profileToUse.activityLevel,
+          dietGoal: profileToUse.dietGoal,
+      });
       const mealDistribution = defaultMacroPercentages[selectedMealName];
 
       if (dailyTotals.targetCalories && dailyTotals.targetProtein && dailyTotals.targetCarbs && dailyTotals.targetFat && mealDistribution) {
@@ -175,12 +156,11 @@ function MealSuggestionsContent() {
   }, [selectedMealName, fullProfileData, toast, isLoadingProfile, isDemoMode]);
 
 
-  // Handle initial URL parameters or manual meal selection changes
   useEffect(() => {
     const mealNameParam = searchParams.get('mealName');
     if (mealNameParam && mealNames.includes(mealNameParam) && mealNameParam !== selectedMealName) {
-        setSelectedMealName(mealNameParam); // This will trigger the next useEffect
-        return; // Exit early, let the selectedMealName change trigger calculations
+        setSelectedMealName(mealNameParam);
+        return; 
     }
     
     if (selectedMealName && (!targetMacros || targetMacros.mealName !== selectedMealName)) {
@@ -189,49 +169,32 @@ function MealSuggestionsContent() {
   }, [searchParams, selectedMealName, calculateTargetsForSelectedMeal, targetMacros]);
 
 
-  // Effect for when selectedMealName actually changes (either by URL param or dropdown)
   useEffect(() => {
-    if (selectedMealName) { // Only calculate if a meal is selected
+    if (selectedMealName) { 
       const caloriesParam = searchParams.get('calories');
       const proteinParam = searchParams.get('protein');
       const carbsParam = searchParams.get('carbs');
       const fatParam = searchParams.get('fat');
       const mealNameFromUrl = searchParams.get('mealName');
 
-      // Prioritize URL params if they match the selected meal
       if (selectedMealName === mealNameFromUrl && caloriesParam && proteinParam && carbsParam && fatParam) {
         setTargetMacros({
           mealName: selectedMealName,
-          calories: parseFloat(caloriesParam),
-          protein: parseFloat(proteinParam),
-          carbs: parseFloat(carbsParam),
-          fat: parseFloat(fatParam),
+          calories: parseFloat(caloriesParam), protein: parseFloat(proteinParam),
+          carbs: parseFloat(carbsParam), fat: parseFloat(fatParam),
         });
-        setIsDemoMode(false);
-        setError(null);
-        setSuggestions([]); // Clear previous suggestions when targets change via URL
+        setIsDemoMode(false); setError(null); setSuggestions([]);
       } else {
-        // Otherwise, calculate based on profile
         calculateTargetsForSelectedMeal();
       }
     } else {
-        setTargetMacros(null); // No meal selected
-        setSuggestions([]);
-        setError(null);
+        setTargetMacros(null); setSuggestions([]); setError(null);
     }
   }, [selectedMealName, searchParams, calculateTargetsForSelectedMeal]);
 
 
   const handleMealSelectionChange = (mealValue: string) => {
     setSelectedMealName(mealValue);
-    // Clear searchParams related values from state if user manually changes dropdown
-    // to force recalculation based on profile for the new meal
-    const newSearchParams = new URLSearchParams(searchParams.toString());
-    newSearchParams.delete('calories');
-    newSearchParams.delete('protein');
-    newSearchParams.delete('carbs');
-    newSearchParams.delete('fat');
-    // history.replaceState(null, '', `?${newSearchParams.toString()}`); // Optional: update URL
   };
 
   const handleGetSuggestions = async () => {
@@ -243,7 +206,7 @@ function MealSuggestionsContent() {
         toast({title: "Please wait", description: "User profile is still loading or not available.", variant: "default"});
         return;
     }
-    if (isLoadingProfile && !isDemoMode){
+    if (isLoadingProfile && !isDemoMode && (!fullProfileData || Object.keys(fullProfileData).length === 0)){
         toast({title: "Please wait", description: "User profile is still loading.", variant: "default"});
         return;
     }
@@ -253,6 +216,7 @@ function MealSuggestionsContent() {
     setError(null);
 
     const currentPreferences = preferenceForm.getValues();
+    const profileToUseForAI = fullProfileData;
 
     const aiInput: SuggestMealsForMacrosInput = {
       mealName: targetMacros.mealName,
@@ -260,10 +224,10 @@ function MealSuggestionsContent() {
       targetProteinGrams: targetMacros.protein,
       targetCarbsGrams: targetMacros.carbs,
       targetFatGrams: targetMacros.fat,
-      age: fullProfileData?.age,
-      gender: fullProfileData?.gender,
-      activityLevel: fullProfileData?.activityLevel,
-      dietGoal: fullProfileData?.dietGoal,
+      age: profileToUseForAI?.age,
+      gender: profileToUseForAI?.gender,
+      activityLevel: profileToUseForAI?.activityLevel,
+      dietGoal: profileToUseForAI?.dietGoal,
       preferredDiet: currentPreferences.preferredDiet,
       preferredCuisines: currentPreferences.preferredCuisines,
       dispreferredCuisines: currentPreferences.dispreferredCuisines,
@@ -303,13 +267,13 @@ function MealSuggestionsContent() {
         return (
           <FormItem>
             <FormLabel>{label}</FormLabel>
-            <FormControl>
+            <FormControl><div>
               <Textarea
                 placeholder={placeholder}
                 value={displayValue}
                 onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(s => s))}
                 className="h-10 resize-none" 
-              />
+              /></div>
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -352,7 +316,7 @@ function MealSuggestionsContent() {
                             <FormItem>
                               <FormLabel>Preferred Diet</FormLabel>
                               <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Select preferred diet" /></SelectTrigger></FormControl>
+                                <FormControl><div><SelectTrigger><SelectValue placeholder="Select preferred diet" /></SelectTrigger></div></FormControl>
                                 <SelectContent>{preferredDiets.map(pd => <SelectItem key={pd.value} value={pd.value}>{pd.label}</SelectItem>)}</SelectContent>
                               </Select>
                               <FormMessage />
@@ -416,7 +380,7 @@ function MealSuggestionsContent() {
 
               <Button onClick={handleGetSuggestions} disabled={isLoadingAiSuggestions || (isLoadingProfile && !isDemoMode)} size="lg" className="w-full md:w-auto">
                 {isLoadingAiSuggestions ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
-                {(isLoadingProfile && !isDemoMode) && !isLoadingAiSuggestions ? "Loading Profile..." : (isLoadingAiSuggestions ? "Getting Suggestions..." : "Get AI Meal Suggestions")}
+                {(isLoadingProfile && !isDemoMode && (!fullProfileData || Object.keys(fullProfileData).length === 0)) && !isLoadingAiSuggestions ? "Loading Profile..." : (isLoadingAiSuggestions ? "Getting Suggestions..." : "Get AI Meal Suggestions")}
               </Button>
               
               {error && (<p className="text-destructive mt-4"><AlertTriangle className="inline mr-1 h-4 w-4" />{error}</p>)}
@@ -499,4 +463,3 @@ export default function MealSuggestionsPage() {
     </Suspense>
   );
 }
-
