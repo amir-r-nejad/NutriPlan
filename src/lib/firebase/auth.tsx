@@ -1,3 +1,4 @@
+
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -7,6 +8,9 @@ import {
   User,
   signInWithRedirect,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail as firebaseSendPasswordResetEmail,
+  verifyPasswordResetCode as firebaseVerifyPasswordResetCode,
+  confirmPasswordReset as firebaseConfirmPasswordReset,
 } from "firebase/auth";
 
 import { auth } from "./clientApp";
@@ -44,5 +48,35 @@ export async function login(email: string, password: string) {
     catch (error: any) {
         const errorCode = error.code;
         const errorMessage = error.message;
+        // Rethrow or handle as needed for AuthContext
+        throw error;
     }
 };
+
+export async function sendPasswordResetEmail(email: string) {
+  try {
+    await firebaseSendPasswordResetEmail(auth, email);
+  } catch (error) {
+    console.error("Error sending password reset email", error);
+    throw error; // Propagate error to be handled in the UI
+  }
+}
+
+export async function verifyPasswordResetCode(actionCode: string) {
+  try {
+    const email = await firebaseVerifyPasswordResetCode(auth, actionCode);
+    return email; // Returns the user's email if the code is valid
+  } catch (error) {
+    console.error("Error verifying password reset code", error);
+    throw error;
+  }
+}
+
+export async function confirmPasswordReset(actionCode: string, newPassword: string) {
+  try {
+    await firebaseConfirmPasswordReset(auth, actionCode, newPassword);
+  } catch (error) {
+    console.error("Error confirming password reset", error);
+    throw error;
+  }
+}
