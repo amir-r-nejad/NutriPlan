@@ -7,8 +7,11 @@ import {
   User,
   signInWithRedirect,
   signInWithEmailAndPassword,
-  sendPasswordResetEmail,
-  confirmPasswordReset,
+  sendPasswordResetEmail as firebaseSendPasswordResetEmail,
+  verifyPasswordResetCode as firebaseVerifyPasswordResetCode,
+  confirmPasswordReset as firebaseConfirmPasswordReset,
+  sendEmailVerification as firebaseSendEmailVerification, // Added
+  applyActionCode as firebaseApplyActionCode, // Added
 } from "firebase/auth";
 
 import { auth } from "./clientApp";
@@ -49,10 +52,48 @@ export async function login(email: string, password: string) {
     }
 };
 
-export async function forgetPassword(email:string) {
-    sendPasswordResetEmail(auth,email)
+export async function sendPasswordResetEmail(email: string) {
+  try {
+    await firebaseSendPasswordResetEmail(auth, email);
+  } catch (error) {
+    console.error("Error sending password reset email", error);
+    throw error; // Propagate error to be handled in the UI
+  }
 }
-export async function confirmPassword(oobCode: string, newPassword: string) {
-    confirmPasswordReset(auth, oobCode, newPassword)
 
+export async function verifyPasswordResetCode(actionCode: string) {
+  try {
+    const email = await firebaseVerifyPasswordResetCode(auth, actionCode);
+    return email; // Returns the user's email if the code is valid
+  } catch (error) {
+    console.error("Error verifying password reset code", error);
+    throw error;
+  }
+}
+
+export async function confirmPasswordReset(actionCode: string, newPassword: string) {
+  try {
+    await firebaseConfirmPasswordReset(auth, actionCode, newPassword);
+  } catch (error) {
+    console.error("Error confirming password reset", error);
+    throw error;
+  }
+}
+
+export async function sendEmailVerificationToUser(user: User) {
+  try {
+    await firebaseSendEmailVerification(user);
+  } catch (error) {
+    console.error("Error sending email verification", error);
+    throw error; // Propagate so UI can potentially show a message
+  }
+}
+
+export async function applyActionCodeForVerification(actionCode: string) {
+  try {
+    await firebaseApplyActionCode(auth, actionCode);
+  } catch (error) {
+    console.error("Error applying action code for email verification", error);
+    throw error;
+  }
 }
