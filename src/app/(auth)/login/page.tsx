@@ -13,22 +13,12 @@ import "./page.css"
 import Image from "next/image";
 import Google from  "../../../public/google.svg"
 import { login, signInWithGoogle } from '@/lib/firebase/auth';
-import { useUser } from '@/hooks/use-user';
-import router from 'next/router';
 
 
 export default  function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { toast } = useToast();
-  const user = useUser()
-
-  useEffect(()=>{
-    if(user){
-      console.log(user)
-      router.push('/dashboard');
-    }
-  },[user])
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Basic validation    

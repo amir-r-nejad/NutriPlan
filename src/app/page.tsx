@@ -11,10 +11,9 @@ export default function HomePage() {
   const user =  useUser()
 
   useEffect(() => {
-    console.log(user)
-    if (!user) {
+    if (user==null) {
       router.replace('/login');
-    } else {
+    } else if(user){
       router.replace('/dashboard');
     }
   }, [user, router]);
