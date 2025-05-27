@@ -25,7 +25,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { BrainCircuit, Calculator, HelpCircle, AlertTriangle, RefreshCcw, Edit3, Info } from "lucide-react";
-import { SmartCaloriePlannerFormSchema, type SmartCaloriePlannerFormValues, MacroCalculatorFormSchema, type MacroCalculatorFormValues, type MacroResults, type ProfileFormValues as FullProfileType, type CalculatedTargets, type CustomCalculatedTargets } from "@/lib/schemas";
+import { SmartCaloriePlannerFormSchema, type SmartCaloriePlannerFormValues, MacroCalculatorFormSchema, type MacroCalculatorFormValues, type MacroResults, type FullProfileType, type CustomCalculatedTargets } from "@/lib/schemas";
 import { activityLevels, genders, smartPlannerDietGoals } from "@/lib/constants";
 import { calculateBMR, calculateTDEE } from "@/lib/nutrition-calculator";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,17 +35,34 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/clientApp';
 
+interface CalculationResults {
+  bmr?: number;
+  tdee?: number;
+  targetCaloriesScenario1?: number;
+  targetCaloriesScenario2?: number;
+  targetCaloriesScenario3?: number;
+  finalTargetCalories?: number;
+  estimatedWeeklyWeightChangeKg?: number;
+  proteinTargetPct?: number;
+  proteinGrams?: number;
+  proteinCalories?: number;
+  carbTargetPct?: number;
+  carbGrams?: number;
+  carbCalories?: number;
+  fatTargetPct?: number;
+  fatGrams?: number;
+  fatCalories?: number;
+  current_weight_for_custom_calc?: number; 
+}
 
-async function getSmartPlannerData(userId: string): Promise<{formValues: Partial<SmartCaloriePlannerFormValues>, results?: CalculatedTargets, manualResults?: MacroResults}> {
+
+async function getSmartPlannerData(userId: string): Promise<{formValues: Partial<SmartCaloriePlannerFormValues>, results?: CalculationResults, manualResults?: MacroResults}> {
   if (!userId) return { formValues: {} };
   try {
     const userProfileRef = doc(db, "users", userId);
     const docSnap = await getDoc(userProfileRef);
     if (docSnap.exists()) {
-      const profile = docSnap.data() as FullProfileType & { 
-        smartPlannerData?: { formValues: Partial<SmartCaloriePlannerFormValues>, results: CalculatedTargets },
-        manualMacroResults?: MacroResults 
-      };
+      const profile = docSnap.data() as FullProfileType;
       
       const formValues: Partial<SmartCaloriePlannerFormValues> = {
         age: profile.age,
@@ -54,8 +71,8 @@ async function getSmartPlannerData(userId: string): Promise<{formValues: Partial
         current_weight: profile.current_weight,
         goal_weight_1m: profile.goal_weight_1m,
         ideal_goal_weight: profile.ideal_goal_weight,
-        activity_factor_key: profile.activityLevel, // Map from profile's activityLevel
-        dietGoal: profile.dietGoal, // Map from profile's dietGoal
+        activity_factor_key: profile.activityLevel, 
+        dietGoal: profile.dietGoal,
         bf_current: profile.bf_current,
         bf_target: profile.bf_target,
         bf_ideal: profile.bf_ideal,
@@ -83,7 +100,6 @@ async function getSmartPlannerData(userId: string): Promise<{formValues: Partial
         left_arm_current: profile.left_arm_current,
         left_arm_goal_1m: profile.left_arm_goal_1m,
         left_arm_ideal: profile.left_arm_ideal,
-        // Custom plan inputs should also be loaded if previously saved
         custom_total_calories: profile.smartPlannerData?.formValues?.custom_total_calories,
         custom_protein_per_kg: profile.smartPlannerData?.formValues?.custom_protein_per_kg,
         remaining_calories_carb_pct: profile.smartPlannerData?.formValues?.remaining_calories_carb_pct ?? 50,
@@ -100,22 +116,47 @@ async function getSmartPlannerData(userId: string): Promise<{formValues: Partial
   return { formValues: {} };
 }
 
-async function saveSmartPlannerData(userId: string, data: { formValues: SmartCaloriePlannerFormValues, results: CalculatedTargets }) {
+async function saveSmartPlannerData(userId: string, data: { formValues: SmartCaloriePlannerFormValues, results: CalculationResults | null }) {
   if (!userId) throw new Error("User ID is required.");
   try {
     const userProfileRef = doc(db, "users", userId);
-    await setDoc(userProfileRef, { smartPlannerData: data }, { merge: true });
+    // Convert undefined to null before saving
+    const dataToSave: any = JSON.parse(JSON.stringify(data)); // Deep copy to avoid mutating original
+    if (dataToSave.formValues) {
+      for (const key in dataToSave.formValues) {
+        if (dataToSave.formValues[key] === undefined) {
+          dataToSave.formValues[key] = null;
+        }
+      }
+    }
+    if (dataToSave.results) {
+      for (const key in dataToSave.results) {
+        if (dataToSave.results[key] === undefined) {
+          dataToSave.results[key] = null;
+        }
+      }
+    }
+    await setDoc(userProfileRef, { smartPlannerData: dataToSave }, { merge: true });
   } catch (error) {
     console.error("Error saving smart planner data to Firestore:", error);
     throw error;
   }
 }
 
-async function saveManualMacroResults(userId: string, results: MacroResults) {
+async function saveManualMacroResults(userId: string, results: MacroResults | null) {
   if (!userId) throw new Error("User ID is required.");
   try {
     const userProfileRef = doc(db, "users", userId);
-    await setDoc(userProfileRef, { manualMacroResults: results }, { merge: true });
+     // Convert undefined to null before saving
+    const resultsToSave = results ? JSON.parse(JSON.stringify(results)) : null;
+    if (resultsToSave) {
+        for (const key in resultsToSave) {
+            if (resultsToSave[key] === undefined) {
+                resultsToSave[key] = null;
+            }
+        }
+    }
+    await setDoc(userProfileRef, { manualMacroResults: resultsToSave }, { merge: true });
   } catch (error) {
     console.error("Error saving manual macro results to Firestore:", error);
     throw error;
@@ -126,7 +167,7 @@ async function saveManualMacroResults(userId: string, results: MacroResults) {
 export default function SmartCaloriePlannerPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [results, setResults] = useState<CalculatedTargets | null>(null);
+  const [results, setResults] = useState<CalculationResults | null>(null);
   const [customPlanResults, setCustomPlanResults] = useState<CustomCalculatedTargets | null>(null);
   const [showManualCalculator, setShowManualCalculator] = useState(false);
   const [manualResults, setManualResults] = useState<MacroResults | null>(null);
@@ -163,18 +204,20 @@ export default function SmartCaloriePlannerPage() {
       setIsLoadingData(true);
       getSmartPlannerData(user.uid).then(data => {
         if (data.formValues) smartPlannerForm.reset(data.formValues);
-        if (data.results) setResults(data.results);
+        if (data.results && typeof data.results.tdee === 'number' && typeof data.results.bmr === 'number') {
+             setResults(data.results);
+        } else {
+            setResults(null); // Ensure results are null if loaded data is incomplete
+        }
         if (data.manualResults) {
           setManualResults(data.manualResults);
-          // Pre-fill manual calculator form if results exist
           manualCalculatorForm.reset({
-            weight_kg: data.formValues.current_weight || undefined, // Use current weight from main form
-            protein_per_kg: data.formValues.custom_protein_per_kg || 1.6, // Or a default
+            weight_kg: data.formValues.current_weight || data.manualResults.Total_cals ? smartPlannerForm.getValues("current_weight") : undefined,
+            protein_per_kg: data.formValues.custom_protein_per_kg || (data.manualResults.Protein_g && data.formValues.current_weight ? data.manualResults.Protein_g / data.formValues.current_weight : 1.6),
             target_calories: data.manualResults.Total_cals || 2000,
             percent_carb: data.manualResults.Carb_pct || 50,
           });
         } else if (data.formValues.current_weight) {
-          // Pre-fill weight in manual calc if no prior manual results
            manualCalculatorForm.setValue('weight_kg', data.formValues.current_weight);
         }
         setIsLoadingData(false);
@@ -195,7 +238,7 @@ export default function SmartCaloriePlannerPage() {
       return;
     }
 
-    const bmr = calculateBMR(data.gender!, data.current_weight!, data.height_cm!, data.age!); // Add non-null assertions as schema ensures they exist
+    const bmr = calculateBMR(data.gender!, data.current_weight!, data.height_cm!, data.age!); 
     const tdee = calculateTDEE(bmr, data.activity_factor_key!);
 
     let targetCaloriesS1: number;
@@ -252,7 +295,7 @@ export default function SmartCaloriePlannerPage() {
     const fatCalories = finalTargetCalories * fatTargetPct;
     const fatGrams = fatCalories / 9;
 
-    const newResults: CalculatedTargets = {
+    const newResults: CalculationResults = {
       bmr: Math.round(bmr),
       tdee: Math.round(tdee),
       targetCaloriesScenario1: Math.round(targetCaloriesS1),
@@ -334,7 +377,7 @@ export default function SmartCaloriePlannerPage() {
     setResults(null);
     setCustomPlanResults(null); 
     if (user?.uid) {
-      saveSmartPlannerData(user.uid, { formValues: smartPlannerForm.getValues(), results: null } as any); // Save null results
+      saveSmartPlannerData(user.uid, { formValues: smartPlannerForm.getValues(), results: null });
     }
     toast({ title: "Smart Planner Reset", description: "All smart planner inputs and results cleared." });
   };
@@ -343,7 +386,7 @@ export default function SmartCaloriePlannerPage() {
     manualCalculatorForm.reset({ weight_kg: smartPlannerForm.getValues("current_weight") || undefined, protein_per_kg: 1.6, target_calories: 2000, percent_carb: 50 });
     setManualResults(null);
     if (user?.uid) {
-      saveManualMacroResults(user.uid, {} as MacroResults); // Save empty results to effectively clear
+      saveManualMacroResults(user.uid, null); 
     }
      toast({ title: "Manual Calculator Reset", description: "Manual calculator inputs and results cleared." });
   };
@@ -428,12 +471,12 @@ export default function SmartCaloriePlannerPage() {
       fatPct: finalCustomTotalCalories > 0 ? Math.round((calculatedFatCalories / finalCustomTotalCalories) * 100) : 0,
     };
     
-    // Only update state if newCustomPlan is different from current customPlanResults
     if (JSON.stringify(customPlanResults) !== JSON.stringify(newCustomPlan)) {
         setCustomPlanResults(newCustomPlan);
     }
     
-  }, [watchedCustomInputs, results, customPlanResults, smartPlannerForm]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedCustomInputs, results]);
 
 
   if (isLoadingData) {
@@ -442,7 +485,7 @@ export default function SmartCaloriePlannerPage() {
 
   return (
     <TooltipProvider>
-    <div className="container mx-auto py-4"> {/* Reduced py-8 to py-4 */}
+    <div className="container mx-auto py-4"> 
       <Card className="max-w-3xl mx-auto shadow-xl">
         <CardHeader>
           <CardTitle className="text-3xl font-bold flex items-center">
@@ -459,7 +502,7 @@ export default function SmartCaloriePlannerPage() {
               <Accordion type="multiple" defaultValue={["basic-info"]} className="w-full">
                 <AccordionItem value="basic-info">
                   <AccordionTrigger className="text-xl font-semibold">📋 Basic Info (Required)</AccordionTrigger>
-                  <AccordionContent className="grid md:grid-cols-2 gap-x-6 gap-y-4 pt-4 px-1"> {/* Reduced px-4 to px-1 */}
+                  <AccordionContent className="grid md:grid-cols-2 gap-x-6 gap-y-4 pt-4 px-1"> 
                     <FormField control={smartPlannerForm.control} name="age" render={({ field }) => (<FormItem><FormLabel>Age (Years)</FormLabel><FormControl><div><Input type="number" placeholder="e.g., 30" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} /></div></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={smartPlannerForm.control} name="gender" render={({ field }) => (<FormItem><FormLabel>Biological Sex</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><div><SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger></div></FormControl><SelectContent>{genders.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                     <FormField control={smartPlannerForm.control} name="height_cm" render={({ field }) => (<FormItem><FormLabel>Height (cm)</FormLabel><FormControl><div><Input type="number" placeholder="e.g., 175" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></div></FormControl><FormMessage /></FormItem>)} />
@@ -475,20 +518,20 @@ export default function SmartCaloriePlannerPage() {
                     <AccordionTrigger className="text-xl font-semibold">💪 Body Composition (Optional)</AccordionTrigger>
                     <AccordionContent className="space-y-1 pt-4 px-1">
                         <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground">
-                            <span className="col-span-1">Metric</span>
-                            <span className="text-center">Current (%)</span>
-                            <span className="text-center">Target (1 Mth) (%)</span>
-                            <span className="text-center">Ideal (%)</span>
+                            <FormLabel className="col-span-1">Metric</FormLabel>
+                            <FormLabel className="text-center">Current (%)</FormLabel>
+                            <FormLabel className="text-center">Target (1 Mth) (%)</FormLabel>
+                            <FormLabel className="text-center">Ideal (%)</FormLabel>
                         </div>
                         {(['Body Fat', 'Muscle Mass', 'Body Water'] as const).map((metric) => {
                             const keys = {
                                 'Body Fat': ['bf_current', 'bf_target', 'bf_ideal'],
                                 'Muscle Mass': ['mm_current', 'mm_target', 'mm_ideal'],
                                 'Body Water': ['bw_current', 'bw_target', 'bw_ideal'],
-                            }[metric] as [keyof SmartCaloriePlannerFormValues, keyof SmartCaloriePlannerFormValues, keyof SmartCaloriePlannerFormValues];
+                            }[metric] as [FieldPath<SmartCaloriePlannerFormValues>, FieldPath<SmartCaloriePlannerFormValues>, FieldPath<SmartCaloriePlannerFormValues>];
                             return (
-                                <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> {/* Changed items-center to items-start */}
-                                    <FormLabel className="text-sm pt-2">{metric}</FormLabel> {/* Changed span to FormLabel */}
+                                <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> 
+                                    <FormLabel className="text-sm pt-2">{metric}</FormLabel> 
                                     {keys.map(key => (
                                         <FormField key={key} control={smartPlannerForm.control} name={key} render=
                                             {({ field }) => (
@@ -516,12 +559,12 @@ export default function SmartCaloriePlannerPage() {
 
                 <AccordionItem value="measurements">
                     <AccordionTrigger className="text-xl font-semibold">📏 Measurements (Optional)</AccordionTrigger>
-                    <AccordionContent className="space-y-1 pt-4 px-1">
+                     <AccordionContent className="space-y-1 pt-4 px-1">
                         <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground">
-                            <span className="col-span-1">Metric</span>
-                            <span className="text-center">Current (cm)</span>
-                            <span className="text-center">1-Mth Goal (cm)</span>
-                            <span className="text-center">Ideal (cm)</span>
+                            <FormLabel className="col-span-1">Metric</FormLabel>
+                            <FormLabel className="text-center">Current (cm)</FormLabel>
+                            <FormLabel className="text-center">1-Mth Goal (cm)</FormLabel>
+                            <FormLabel className="text-center">Ideal (cm)</FormLabel>
                         </div>
                         {(['Waist', 'Hips', 'Right Leg', 'Left Leg', 'Right Arm', 'Left Arm'] as const).map((metric) => {
                              const keys = {
@@ -531,10 +574,10 @@ export default function SmartCaloriePlannerPage() {
                                 'Left Leg': ['left_leg_current', 'left_leg_goal_1m', 'left_leg_ideal'],
                                 'Right Arm': ['right_arm_current', 'right_arm_goal_1m', 'right_arm_ideal'],
                                 'Left Arm': ['left_arm_current', 'left_arm_goal_1m', 'left_arm_ideal'],
-                            }[metric] as [keyof SmartCaloriePlannerFormValues, keyof SmartCaloriePlannerFormValues, keyof SmartCaloriePlannerFormValues];
+                            }[metric] as [FieldPath<SmartCaloriePlannerFormValues>, FieldPath<SmartCaloriePlannerFormValues>, FieldPath<SmartCaloriePlannerFormValues>];
                             return (
-                                <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> {/* Changed items-center to items-start */}
-                                    <FormLabel className="text-sm pt-2">{metric}</FormLabel> {/* Changed span to FormLabel */}
+                                <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> 
+                                    <FormLabel className="text-sm pt-2">{metric}</FormLabel> 
                                     {keys.map(key => (
                                         <FormField key={key} control={smartPlannerForm.control} name={key}
                                             render={({ field }) => (
@@ -615,7 +658,7 @@ export default function SmartCaloriePlannerPage() {
                 {results.targetCaloriesScenario3 !== undefined && (
                      <p className="text-sm text-muted-foreground">Alternative Target Calories (from Waist Goal): {results.targetCaloriesScenario3?.toFixed(0) ?? 'N/A'} kcal</p>
                 )}
-                <p><strong>Estimated Weekly Progress:</strong> {results.estimatedWeeklyWeightChangeKg >= 0 ? `${(results.estimatedWeeklyWeightChangeKg ?? 0)?.toFixed(2)} kg surplus/week (Potential Gain)` : `${Math.abs(results.estimatedWeeklyWeightChangeKg ?? 0).toFixed(2)} kg deficit/week (Potential Loss)`}</p>
+                <p><strong>Estimated Weekly Progress:</strong> {results.estimatedWeeklyWeightChangeKg && results.estimatedWeeklyWeightChangeKg >= 0 ? `${(results.estimatedWeeklyWeightChangeKg ?? 0)?.toFixed(2)} kg surplus/week (Potential Gain)` : `${Math.abs(results.estimatedWeeklyWeightChangeKg ?? 0).toFixed(2)} kg deficit/week (Potential Loss)`}</p>
                 <hr/>
                 <div className="pt-4">
                     <CardTitle className="text-xl font-semibold mb-3 text-primary">Suggested Macronutrient Breakdown</CardTitle>
@@ -717,7 +760,7 @@ export default function SmartCaloriePlannerPage() {
                                                 </Tooltip>
                                             </FormLabel>
                                             <FormControl>
-                                              <div className="flex flex-col space-y-2 pt-1">
+                                              <div className="flex flex-col space-y-2 pt-1"> {/* Wrapped Slider in a div */}
                                                 <Slider
                                                     value={[currentCarbPct]}
                                                     onValueChange={(value) => field.onChange(value[0])}
@@ -808,7 +851,7 @@ export default function SmartCaloriePlannerPage() {
                         <FormItem className="md:col-span-2">
                           <FormLabel>Split Remaining Calories: Carb % ({field.value ?? 0}%) vs Fat % ({percentFatManual.toFixed(0)}%)</FormLabel>
                            <FormControl>
-                            <div className="flex flex-col space-y-2 pt-1"> 
+                            <div className="flex flex-col space-y-2 pt-1">  {/* Wrapped Slider in a div */}
                               <Slider
                                 value={[field.value ?? 0]}
                                 onValueChange={(value) => field.onChange(value[0])}
@@ -855,4 +898,4 @@ export default function SmartCaloriePlannerPage() {
     </div>
     </TooltipProvider>
   );
-};
+}

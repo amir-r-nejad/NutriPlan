@@ -8,11 +8,11 @@ import {
   onAuthStateChanged,
   type User as FirebaseUser 
 } from 'firebase/auth';
-import { app, db } from '@/lib/firebase/firebase/clientApp'; // Updated import to include db
+import { app, db } from '@/lib/firebase/clientApp'; 
 import { useToast } from '@/hooks/use-toast';
 import { sendEmailVerificationToUser } from '@/lib/firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore'; // Firestore imports
-import type { OnboardingFormValues } from '@/lib/schemas'; // For profile data type
+import { doc, getDoc, setDoc } from 'firebase/firestore'; 
+import type { OnboardingFormValues } from '@/lib/schemas'; 
 
 interface User {
   uid: string; 
@@ -27,7 +27,7 @@ interface AuthContextType {
   login: (email: string, password?: string) => Promise<void>; 
   signup: (email: string, password?: string) => Promise<void>; 
   logout: () => Promise<void>;
-  completeOnboarding: (profileData: OnboardingFormValues) => Promise<void>; // Updated signature
+  completeOnboarding: (profileData: OnboardingFormValues) => Promise<void>; 
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => { // Made async
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => { 
       setIsLoading(true);
       if (firebaseUser) {
         const appUser: User = {
@@ -51,18 +51,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           emailVerified: firebaseUser.emailVerified,
         };
         setUser(appUser);
-        // Check Firestore for profile to determine onboarding status
         try {
           const userProfileRef = doc(db, "users", firebaseUser.uid);
           const docSnap = await getDoc(userProfileRef);
-          if (docSnap.exists() && docSnap.data()?.onboardingComplete) { // Assuming an 'onboardingComplete' flag
+          if (docSnap.exists() && docSnap.data()?.onboardingComplete) { 
             setIsOnboarded(true);
           } else {
             setIsOnboarded(false);
           }
         } catch (error) {
           console.error("Error checking onboarding status from Firestore:", error);
-          setIsOnboarded(false); // Default to not onboarded on error
+          setIsOnboarded(false); 
         }
       } else {
         setUser(null);
@@ -99,11 +98,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!isOnboardingPage) { 
           router.push('/onboarding');
         }
-      } else { 
-        if (isAuthPage || isOnboardingPage) { 
-          router.push('/dashboard');
-        }
-      }
     }
   }, [user, isOnboarded, isLoading, pathname, router,logindeUser]);
 
@@ -112,7 +106,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       await fLogin(emailProvided, passwordProvided);
       toast({ title: "Login Successful", description: `Welcome back!` });
-      // onAuthStateChanged and subsequent useEffect handle navigation
     } catch (error: any) {
       console.error("Firebase login error:", error);
       let errorMessage = "Failed to login. Please check your credentials.";
@@ -138,7 +131,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
          toast({ title: "Signup Successful (Verification Pending)", description: "Welcome! Please check your email to verify your account. User object not immediately available." });
       }
-      // onAuthStateChanged will handle setting user. They will be considered not onboarded yet.
     } catch (error: any) {
       console.error("Firebase signup error:", error);
       let errorMessage = "Failed to sign up. Please try again.";
@@ -162,9 +154,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       await firebaseSignOut(auth);
-      setUser(null);
-      setIsOnboarded(false);
-      // localStorage.clear(); // No longer primary for profile data, but could clear other things if needed
+      setUser(null); // Explicitly set user to null on logout
+      setIsOnboarded(false); // Explicitly set onboarded to false
       router.push('/login'); 
     } catch (error) {
       console.error("Firebase logout error:", error);
@@ -178,13 +169,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (user) {
       try {
         const userProfileRef = doc(db, "users", user.uid);
-        await setDoc(userProfileRef, { ...profileData, email: user.email, onboardingComplete: true }, { merge: true });
-        setIsOnboarded(true);
+        // Ensure undefined fields are converted to null before saving
+        const dataToSave: Record<string, any> = { ...profileData };
+        for (const key in dataToSave) {
+          if (dataToSave[key] === undefined) {
+            dataToSave[key] = null;
+          }
+        }
+        dataToSave.email = user.email;
+        dataToSave.onboardingComplete = true;
+
+        await setDoc(userProfileRef, dataToSave, { merge: true });
+        setIsOnboarded(true); // Update context state
         router.push('/dashboard');
       } catch (error) {
         console.error("Error saving onboarding data to Firestore:", error);
         toast({ title: "Onboarding Error", description: "Could not save your profile. Please try again.", variant: "destructive" });
       }
+    } else {
+        toast({ title: "Authentication Error", description: "No user found. Cannot complete onboarding.", variant: "destructive"});
     }
   };
 
