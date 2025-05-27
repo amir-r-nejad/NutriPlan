@@ -8,17 +8,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import { Leaf, UserPlus } from 'lucide-react';
+import { Leaf, UserPlus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const { login } = useAuth(); // Using login to simulate signup and then login
+  const { signup, isLoading: authIsLoading } = useAuth(); // Use signup and isLoading from AuthContext
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       toast({
@@ -36,13 +37,13 @@ export default function SignupPage() {
       });
       return;
     }
-    // Simulate signup then login
-    login(email, `new_user_${Date.now()}`); 
-    toast({
-      title: "Signup Successful",
-      description: `Welcome, ${email}! Please complete your profile.`,
-    });
+    setIsSubmitting(true);
+    await signup(email, password);
+    setIsSubmitting(false);
+    // Navigation to onboarding or dashboard is handled by AuthContext
   };
+
+  const disabled = authIsLoading || isSubmitting;
 
   return (
     <Card className="w-full max-w-sm shadow-xl">
@@ -64,6 +65,7 @@ export default function SignupPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={disabled}
             />
           </div>
           <div className="space-y-2">
@@ -74,6 +76,7 @@ export default function SignupPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={disabled}
             />
           </div>
           <div className="space-y-2">
@@ -84,10 +87,12 @@ export default function SignupPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
+              disabled={disabled}
             />
           </div>
-          <Button type="submit" className="w-full">
-            <UserPlus className="mr-2 h-4 w-4" /> Sign Up
+          <Button type="submit" className="w-full" disabled={disabled}>
+            {disabled ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+            {disabled ? 'Signing up...' : 'Sign Up'}
           </Button>
         </form>
       </CardContent>
