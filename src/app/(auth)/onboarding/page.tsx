@@ -35,7 +35,7 @@ import {
   activityLevels, 
   preferredDiets, 
   mealsPerDayOptions,
-  smartPlannerDietGoals,
+  smartPlannerDietGoals, // Added this
   mealNames as defaultMealNames, 
   defaultMacroPercentages,     
 } from "@/lib/constants";
@@ -195,7 +195,7 @@ export default function OnboardingPage() {
     
     const finalCustomTotalCalories = calculatedProteinCalories + calculatedCarbCalories + calculatedFatCalories;
 
-    setCustomCalculatedTargets({
+    const newCustomPlan: CustomCalculatedTargets = {
       totalCalories: Math.round(finalCustomTotalCalories),
       proteinGrams: Math.round(calculatedProteinGrams),
       proteinCalories: Math.round(calculatedProteinCalories),
@@ -206,7 +206,11 @@ export default function OnboardingPage() {
       fatGrams: Math.round(Math.max(0, calculatedFatGrams)),
       fatCalories: Math.round(Math.max(0, calculatedFatCalories)),
       fatPct: finalCustomTotalCalories > 0 ? Math.round((Math.max(0, calculatedFatCalories) / finalCustomTotalCalories) * 100) : 0,
-    });
+    };
+    
+    if (JSON.stringify(customCalculatedTargets) !== JSON.stringify(newCustomPlan)) {
+        setCustomCalculatedTargets(newCustomPlan);
+    }
   }, [currentStep, watchedCustomInputs, calculatedTargets, customCalculatedTargets, form]);
 
   // Determine totals for Macro Splitter (Step 10)
@@ -270,8 +274,10 @@ export default function OnboardingPage() {
     fullProfileData.medicalConditions = stringToArray(data.medicalConditions);
     fullProfileData.medications = stringToArray(data.medications);
     
-    fullProfileData.dietGoal = data.dietGoalOnboarding;
+    // Store dietGoalOnboarding as dietGoal for consistency with other tools
+    fullProfileData.dietGoal = data.dietGoalOnboarding; 
     delete fullProfileData.dietGoalOnboarding;
+
 
     // Include calculated/customized targets if they exist
     if (calculatedTargets) fullProfileData.systemCalculatedTargets = calculatedTargets;
@@ -298,7 +304,7 @@ export default function OnboardingPage() {
     }
 
 
-    if (user?.uid) {
+    if (user?.uid) { // Ensure user.uid is used for consistency with AuthContext
         localStorage.setItem(`nutriplan_profile_${user.uid}`, JSON.stringify(fullProfileData));
         // Save overall targets for smart planner tools
         if (Object.keys(finalTargetsForStorage).length > 0 && finalTargetsForStorage.targetCalories) {
@@ -358,7 +364,12 @@ export default function OnboardingPage() {
     <Card className="w-full max-w-2xl shadow-xl">
       <CardHeader className="text-center">
         <div className="flex justify-center items-center mb-4"> <Leaf className="h-10 w-10 text-primary" /> </div>
-        <Tooltip> <TooltipTrigger asChild> <CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle> </TooltipTrigger> <TooltipContent side="top" className="max-w-xs"> <p>{activeStepData.tooltipText}</p> </TooltipContent> </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs"> <p>{activeStepData.tooltipText}</p> </TooltipContent>
+        </Tooltip>
         <CardDescription>{activeStepData.explanation}</CardDescription>
         <Progress value={progressValue} className="w-full mt-4" />
         <p className="text-sm text-muted-foreground mt-1">Step {currentStep} of {onboardingStepsData.length}</p>
@@ -388,4 +399,3 @@ export default function OnboardingPage() {
   );
 }
 
-    
