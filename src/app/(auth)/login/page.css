@@ -1,26 +1,3 @@
-button[data-provider-id="google.com"]{
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    background-color: hsl(var(--primary)) !important;
-    border-radius: calc(var(--radius) - 2px);
-    justify-content: center;
-    width: 100%;
-    padding: 0.5rem 0 ;
 
-}
-.firebaseui-idp-icon{
-    width: 2.5rem;
-    height: 2.5rem;
-    filter: brightness(0) saturate(100%) invert(100%) sepia(25%) saturate(747%) hue-rotate(20deg) brightness(108%) contrast(101%);;
-    margin-right: 0.5em;
-}
-.firebaseui-idp-text-long{
-     color: hsl(var(--primary-foreground));
-}
-.firebaseui-idp-text.firebaseui-idp-text-short{
-    display: none;
-}
-
-
+/* Removed FirebaseUI specific styles as firebaseui package is being removed */
           

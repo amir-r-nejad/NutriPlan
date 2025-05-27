@@ -92,7 +92,6 @@ export default  function LoginPage() {
             <Image src={Google} alt='google' /> Login with Google
           </Button>
 
-          <div id="firebaseui-auth-container" className='w-full h-full' />
         </form>
       </CardContent>
       <CardFooter className="flex flex-col items-center space-y-2">
