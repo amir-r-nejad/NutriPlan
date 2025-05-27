@@ -9,46 +9,39 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { MacroSplitterFormSchema, type MacroSplitterFormValues, type ProfileFormValues, type CalculatedMealMacros, type MealMacroDistribution } from '@/lib/schemas';
+import { MacroSplitterFormSchema, type MacroSplitterFormValues, type ProfileFormValues as FullProfileType, type CalculatedMealMacros, type MealMacroDistribution, type CalculatedTargets, type MacroResults } from '@/lib/schemas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { mealNames as defaultMealNames, defaultMacroPercentages } from '@/lib/constants';
 import { Loader2, RefreshCw, Calculator, AlertTriangle, CheckCircle2, SplitSquareHorizontal, Lightbulb, Info } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { cn } from "@/lib/utils";
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/clientApp';
 
 interface TotalMacros {
   calories: number;
   protein_g: number;
   carbs_g: number;
   fat_g: number;
-  source?: string; // To indicate where the data came from
+  source?: string; 
 }
 
-async function getProfileDataForMacroSplitter(userId: string): Promise<Partial<ProfileFormValues>> {
+
+async function getProfileDataForMacroSplitter(userId: string): Promise<Partial<FullProfileType>> {
   console.log("Fetching profile for macro splitter, user:", userId);
-  const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
-  if (storedProfile) {
-    try {
-      const parsedProfile = JSON.parse(storedProfile) as ProfileFormValues;
-       const arrayFields: (keyof ProfileFormValues)[] = [
-        'injuries', 'surgeries', 'exerciseGoals', 'exercisePreferences', 'equipmentAccess'
-      ];
-      arrayFields.forEach(field => {
-        if (parsedProfile[field] && typeof parsedProfile[field] === 'string') {
-           (parsedProfile as any)[field] = (parsedProfile[field] as unknown as string).split(',').map((s: string) => s.trim()).filter((s: string) => s !== '');
-        } else if (!Array.isArray(parsedProfile[field])) {
-            (parsedProfile as any)[field] = [];
-        }
-      });
-      return parsedProfile;
-    } catch (error) {
-      console.error("Error parsing stored profile data for macro splitter:", error);
-      return {};
+  if (!userId) return {};
+  try {
+    const userProfileRef = doc(db, "users", userId);
+    const docSnap = await getDoc(userProfileRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as Partial<FullProfileType>;
     }
+  } catch (error) {
+    console.error("Error fetching profile for macro splitter from Firestore:", error);
   }
   return {};
 }
@@ -75,7 +68,6 @@ export default function MacroSplitterPage() {
   const [dailyTargets, setDailyTargets] = useState<TotalMacros | null>(null);
   const [calculatedSplit, setCalculatedSplit] = useState<CalculatedMealMacros[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  // const [profileData, setProfileData] = useState<Partial<ProfileFormValues> | null>(null);
 
 
   const form = useForm<MacroSplitterFormValues>({
@@ -97,7 +89,7 @@ export default function MacroSplitterPage() {
   });
 
   const loadDataForSplitter = useCallback(async () => {
-    if (!user?.id) {
+    if (!user?.uid) {
       setIsLoading(false);
       return;
     }
@@ -105,47 +97,49 @@ export default function MacroSplitterPage() {
     let targets: TotalMacros | null = null;
     let sourceMessage = "";
 
-    // 1. Try Daily Macro Breakdown results (now from smart planner's manual section)
-    const macroCalcResultsRaw = localStorage.getItem(`nutriplan_macro_calculator_results_${user.id}`);
-    if (macroCalcResultsRaw) {
-      try {
-        const parsed = JSON.parse(macroCalcResultsRaw);
-        targets = {
-          calories: parsed.Total_cals,
-          protein_g: parsed.Protein_g,
-          carbs_g: parsed.Carbs_g,
-          fat_g: parsed.Fat_g,
-          source: "Manual Macro Breakdown"
-        };
-        sourceMessage = "Daily totals sourced from 'Manual Macro Breakdown' in the Smart Planner. Adjust there for changes.";
-      } catch (e) { console.error("Failed to parse Manual Macro Breakdown results", e); }
-    }
+    try {
+      const userProfileRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(userProfileRef);
 
-    // 2. Try Smart Calorie Planner results if first source failed
-    if (!targets) {
-      const smartPlannerResultsRaw = localStorage.getItem(`nutriplan_smart_planner_results_${user.id}`);
-      if (smartPlannerResultsRaw) {
-        try {
-          const parsed = JSON.parse(smartPlannerResultsRaw); // Expects full CalculationResults
+      if (docSnap.exists()) {
+        const profileData = docSnap.data() as FullProfileType & {
+          manualMacroResults?: MacroResults;
+          smartPlannerData?: { results: CalculatedTargets };
+        };
+
+        // 1. Try Manual Macro Breakdown results from Firestore
+        if (profileData.manualMacroResults && profileData.manualMacroResults.Total_cals) {
           targets = {
-            calories: parsed.finalTargetCalories, // Adjusted property name
-            protein_g: parsed.proteinGrams,     // Adjusted property name
-            carbs_g: parsed.carbGrams,         // Adjusted property name
-            fat_g: parsed.fatGrams,           // Adjusted property name
+            calories: profileData.manualMacroResults.Total_cals,
+            protein_g: profileData.manualMacroResults.Protein_g,
+            carbs_g: profileData.manualMacroResults.Carbs_g,
+            fat_g: profileData.manualMacroResults.Fat_g,
+            source: "Manual Macro Breakdown (Smart Planner)"
+          };
+          sourceMessage = "Daily totals sourced from 'Manual Macro Breakdown' in the Smart Planner. Adjust there for changes.";
+        }
+        // 2. Try Smart Calorie Planner results from Firestore
+        else if (profileData.smartPlannerData?.results && profileData.smartPlannerData.results.finalTargetCalories) {
+          const smartResults = profileData.smartPlannerData.results;
+          targets = {
+            calories: smartResults.finalTargetCalories,
+            protein_g: smartResults.proteinGrams,
+            carbs_g: smartResults.carbGrams,
+            fat_g: smartResults.fatGrams,
             source: "Smart Calorie Planner"
           };
           sourceMessage = "Daily totals sourced from 'Smart Calorie Planner'. Adjust there for changes.";
-        } catch (e) { console.error("Failed to parse Smart Calorie Planner results", e); }
-      }
-    }
-
-    // 3. Fallback to profile estimation
-    if (!targets) {
-      try {
-        const fetchedProfileData = await getProfileDataForMacroSplitter(user.id);
-        // setProfileData(fetchedProfileData); 
-        if (fetchedProfileData.age && fetchedProfileData.gender && fetchedProfileData.currentWeight && fetchedProfileData.height && fetchedProfileData.activityLevel && fetchedProfileData.dietGoal) {
-          const estimatedTargets = calculateEstimatedDailyTargets(fetchedProfileData);
+        }
+        // 3. Fallback to profile estimation
+        else if (profileData.age && profileData.gender && profileData.current_weight && profileData.height_cm && profileData.activityLevel && profileData.dietGoal) {
+          const estimatedTargets = calculateEstimatedDailyTargets({
+            age: profileData.age,
+            gender: profileData.gender,
+            currentWeight: profileData.current_weight,
+            height: profileData.height_cm,
+            activityLevel: profileData.activityLevel,
+            dietGoal: profileData.dietGoal,
+          });
           if (estimatedTargets.targetCalories && estimatedTargets.targetProtein && estimatedTargets.targetCarbs && estimatedTargets.targetFat) {
             targets = {
               calories: estimatedTargets.targetCalories,
@@ -161,9 +155,12 @@ export default function MacroSplitterPage() {
         } else {
           toast({ title: "Profile Incomplete", description: "Your user profile is incomplete. Please fill it out to calculate daily totals for the Macro Splitter.", variant: "destructive", duration: 5000 });
         }
-      } catch (error) {
-        toast({ title: "Error", description: "Failed to load profile data for macro estimation.", variant: "destructive" });
+      } else {
+         toast({ title: "Profile Not Found", description: "Could not find your user profile to calculate daily totals.", variant: "destructive", duration: 5000 });
       }
+    } catch (error) {
+      toast({ title: "Error Loading Data", description: "Failed to load data for macro estimation.", variant: "destructive" });
+      console.error("Error in loadDataForSplitter:", error);
     }
     
     setDailyTargets(targets);
@@ -337,7 +334,7 @@ export default function MacroSplitterPage() {
                                 name={`mealDistributions.${index}.${macroKey}`}
                                 render={({ field: itemField }) => (
                                   <FormItem className="inline-block">
-                                    <FormControl>
+                                    <FormControl><div>
                                       <Input
                                         type="number"
                                         {...itemField}
@@ -346,7 +343,7 @@ export default function MacroSplitterPage() {
                                         className="w-16 text-right tabular-nums text-sm px-1 py-0.5 h-8"
                                         min="0"
                                         max="100"
-                                      />
+                                      /></div>
                                     </FormControl>
                                   </FormItem>
                                 )}
@@ -478,4 +475,3 @@ export default function MacroSplitterPage() {
     </div>
   );
 }
-

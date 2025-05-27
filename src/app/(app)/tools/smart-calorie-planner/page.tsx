@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, FieldPath } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -25,179 +25,181 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { BrainCircuit, Calculator, HelpCircle, AlertTriangle, RefreshCcw, Edit3, Info } from "lucide-react";
-import { SmartCaloriePlannerFormSchema, type SmartCaloriePlannerFormValues, MacroCalculatorFormSchema, type MacroCalculatorFormValues, type MacroResults } from "@/lib/schemas";
+import { SmartCaloriePlannerFormSchema, type SmartCaloriePlannerFormValues, MacroCalculatorFormSchema, type MacroCalculatorFormValues, type MacroResults, type ProfileFormValues as FullProfileType, type CalculatedTargets, type CustomCalculatedTargets } from "@/lib/schemas";
 import { activityLevels, genders, smartPlannerDietGoals } from "@/lib/constants";
 import { calculateBMR, calculateTDEE } from "@/lib/nutrition-calculator";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/clientApp';
 
-interface CalculationResults {
-  bmr: number;
-  tdee: number;
-  targetCaloriesScenario1: number;
-  targetCaloriesScenario2?: number;
-  targetCaloriesScenario3?: number;
-  finalTargetCalories: number;
-  estimatedWeeklyWeightChangeKg: number;
-  proteinTargetPct: number;
-  proteinGrams: number;
-  proteinCalories: number;
-  carbTargetPct: number;
-  carbGrams: number;
-  carbCalories: number;
-  fatTargetPct: number;
-  fatGrams: number;
-  fatCalories: number;
-  current_weight_for_custom_calc?: number; 
+
+async function getSmartPlannerData(userId: string): Promise<{formValues: Partial<SmartCaloriePlannerFormValues>, results?: CalculatedTargets, manualResults?: MacroResults}> {
+  if (!userId) return { formValues: {} };
+  try {
+    const userProfileRef = doc(db, "users", userId);
+    const docSnap = await getDoc(userProfileRef);
+    if (docSnap.exists()) {
+      const profile = docSnap.data() as FullProfileType & { 
+        smartPlannerData?: { formValues: Partial<SmartCaloriePlannerFormValues>, results: CalculatedTargets },
+        manualMacroResults?: MacroResults 
+      };
+      
+      const formValues: Partial<SmartCaloriePlannerFormValues> = {
+        age: profile.age,
+        gender: profile.gender,
+        height_cm: profile.height_cm,
+        current_weight: profile.current_weight,
+        goal_weight_1m: profile.goal_weight_1m,
+        ideal_goal_weight: profile.ideal_goal_weight,
+        activity_factor_key: profile.activityLevel, // Map from profile's activityLevel
+        dietGoal: profile.dietGoal, // Map from profile's dietGoal
+        bf_current: profile.bf_current,
+        bf_target: profile.bf_target,
+        bf_ideal: profile.bf_ideal,
+        mm_current: profile.mm_current,
+        mm_target: profile.mm_target,
+        mm_ideal: profile.mm_ideal,
+        bw_current: profile.bw_current,
+        bw_target: profile.bw_target,
+        bw_ideal: profile.bw_ideal,
+        waist_current: profile.waist_current,
+        waist_goal_1m: profile.waist_goal_1m,
+        waist_ideal: profile.waist_ideal,
+        hips_current: profile.hips_current,
+        hips_goal_1m: profile.hips_goal_1m,
+        hips_ideal: profile.hips_ideal,
+        right_leg_current: profile.right_leg_current,
+        right_leg_goal_1m: profile.right_leg_goal_1m,
+        right_leg_ideal: profile.right_leg_ideal,
+        left_leg_current: profile.left_leg_current,
+        left_leg_goal_1m: profile.left_leg_goal_1m,
+        left_leg_ideal: profile.left_leg_ideal,
+        right_arm_current: profile.right_arm_current,
+        right_arm_goal_1m: profile.right_arm_goal_1m,
+        right_arm_ideal: profile.right_arm_ideal,
+        left_arm_current: profile.left_arm_current,
+        left_arm_goal_1m: profile.left_arm_goal_1m,
+        left_arm_ideal: profile.left_arm_ideal,
+        // Custom plan inputs should also be loaded if previously saved
+        custom_total_calories: profile.smartPlannerData?.formValues?.custom_total_calories,
+        custom_protein_per_kg: profile.smartPlannerData?.formValues?.custom_protein_per_kg,
+        remaining_calories_carb_pct: profile.smartPlannerData?.formValues?.remaining_calories_carb_pct ?? 50,
+      };
+       return { 
+         formValues: { ...formValues, ...(profile.smartPlannerData?.formValues || {}) }, 
+         results: profile.smartPlannerData?.results,
+         manualResults: profile.manualMacroResults 
+       };
+    }
+  } catch (error) {
+    console.error("Error fetching smart planner data from Firestore:", error);
+  }
+  return { formValues: {} };
 }
 
-interface CustomPlanResults {
-  totalCalories: number;
-  proteinGrams: number;
-  proteinCalories: number;
-  proteinPct: number;
-  carbGrams: number;
-  carbCalories: number;
-  carbPct: number;
-  fatGrams: number;
-  fatCalories: number;
-  fatPct: number;
+async function saveSmartPlannerData(userId: string, data: { formValues: SmartCaloriePlannerFormValues, results: CalculatedTargets }) {
+  if (!userId) throw new Error("User ID is required.");
+  try {
+    const userProfileRef = doc(db, "users", userId);
+    await setDoc(userProfileRef, { smartPlannerData: data }, { merge: true });
+  } catch (error) {
+    console.error("Error saving smart planner data to Firestore:", error);
+    throw error;
+  }
+}
+
+async function saveManualMacroResults(userId: string, results: MacroResults) {
+  if (!userId) throw new Error("User ID is required.");
+  try {
+    const userProfileRef = doc(db, "users", userId);
+    await setDoc(userProfileRef, { manualMacroResults: results }, { merge: true });
+  } catch (error) {
+    console.error("Error saving manual macro results to Firestore:", error);
+    throw error;
+  }
 }
 
 
 export default function SmartCaloriePlannerPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [results, setResults] = useState<CalculationResults | null>(null);
-  const [customPlanResults, setCustomPlanResults] = useState<CustomPlanResults | null>(null);
+  const [results, setResults] = useState<CalculatedTargets | null>(null);
+  const [customPlanResults, setCustomPlanResults] = useState<CustomCalculatedTargets | null>(null);
   const [showManualCalculator, setShowManualCalculator] = useState(false);
   const [manualResults, setManualResults] = useState<MacroResults | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
 
   const smartPlannerForm = useForm<SmartCaloriePlannerFormValues>({
     resolver: zodResolver(SmartCaloriePlannerFormSchema),
     defaultValues: {
-      age: undefined,
-      gender: undefined,
-      height_cm: undefined,
-      current_weight: undefined,
-      goal_weight_1m: undefined,
-      ideal_goal_weight: undefined,
-      activity_factor_key: "moderate",
-      dietGoal: "fat_loss",
-      bf_current: undefined,
-      bf_target: undefined,
-      bf_ideal: undefined,
-      mm_current: undefined,
-      mm_target: undefined,
-      mm_ideal: undefined,
-      bw_current: undefined,
-      bw_target: undefined,
-      bw_ideal: undefined,
-      waist_current: undefined,
-      waist_goal_1m: undefined,
-      waist_ideal: undefined,
-      hips_current: undefined,
-      hips_goal_1m: undefined,
-      hips_ideal: undefined,
-      right_leg_current: undefined,
-      right_leg_goal_1m: undefined,
-      right_leg_ideal: undefined,
-      left_leg_current: undefined,
-      left_leg_goal_1m: undefined,
-      left_leg_ideal: undefined,
-      right_arm_current: undefined,
-      right_arm_goal_1m: undefined,
-      right_arm_ideal: undefined,
-      left_arm_current: undefined,
-      left_arm_goal_1m: undefined,
-      left_arm_ideal: undefined,
-      custom_total_calories: undefined,
-      custom_protein_per_kg: undefined,
-      remaining_calories_carb_pct: 50,
+      age: undefined, gender: undefined, height_cm: undefined, current_weight: undefined,
+      goal_weight_1m: undefined, ideal_goal_weight: undefined, activity_factor_key: "moderate", dietGoal: "fat_loss",
+      bf_current: undefined, bf_target: undefined, bf_ideal: undefined, 
+      mm_current: undefined, mm_target: undefined, mm_ideal: undefined,
+      bw_current: undefined, bw_target: undefined, bw_ideal: undefined,
+      waist_current: undefined, waist_goal_1m: undefined, waist_ideal: undefined,
+      hips_current: undefined, hips_goal_1m: undefined, hips_ideal: undefined,
+      right_leg_current: undefined, right_leg_goal_1m: undefined, right_leg_ideal: undefined,
+      left_leg_current: undefined, left_leg_goal_1m: undefined, left_leg_ideal: undefined,
+      right_arm_current: undefined, right_arm_goal_1m: undefined, right_arm_ideal: undefined,
+      left_arm_current: undefined, left_arm_goal_1m: undefined, left_arm_ideal: undefined,
+      custom_total_calories: undefined, custom_protein_per_kg: undefined, remaining_calories_carb_pct: 50,
     },
   });
 
   const manualCalculatorForm = useForm<MacroCalculatorFormValues>({
     resolver: zodResolver(MacroCalculatorFormSchema),
     defaultValues: {
-      weight_kg: undefined,
-      protein_per_kg: 1.5,
-      target_calories: 2000,
-      percent_carb: 60,
+      weight_kg: undefined, protein_per_kg: 1.6, target_calories: 2000, percent_carb: 50,
     },
   });
 
   useEffect(() => {
-    if (user?.id) {
-      const savedSmartPlannerData = localStorage.getItem(`nutriplan_smart_planner_form_${user.id}`);
-      if (savedSmartPlannerData) {
-        try {
-          smartPlannerForm.reset(JSON.parse(savedSmartPlannerData));
-        } catch (e) {
-          console.error("Failed to parse saved smart planner form data", e);
+    if (user?.uid) {
+      setIsLoadingData(true);
+      getSmartPlannerData(user.uid).then(data => {
+        if (data.formValues) smartPlannerForm.reset(data.formValues);
+        if (data.results) setResults(data.results);
+        if (data.manualResults) {
+          setManualResults(data.manualResults);
+          // Pre-fill manual calculator form if results exist
+          manualCalculatorForm.reset({
+            weight_kg: data.formValues.current_weight || undefined, // Use current weight from main form
+            protein_per_kg: data.formValues.custom_protein_per_kg || 1.6, // Or a default
+            target_calories: data.manualResults.Total_cals || 2000,
+            percent_carb: data.manualResults.Carb_pct || 50,
+          });
+        } else if (data.formValues.current_weight) {
+          // Pre-fill weight in manual calc if no prior manual results
+           manualCalculatorForm.setValue('weight_kg', data.formValues.current_weight);
         }
-      }
-      const savedSmartPlannerResults = localStorage.getItem(`nutriplan_smart_planner_results_${user.id}`);
-      if (savedSmartPlannerResults) {
-        try {
-          const parsedResults = JSON.parse(savedSmartPlannerResults) as CalculationResults;
-           if (parsedResults && 
-              typeof parsedResults.tdee === 'number' && 
-              typeof parsedResults.bmr === 'number' &&
-              typeof parsedResults.finalTargetCalories === 'number' &&
-              typeof parsedResults.proteinGrams === 'number' &&
-              typeof parsedResults.carbGrams === 'number' &&
-              typeof parsedResults.fatGrams === 'number') {
-            setResults(parsedResults);
-          } else {
-            console.warn("Incomplete or old smart planner results found in localStorage. Results will not be loaded.");
-             localStorage.removeItem(`nutriplan_smart_planner_results_${user.id}`); 
-          }
-        } catch (e) {
-          console.error("Failed to parse saved smart planner results data", e);
-        }
-      }
-
-      const savedManualCalcData = localStorage.getItem(`nutriplan_macro_calculator_form_${user.id}`);
-      if (savedManualCalcData) {
-        try {
-          manualCalculatorForm.reset(JSON.parse(savedManualCalcData));
-        } catch (e) {
-          console.error("Failed to parse saved manual calculator form data", e);
-        }
-      }
-      const savedManualResultsData = localStorage.getItem(`nutriplan_macro_calculator_results_${user.id}`);
-       if (savedManualResultsData) {
-        try {
-          const parsedManualResults = JSON.parse(savedManualResultsData) as MacroResults;
-          if (parsedManualResults && typeof parsedManualResults.Total_cals === 'number') {
-            setManualResults(parsedManualResults);
-          } else {
-            console.warn("Incomplete or old manual calculator results found in localStorage. Results will not be loaded.");
-          }
-        } catch (e) {
-          console.error("Failed to parse saved manual calculator results data", e);
-        }
-      }
+        setIsLoadingData(false);
+      }).catch(err => {
+        toast({title: "Error", description: "Could not load saved planner data.", variant: "destructive"});
+        setIsLoadingData(false);
+      });
+    } else {
+      setIsLoadingData(false);
     }
-  }, [user, smartPlannerForm, manualCalculatorForm]);
+  }, [user, smartPlannerForm, manualCalculatorForm, toast]);
 
 
-  const onSubmit = (data: SmartCaloriePlannerFormValues) => {
+  const onSubmit = async (data: SmartCaloriePlannerFormValues) => {
     const activity = activityLevels.find(al => al.value === data.activity_factor_key);
     if (!activity) {
       toast({ title: "Error", description: "Invalid activity level selected.", variant: "destructive" });
       return;
     }
 
-    const bmr = calculateBMR(data.gender, data.current_weight, data.height_cm, data.age);
-    const tdee = calculateTDEE(bmr, data.activity_factor_key);
+    const bmr = calculateBMR(data.gender!, data.current_weight!, data.height_cm!, data.age!); // Add non-null assertions as schema ensures they exist
+    const tdee = calculateTDEE(bmr, data.activity_factor_key!);
 
     let targetCaloriesS1: number;
-    const weightDeltaKg1M = data.current_weight - data.goal_weight_1m;
+    const weightDeltaKg1M = data.current_weight! - data.goal_weight_1m!;
     const calorieAdjustmentS1 = (7700 * weightDeltaKg1M) / 30; 
     targetCaloriesS1 = tdee - calorieAdjustmentS1;
 
@@ -216,14 +218,14 @@ export default function SmartCaloriePlannerPage() {
     let targetCaloriesS2: number | undefined = undefined;
     let targetCaloriesS3: number | undefined = undefined;
 
-    if (data.bf_current !== undefined && data.bf_target !== undefined && data.bf_current > 0 && data.bf_target > 0 && data.bf_current > data.bf_target) {
+    if (data.bf_current !== undefined && data.bf_target !== undefined && data.current_weight && data.bf_current > 0 && data.bf_target > 0 && data.bf_current > data.bf_target) {
       const fatMassLossKg = data.current_weight * ( (data.bf_current - data.bf_target) / 100);
       const calorieAdjustmentS2 = (7700 * fatMassLossKg) / 30; 
       targetCaloriesS2 = tdee - calorieAdjustmentS2;
       finalTargetCalories = (finalTargetCalories + targetCaloriesS2) / 2; 
     }
 
-    if (data.waist_current !== undefined && data.waist_goal_1m !== undefined && data.waist_current > 0 && data.waist_goal_1m > 0 && data.waist_current > data.waist_goal_1m) {
+    if (data.waist_current !== undefined && data.waist_goal_1m !== undefined && data.current_weight && data.waist_current > 0 && data.waist_goal_1m > 0 && data.waist_current > data.waist_goal_1m) {
       const waistChangeCm = data.waist_current - data.waist_goal_1m;
       if (Math.abs(waistChangeCm) > 5) {
         toast({ title: "Waist Goal Warning", description: "A waist change of more than 5cm in 1 month may be unrealistic. Results are indicative.", variant: "default", duration: 7000 });
@@ -238,7 +240,7 @@ export default function SmartCaloriePlannerPage() {
 
     const estimatedWeeklyWeightChangeKg = (tdee - finalTargetCalories) * 7 / 7700;
 
-    let proteinTargetPct, carbTargetPct, fatTargetPct;
+    let proteinTargetPct = 0, carbTargetPct = 0, fatTargetPct = 0;
     if (data.dietGoal === 'fat_loss') { proteinTargetPct = 0.35; carbTargetPct = 0.35; fatTargetPct = 0.30; }
     else if (data.dietGoal === 'muscle_gain') { proteinTargetPct = 0.30; carbTargetPct = 0.50; fatTargetPct = 0.20; }
     else { proteinTargetPct = 0.40; carbTargetPct = 0.35; fatTargetPct = 0.25; } 
@@ -250,7 +252,7 @@ export default function SmartCaloriePlannerPage() {
     const fatCalories = finalTargetCalories * fatTargetPct;
     const fatGrams = fatCalories / 9;
 
-    const newResults: CalculationResults = {
+    const newResults: CalculatedTargets = {
       bmr: Math.round(bmr),
       tdee: Math.round(tdee),
       targetCaloriesScenario1: Math.round(targetCaloriesS1),
@@ -270,37 +272,26 @@ export default function SmartCaloriePlannerPage() {
       current_weight_for_custom_calc: data.current_weight,
     };
     setResults(newResults);
-    if (user?.id) {
-      localStorage.setItem(`nutriplan_smart_planner_form_${user.id}`, JSON.stringify(data));
-      localStorage.setItem(`nutriplan_smart_planner_results_${user.id}`, JSON.stringify(newResults));
+    if (user?.uid) {
+      try {
+        await saveSmartPlannerData(user.uid, {formValues: data, results: newResults});
+        toast({ title: "Calculation Complete", description: "Your smart calorie plan has been generated and saved." });
+      } catch (error) {
+        toast({ title: "Save Error", description: "Could not save calculation results.", variant: "destructive" });
+      }
     }
-    toast({ title: "Calculation Complete", description: "Your smart calorie plan has been generated." });
   };
 
-  const onManualSubmit = (data: MacroCalculatorFormValues) => {
+  const onManualSubmit = async (data: MacroCalculatorFormValues) => {
     const proteinGrams = data.weight_kg * data.protein_per_kg;
     const proteinCals = proteinGrams * 4;
     const remainingCals = data.target_calories - proteinCals;
     
     if (remainingCals < 0) {
-        toast({
-            title: "Calculation Warning",
-            description: "Protein calories exceed total target calories. Please adjust inputs.",
-            variant: "destructive",
-            duration: 5000,
-        });
-        setManualResults({
-            Protein_g: Math.round(proteinGrams),
-            Carbs_g: 0,
-            Fat_g: 0,
-            Protein_cals: Math.round(proteinCals),
-            Carb_cals: 0,
-            Fat_cals: 0,
-            Total_cals: Math.round(proteinCals), 
-            Protein_pct: 100,
-            Carb_pct: 0,
-            Fat_pct: 0,
-        });
+        toast({ title: "Calculation Warning", description: "Protein calories exceed total target calories. Please adjust inputs.", variant: "destructive", duration: 5000 });
+        const errorResults = { Protein_g: Math.round(proteinGrams), Carbs_g: 0, Fat_g: 0, Protein_cals: Math.round(proteinCals), Carb_cals: 0, Fat_cals: 0, Total_cals: Math.round(proteinCals),  Protein_pct: 100, Carb_pct: 0, Fat_pct: 0 };
+        setManualResults(errorResults);
+         if (user?.uid) await saveManualMacroResults(user.uid, errorResults);
         return;
     }
 
@@ -311,23 +302,22 @@ export default function SmartCaloriePlannerPage() {
     const fatGrams = fatCals / 9;
 
     const calcResults: MacroResults = {
-      Protein_g: Math.round(proteinGrams),
-      Carbs_g: Math.round(carbGrams),
-      Fat_g: Math.round(fatGrams),
-      Protein_cals: Math.round(proteinCals),
-      Carb_cals: Math.round(carbCals),
-      Fat_cals: Math.round(fatCals),
+      Protein_g: Math.round(proteinGrams), Carbs_g: Math.round(carbGrams), Fat_g: Math.round(fatGrams),
+      Protein_cals: Math.round(proteinCals), Carb_cals: Math.round(carbCals), Fat_cals: Math.round(fatCals),
       Total_cals: Math.round(proteinCals + carbCals + fatCals),
       Protein_pct: data.target_calories > 0 ? Math.round((proteinCals / data.target_calories) * 100) : 0,
       Carb_pct: data.target_calories > 0 ? Math.round((carbCals / data.target_calories) * 100) : 0,
       Fat_pct: data.target_calories > 0 ? Math.round((fatCals / data.target_calories) * 100) : 0,
     };
     setManualResults(calcResults);
-     if (user?.id) {
-      localStorage.setItem(`nutriplan_macro_calculator_form_${user.id}`, JSON.stringify(data));
-      localStorage.setItem(`nutriplan_macro_calculator_results_${user.id}`, JSON.stringify(calcResults));
+     if (user?.uid) {
+       try {
+        await saveManualMacroResults(user.uid, calcResults);
+        toast({ title: "Manual Calculation Complete", description: "Your custom macros have been calculated and saved." });
+       } catch (error) {
+         toast({ title: "Save Error", description: "Could not save manual macro results.", variant: "destructive" });
+       }
     }
-    toast({ title: "Manual Calculation Complete", description: "Your custom macros have been calculated." });
   };
 
   const handleSmartPlannerReset = () => {
@@ -343,19 +333,17 @@ export default function SmartCaloriePlannerPage() {
     });
     setResults(null);
     setCustomPlanResults(null); 
-    if (user?.id) {
-      localStorage.removeItem(`nutriplan_smart_planner_form_${user.id}`);
-      localStorage.removeItem(`nutriplan_smart_planner_results_${user.id}`);
+    if (user?.uid) {
+      saveSmartPlannerData(user.uid, { formValues: smartPlannerForm.getValues(), results: null } as any); // Save null results
     }
     toast({ title: "Smart Planner Reset", description: "All smart planner inputs and results cleared." });
   };
 
   const handleManualCalculatorReset = () => {
-    manualCalculatorForm.reset({ weight_kg: undefined, protein_per_kg: 1.5, target_calories: 2000, percent_carb: 60 });
+    manualCalculatorForm.reset({ weight_kg: smartPlannerForm.getValues("current_weight") || undefined, protein_per_kg: 1.6, target_calories: 2000, percent_carb: 50 });
     setManualResults(null);
-    if (user?.id) {
-      localStorage.removeItem(`nutriplan_macro_calculator_form_${user.id}`);
-      localStorage.removeItem(`nutriplan_macro_calculator_results_${user.id}`);
+    if (user?.uid) {
+      saveManualMacroResults(user.uid, {} as MacroResults); // Save empty results to effectively clear
     }
      toast({ title: "Manual Calculator Reset", description: "Manual calculator inputs and results cleared." });
   };
@@ -371,17 +359,10 @@ export default function SmartCaloriePlannerPage() {
     toast({ title: "Custom Plan Reset", description: "Custom plan inputs have been reset." });
   };
 
-  const watchedCustomInputs = smartPlannerForm.watch([
-    "custom_total_calories",
-    "custom_protein_per_kg",
-    "remaining_calories_carb_pct",
-    "current_weight" 
-  ]);
-
+  const watchedCustomInputs = smartPlannerForm.watch([ "custom_total_calories", "custom_protein_per_kg", "remaining_calories_carb_pct", "current_weight"]);
   const watchedPercentCarbManual = manualCalculatorForm.watch("percent_carb");
   const percentFatManual = 100 - (watchedPercentCarbManual || 0);
   
-  // useEffect for custom plan calculations
   useEffect(() => {
     const [customTotalCalories, customProteinPerKg, remainingCarbPct, currentWeightMainForm] = watchedCustomInputs;
 
@@ -398,7 +379,7 @@ export default function SmartCaloriePlannerPage() {
     
     const defaultProteinPerKg = results.proteinGrams && results.current_weight_for_custom_calc && results.current_weight_for_custom_calc > 0
                               ? results.proteinGrams / results.current_weight_for_custom_calc
-                              : 2.0; 
+                              : 1.6; 
 
     const effectiveProteinPerKg = customProteinPerKg !== undefined && customProteinPerKg >=0 
                                   ? customProteinPerKg 
@@ -434,7 +415,7 @@ export default function SmartCaloriePlannerPage() {
     
     const finalCustomTotalCalories = calculatedProteinCalories + calculatedCarbCalories + calculatedFatCalories;
 
-    const newCustomPlan: CustomPlanResults = {
+    const newCustomPlan: CustomCalculatedTargets = {
       totalCalories: Math.round(finalCustomTotalCalories),
       proteinGrams: Math.round(calculatedProteinGrams),
       proteinCalories: Math.round(calculatedProteinCalories),
@@ -447,6 +428,7 @@ export default function SmartCaloriePlannerPage() {
       fatPct: finalCustomTotalCalories > 0 ? Math.round((calculatedFatCalories / finalCustomTotalCalories) * 100) : 0,
     };
     
+    // Only update state if newCustomPlan is different from current customPlanResults
     if (JSON.stringify(customPlanResults) !== JSON.stringify(newCustomPlan)) {
         setCustomPlanResults(newCustomPlan);
     }
@@ -454,9 +436,13 @@ export default function SmartCaloriePlannerPage() {
   }, [watchedCustomInputs, results, customPlanResults, smartPlannerForm]);
 
 
+  if (isLoadingData) {
+    return <div className="flex justify-center items-center h-screen"><p>Loading planner data...</p></div>;
+  }
+
   return (
     <TooltipProvider>
-    <div className="container mx-auto py-4">
+    <div className="container mx-auto py-4"> {/* Reduced py-8 to py-4 */}
       <Card className="max-w-3xl mx-auto shadow-xl">
         <CardHeader>
           <CardTitle className="text-3xl font-bold flex items-center">
@@ -464,7 +450,7 @@ export default function SmartCaloriePlannerPage() {
             Smart Calorie & Macro Planner
           </CardTitle>
           <CardDescription>
-            Calculate your daily targets based on your stats and goals, or enter them manually.
+            Calculate your daily targets based on your stats and goals, or enter them manually. Saved data will be used across other tools.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -473,21 +459,21 @@ export default function SmartCaloriePlannerPage() {
               <Accordion type="multiple" defaultValue={["basic-info"]} className="w-full">
                 <AccordionItem value="basic-info">
                   <AccordionTrigger className="text-xl font-semibold">📋 Basic Info (Required)</AccordionTrigger>
-                  <AccordionContent className="grid md:grid-cols-2 gap-x-6 gap-y-4 pt-4 px-4">
-                    <FormField control={smartPlannerForm.control} name="age" render={({ field }) => (<FormItem><FormLabel>Age (Years)</FormLabel><FormControl><Input type="number" placeholder="e.g., 30" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={smartPlannerForm.control} name="gender" render={({ field }) => (<FormItem><FormLabel>Biological Sex</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger></FormControl><SelectContent>{genders.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                    <FormField control={smartPlannerForm.control} name="height_cm" render={({ field }) => (<FormItem><FormLabel>Height (cm)</FormLabel><FormControl><Input type="number" placeholder="e.g., 175" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={smartPlannerForm.control} name="current_weight" render={({ field }) => (<FormItem><FormLabel>Current Weight (kg)</FormLabel><FormControl><Input type="number" placeholder="e.g., 70" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={smartPlannerForm.control} name="goal_weight_1m" render={({ field }) => (<FormItem><FormLabel>Target Weight After 1 Month (kg)</FormLabel><FormControl><Input type="number" placeholder="e.g., 68" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={smartPlannerForm.control} name="ideal_goal_weight" render={({ field }) => (<FormItem><FormLabel>Long-Term Goal Weight (kg) <span className="text-xs text-muted-foreground">(Optional)</span></FormLabel><FormControl><Input type="number" placeholder="e.g., 65" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={smartPlannerForm.control} name="activity_factor_key" render={({ field }) => (<FormItem><FormLabel>Physical Activity Level</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select activity level" /></SelectTrigger></FormControl><SelectContent>{activityLevels.map(al => <SelectItem key={al.value} value={al.value}>{al.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
-                    <FormField control={smartPlannerForm.control} name="dietGoal" render={({ field }) => (<FormItem><FormLabel>Diet Goal</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select diet goal" /></SelectTrigger></FormControl><SelectContent>{smartPlannerDietGoals.map(dg => <SelectItem key={dg.value} value={dg.value}>{dg.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                  <AccordionContent className="grid md:grid-cols-2 gap-x-6 gap-y-4 pt-4 px-1"> {/* Reduced px-4 to px-1 */}
+                    <FormField control={smartPlannerForm.control} name="age" render={({ field }) => (<FormItem><FormLabel>Age (Years)</FormLabel><FormControl><div><Input type="number" placeholder="e.g., 30" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} /></div></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={smartPlannerForm.control} name="gender" render={({ field }) => (<FormItem><FormLabel>Biological Sex</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><div><SelectTrigger><SelectValue placeholder="Select sex" /></SelectTrigger></div></FormControl><SelectContent>{genders.map(g => <SelectItem key={g.value} value={g.value}>{g.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={smartPlannerForm.control} name="height_cm" render={({ field }) => (<FormItem><FormLabel>Height (cm)</FormLabel><FormControl><div><Input type="number" placeholder="e.g., 175" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></div></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={smartPlannerForm.control} name="current_weight" render={({ field }) => (<FormItem><FormLabel>Current Weight (kg)</FormLabel><FormControl><div><Input type="number" placeholder="e.g., 70" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></div></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={smartPlannerForm.control} name="goal_weight_1m" render={({ field }) => (<FormItem><FormLabel>Target Weight After 1 Month (kg)</FormLabel><FormControl><div><Input type="number" placeholder="e.g., 68" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></div></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={smartPlannerForm.control} name="ideal_goal_weight" render={({ field }) => (<FormItem><FormLabel>Long-Term Goal Weight (kg) <span className="text-xs text-muted-foreground">(Optional)</span></FormLabel><FormControl><div><Input type="number" placeholder="e.g., 65" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></div></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={smartPlannerForm.control} name="activity_factor_key" render={({ field }) => (<FormItem><FormLabel>Physical Activity Level</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><div><SelectTrigger><SelectValue placeholder="Select activity level" /></SelectTrigger></div></FormControl><SelectContent>{activityLevels.map(al => <SelectItem key={al.value} value={al.value}>{al.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
+                    <FormField control={smartPlannerForm.control} name="dietGoal" render={({ field }) => (<FormItem><FormLabel>Diet Goal</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><div><SelectTrigger><SelectValue placeholder="Select diet goal" /></SelectTrigger></div></FormControl><SelectContent>{smartPlannerDietGoals.map(dg => <SelectItem key={dg.value} value={dg.value}>{dg.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)} />
                   </AccordionContent>
                 </AccordionItem>
 
                  <AccordionItem value="body-comp">
                     <AccordionTrigger className="text-xl font-semibold">💪 Body Composition (Optional)</AccordionTrigger>
-                    <AccordionContent className="space-y-1 pt-4">
+                    <AccordionContent className="space-y-1 pt-4 px-1">
                         <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground">
                             <span className="col-span-1">Metric</span>
                             <span className="text-center">Current (%)</span>
@@ -501,13 +487,13 @@ export default function SmartCaloriePlannerPage() {
                                 'Body Water': ['bw_current', 'bw_target', 'bw_ideal'],
                             }[metric] as [keyof SmartCaloriePlannerFormValues, keyof SmartCaloriePlannerFormValues, keyof SmartCaloriePlannerFormValues];
                             return (
-                                <div key={metric} className="grid grid-cols-4 gap-x-2 items-center py-1">
-                                    <span className="text-sm">{metric}</span>
+                                <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> {/* Changed items-center to items-start */}
+                                    <FormLabel className="text-sm pt-2">{metric}</FormLabel> {/* Changed span to FormLabel */}
                                     {keys.map(key => (
                                         <FormField key={key} control={smartPlannerForm.control} name={key} render=
                                             {({ field }) => (
                                             <FormItem className="text-center">
-                                                <FormControl>
+                                                <FormControl><div>
                                                     <Input 
                                                         type="number" 
                                                         placeholder="e.g., 20" 
@@ -515,7 +501,7 @@ export default function SmartCaloriePlannerPage() {
                                                         value={field.value ?? ''} 
                                                         onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
                                                         className="w-full text-center text-sm h-9" 
-                                                    />
+                                                    /></div>
                                                 </FormControl>
                                                 <FormMessage className="text-xs text-center"/>
                                             </FormItem>
@@ -530,7 +516,7 @@ export default function SmartCaloriePlannerPage() {
 
                 <AccordionItem value="measurements">
                     <AccordionTrigger className="text-xl font-semibold">📏 Measurements (Optional)</AccordionTrigger>
-                    <AccordionContent className="space-y-1 pt-4">
+                    <AccordionContent className="space-y-1 pt-4 px-1">
                         <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground">
                             <span className="col-span-1">Metric</span>
                             <span className="text-center">Current (cm)</span>
@@ -547,13 +533,13 @@ export default function SmartCaloriePlannerPage() {
                                 'Left Arm': ['left_arm_current', 'left_arm_goal_1m', 'left_arm_ideal'],
                             }[metric] as [keyof SmartCaloriePlannerFormValues, keyof SmartCaloriePlannerFormValues, keyof SmartCaloriePlannerFormValues];
                             return (
-                                <div key={metric} className="grid grid-cols-4 gap-x-2 items-center py-1">
-                                    <span className="text-sm">{metric}</span>
+                                <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> {/* Changed items-center to items-start */}
+                                    <FormLabel className="text-sm pt-2">{metric}</FormLabel> {/* Changed span to FormLabel */}
                                     {keys.map(key => (
                                         <FormField key={key} control={smartPlannerForm.control} name={key}
                                             render={({ field }) => (
                                             <FormItem className="text-center">
-                                                <FormControl>
+                                                <FormControl><div>
                                                     <Input 
                                                         type="number" 
                                                         placeholder="e.g., 80" 
@@ -561,7 +547,7 @@ export default function SmartCaloriePlannerPage() {
                                                         value={field.value ?? ''}  
                                                         onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} 
                                                         className="w-full text-center text-sm h-9" 
-                                                    />
+                                                    /></div>
                                                 </FormControl>
                                                 <FormMessage className="text-xs text-center"/>
                                             </FormItem>
@@ -578,19 +564,19 @@ export default function SmartCaloriePlannerPage() {
                 <AccordionItem value="help-section">
                     <AccordionTrigger className="text-xl font-semibold"> <div className="flex items-center"> <HelpCircle className="mr-2 h-6 w-6 text-primary" /> How is this calculated? </div> </AccordionTrigger>
                     <AccordionContent className="text-sm space-y-4 pt-3 max-h-96 overflow-y-auto">
-                        <div> <h4 className="font-semibold text-base">1. Basal Metabolic Rate (BMR) & Total Daily Energy Expenditure (TDEE)</h4> <p>We use the <strong className="text-primary">Mifflin-St Jeor Equation</strong> for BMR, then multiply by an <strong className="text-primary">activity factor</strong> for TDEE.</p></div>
+                        <div> <h4 className="font-semibold text-base">1. Basal Metabolic Rate (BMR) & Total Daily Energy Expenditure (TDEE)</h4> <p>We use the <strong className="text-primary">Mifflin-St Jeor Equation</strong> for BMR, then multiply by an <strong className="text-primary">activity factor</strong> (derived from your selected 'Physical Activity Level') for TDEE.</p></div>
                         <div>
                            <h4 className="font-semibold text-base mt-2">2. Target Daily Calories</h4>
-                           <p>This is determined based on your goals and selected "Diet Goal":</p>
+                           <p>This is determined based on your goals, selected "Diet Goal", and optionally, body composition changes:</p>
                            <ul className="list-disc pl-5 space-y-1 mt-1">
-                            <li><strong>Primary Goal (Weight & Diet Goal):</strong> Initially calculated from your 1-month weight target. Your "Diet Goal" (e.g., "Fat loss," "Muscle gain") then refines this. For example, "Fat loss" aims for a deficit (e.g., TDEE - 200 to -500 kcal), while "Muscle gain" aims for a surplus (e.g., TDEE + 150 to +300 kcal). "Recomposition" targets a slight deficit or near-maintenance calories.</li>
+                            <li><strong>Primary Goal (Weight & Diet Goal):</strong> Initially calculated from your 1-month weight target. Your "Diet Goal" (e.g., "Fat loss," "Muscle gain") then refines this. For example, "Fat loss" aims for a deficit (e.g., TDEE - 200 to -500 kcal), while "Muscle gain" aims for a surplus (e.g., TDEE + 150 to +300 kcal). "Recomposition" targets a slight deficit or near-maintenance calories. These adjustments ensure the calorie target aligns with your primary objective.</li>
                             <li><strong>Body Fat % Goal (Optional Refinement):</strong> If you provide current and target body fat percentages, the calorie target may be further refined by averaging the weight-goal-based calories with calories estimated to achieve your body fat change.</li>
                             <li><strong>Waist Goal (Alternative View):</strong> If waist goals are provided, an alternative calorie target is estimated for perspective. This is not the primary target but an additional indicator.</li>
                            </ul>
                         </div>
                          <div> 
                            <h4 className="font-semibold text-base mt-2">3. Suggested Macro Split (Default)</h4> 
-                           <p>The default suggested protein/carb/fat percentage split is based on your selected "Diet Goal":</p> 
+                           <p>The default suggested protein/carb/fat percentage split (shown in the 'Original Plan' results) is based on your selected "Diet Goal":</p> 
                            <ul className="list-disc pl-5 space-y-1 mt-1"> 
                              <li><strong>Fat Loss:</strong> Approx. 35% Protein / 35% Carbs / 30% Fat</li> 
                              <li><strong>Muscle Gain:</strong> Approx. 30% Protein / 50% Carbs / 20% Fat</li> 
@@ -645,19 +631,19 @@ export default function SmartCaloriePlannerPage() {
                         <TableBody>
                             <TableRow>
                                 <TableCell className="font-medium">Protein</TableCell>
-                                <TableCell className="text-right">{(results.proteinTargetPct * 100)?.toFixed(0) ?? 'N/A'}%</TableCell>
+                                <TableCell className="text-right">{results.proteinTargetPct ? (results.proteinTargetPct * 100)?.toFixed(0) : 'N/A'}%</TableCell>
                                 <TableCell className="text-right">{results.proteinGrams?.toFixed(1) ?? 'N/A'} g</TableCell>
                                 <TableCell className="text-right">{results.proteinCalories?.toFixed(0) ?? 'N/A'} kcal</TableCell>
                             </TableRow>
                             <TableRow>
                                 <TableCell className="font-medium">Carbohydrates</TableCell>
-                                <TableCell className="text-right">{(results.carbTargetPct * 100)?.toFixed(0) ?? 'N/A'}%</TableCell>
+                                <TableCell className="text-right">{results.carbTargetPct ? (results.carbTargetPct * 100)?.toFixed(0) : 'N/A'}%</TableCell>
                                 <TableCell className="text-right">{results.carbGrams?.toFixed(1) ?? 'N/A'} g</TableCell>
                                 <TableCell className="text-right">{results.carbCalories?.toFixed(0) ?? 'N/A'} kcal</TableCell>
                             </TableRow>
                              <TableRow>
                                 <TableCell className="font-medium">Fat</TableCell>
-                                <TableCell className="text-right">{(results.fatTargetPct * 100)?.toFixed(0) ?? 'N/A'}%</TableCell>
+                                <TableCell className="text-right">{results.fatTargetPct ? (results.fatTargetPct * 100)?.toFixed(0) : 'N/A'}%</TableCell>
                                 <TableCell className="text-right">{results.fatGrams?.toFixed(1) ?? 'N/A'} g</TableCell>
                                 <TableCell className="text-right">{results.fatCalories?.toFixed(0) ?? 'N/A'} kcal</TableCell>
                             </TableRow>
@@ -693,7 +679,7 @@ export default function SmartCaloriePlannerPage() {
                                                     <TooltipContent className="w-64"><p>Override the system-calculated total daily calories. Leave blank to use the original estimate: {results.finalTargetCalories?.toFixed(0) ?? 'N/A'} kcal.</p></TooltipContent>
                                                 </Tooltip>
                                             </FormLabel>
-                                            <FormControl><Input type="number" placeholder={`e.g., ${results.finalTargetCalories?.toFixed(0) ?? '2000'}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl>
+                                            <FormControl><div><Input type="number" placeholder={`e.g., ${results.finalTargetCalories?.toFixed(0) ?? '2000'}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></div></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -710,7 +696,7 @@ export default function SmartCaloriePlannerPage() {
                                                     <TooltipContent className="w-64"><p>Set your desired protein intake in grams per kg of your current body weight ({results.current_weight_for_custom_calc?.toFixed(1) ?? 'N/A'} kg). Affects protein, carbs, and fat distribution. Original estimate: {results.current_weight_for_custom_calc && results.current_weight_for_custom_calc > 0 && results.proteinGrams ? (results.proteinGrams / results.current_weight_for_custom_calc).toFixed(1) : 'N/A'} g/kg.</p></TooltipContent>
                                                 </Tooltip>
                                             </FormLabel>
-                                            <FormControl><Input type="number" placeholder={`e.g., ${results.current_weight_for_custom_calc && results.current_weight_for_custom_calc > 0 && results.proteinGrams ? (results.proteinGrams / results.current_weight_for_custom_calc).toFixed(1) : '2.0'}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} step="0.1" /></FormControl>
+                                            <FormControl><div><Input type="number" placeholder={`e.g., ${results.current_weight_for_custom_calc && results.current_weight_for_custom_calc > 0 && results.proteinGrams ? (results.proteinGrams / results.current_weight_for_custom_calc).toFixed(1) : '1.6'}`} {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} step="0.1" /></div></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -815,9 +801,9 @@ export default function SmartCaloriePlannerPage() {
                 <Form {...manualCalculatorForm}>
                   <form onSubmit={manualCalculatorForm.handleSubmit(onManualSubmit)} className="space-y-6">
                     <div className="grid md:grid-cols-2 gap-x-6 gap-y-4">
-                      <FormField control={manualCalculatorForm.control} name="weight_kg" render={({ field }) => (<FormItem><FormLabel>Your Weight (kg)</FormLabel><FormControl><Input type="number" placeholder="e.g., 70" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={manualCalculatorForm.control} name="protein_per_kg" render={({ field }) => (<FormItem><FormLabel>Protein per kg of body weight</FormLabel><FormControl><Input type="number" placeholder="e.g., 1.8" step="0.1" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={manualCalculatorForm.control} name="target_calories" render={({ field }) => (<FormItem><FormLabel>Target Daily Calorie Intake</FormLabel><FormControl><Input type="number" placeholder="e.g., 2200" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={manualCalculatorForm.control} name="weight_kg" render={({ field }) => (<FormItem><FormLabel>Your Weight (kg)</FormLabel><FormControl><div><Input type="number" placeholder="e.g., 70" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></div></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={manualCalculatorForm.control} name="protein_per_kg" render={({ field }) => (<FormItem><FormLabel>Protein per kg of body weight</FormLabel><FormControl><div><Input type="number" placeholder="e.g., 1.8" step="0.1" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></div></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={manualCalculatorForm.control} name="target_calories" render={({ field }) => (<FormItem><FormLabel>Target Daily Calorie Intake</FormLabel><FormControl><div><Input type="number" placeholder="e.g., 2200" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></div></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={manualCalculatorForm.control} name="percent_carb" render={({ field }) => (
                         <FormItem className="md:col-span-2">
                           <FormLabel>Split Remaining Calories: Carb % ({field.value ?? 0}%) vs Fat % ({percentFatManual.toFixed(0)}%)</FormLabel>

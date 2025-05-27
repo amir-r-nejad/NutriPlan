@@ -14,13 +14,9 @@ const preprocessOptionalNumber = (val: unknown) => {
 export const ProfileFormSchema = z.object({
   name: z.string().min(1, "Name is required.").optional(),
   subscriptionStatus: z.string().optional(), 
-
-  // Pain/Mobility & Physical Limitations
   painMobilityIssues: z.string().optional(),
   injuries: z.array(z.string()).optional(), 
   surgeries: z.array(z.string()).optional(), 
-
-  // Exercise Preferences
   exerciseGoals: z.array(z.string()).optional(),
   exercisePreferences: z.array(z.string()).optional(),
   exerciseFrequency: z.string().optional(),
@@ -37,6 +33,69 @@ export const ProfileFormSchema = z.object({
 
 });
 export type ProfileFormValues = z.infer<typeof ProfileFormSchema>;
+
+// Base fields that might come from onboarding or profile and be used by tools
+export interface BaseProfileData {
+  name?: string;
+  age?: number;
+  gender?: string;
+  height_cm?: number;
+  current_weight?: number;
+  goal_weight_1m?: number;
+  ideal_goal_weight?: number;
+  activityLevel?: string; // maps to activity_factor_key in SmartCaloriePlannerFormSchema
+  dietGoal?: string; // maps to dietGoal in SmartCaloriePlannerFormSchema
+  mealsPerDay?: number;
+
+  // Preferences from Onboarding/MealSuggestions
+  preferredDiet?: string;
+  allergies?: string[];
+  preferredCuisines?: string[];
+  dispreferredCuisines?: string[];
+  preferredIngredients?: string[];
+  dispreferredIngredients?: string[];
+  preferredMicronutrients?: string[];
+  medicalConditions?: string[];
+  medications?: string[];
+  
+  // Body Composition from Onboarding/SmartPlanner
+  bf_current?: number; bf_target?: number; bf_ideal?: number;
+  mm_current?: number; mm_target?: number; mm_ideal?: number;
+  bw_current?: number; bw_target?: number; bw_ideal?: number;
+
+  // Measurements from Onboarding/SmartPlanner
+  waist_current?: number; waist_goal_1m?: number; waist_ideal?: number;
+  hips_current?: number; hips_goal_1m?: number; hips_ideal?: number;
+  right_leg_current?: number; right_leg_goal_1m?: number; right_leg_ideal?: number;
+  left_leg_current?: number; left_leg_goal_1m?: number; left_leg_ideal?: number;
+  right_arm_current?: number; right_arm_goal_1m?: number; right_arm_ideal?: number;
+  left_arm_current?: number; left_arm_goal_1m?: number; left_arm_ideal?: number;
+
+  // Onboarding specific
+  typicalMealsDescription?: string;
+  onboardingComplete?: boolean;
+
+  // Exercise prefs from Profile page
+  painMobilityIssues?: string;
+  injuries?: string[];
+  surgeries?: string[];
+  exerciseGoals?: string[];
+  exercisePreferences?: string[];
+  exerciseFrequency?: string;
+  exerciseIntensity?: string;
+  equipmentAccess?: string[];
+  
+  // Fields for storing tool results
+  smartPlannerData?: {
+    formValues: Partial<SmartCaloriePlannerFormValues>; // Inputs used for calc
+    results: CalculatedTargets;         // Output of calc
+  };
+  manualMacroResults?: MacroResults;  // Output of manual calc
+  currentWeeklyPlan?: WeeklyMealPlan; // Current meal plan
+}
+// This FullProfileType can be used when reading/writing the entire user document from Firestore
+export type ProfileFormValues_DEPRECATED = z.infer<typeof ProfileFormSchema>; // Keep old name if needed, but FullProfileType is better
+export type FullProfileType = BaseProfileData; // Use this for the complete Firestore user document structure
 
 
 // Schema for an ingredient in a meal
@@ -87,76 +146,6 @@ export const WeeklyMealPlanSchema = z.object({
 export type WeeklyMealPlan = z.infer<typeof WeeklyMealPlanSchema>;
 
 
-export const DailyTargetsSchema = z.object({
-  id: z.string().optional(),
-  userId: z.string().optional(),
-  date: z.date().optional(),
-  caloriesBurned: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  targetCalories: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  targetProtein: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  targetCarbs: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  targetFat: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
-  mealsPerDay: z.coerce.number().min(2).max(7).optional(),
-});
-export type DailyTargets = z.infer<typeof DailyTargetsSchema>;
-
-export const MealTargetSchema = z.object({
-  mealName: z.string(),
-  targetCalories: z.coerce.number().min(0),
-  targetProtein: z.coerce.number().min(0),
-  targetCarbs: z.coerce.number().min(0),
-  targetFat: z.coerce.number().min(0),
-});
-export type MealTarget = z.infer<typeof MealTargetSchema>;
-
-export const MealLevelTargetsSchema = z.object({
-  id: z.string().optional(),
-  userId: z.string().optional(),
-  date: z.date().optional(),
-  mealTargets: z.array(MealTargetSchema),
-});
-export type MealLevelTargets = z.infer<typeof MealLevelTargetsSchema>;
-
-export const AiGeneratedMealSchema = z.object({
-  meal_name: z.string(),
-  ingredients: z.array(
-    z.object({
-      ingredient_name: z.string(),
-      quantity_g: z.number(),
-      macros_per_100g: z.object({
-        calories: z.number(),
-        protein_g: z.number(),
-        fat_g: z.number(),
-      }),
-    })
-  ),
-  total_calories: z.number(),
-  total_protein_g: z.number(),
-  total_fat_g: z.number(),
-});
-
-export const AiGeneratedDayPlanSchema = z.object({
-  day: z.string(), 
-  meals: z.array(AiGeneratedMealSchema),
-});
-
-export const AiGeneratedMealPlanOutputSchema = z.object({
-  weeklyMealPlan: z.array(AiGeneratedDayPlanSchema),
-  weeklySummary: z.object({
-    totalCalories: z.number(),
-    totalProtein: z.number(),
-    totalCarbs: z.number(),
-    totalFat: z.number(),
-  }),
-});
-export type AiGeneratedMealPlanOutput = z.infer<typeof AiGeneratedMealPlanOutputSchema>;
-
-export const IngredientSwapSuggestionSchema = z.object({
-  ingredientName: z.string(),
-  reason: z.string(),
-});
-export type IngredientSwapSuggestion = z.infer<typeof IngredientSwapSuggestionSchema>;
-
 export const MealMacroDistributionSchema = z.object({
   mealName: z.string(),
   calories_pct: z.coerce.number().min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
@@ -193,6 +182,39 @@ export interface CalculatedMealMacros {
   'Protein (g)': number;
   'Carbs (g)': number;
   'Fat (g)': number;
+}
+
+export interface CalculatedTargets {
+  bmr: number;
+  tdee: number;
+  targetCaloriesScenario1: number;
+  targetCaloriesScenario2?: number;
+  targetCaloriesScenario3?: number;
+  finalTargetCalories: number;
+  estimatedWeeklyWeightChangeKg: number;
+  proteinTargetPct: number;
+  proteinGrams: number;
+  proteinCalories: number;
+  carbTargetPct: number;
+  carbGrams: number;
+  carbCalories: number;
+  fatTargetPct: number;
+  fatGrams: number;
+  fatCalories: number;
+  current_weight_for_custom_calc?: number; 
+}
+
+export interface CustomCalculatedTargets {
+  totalCalories?: number;
+  proteinGrams?: number;
+  proteinCalories?: number;
+  proteinPct?: number;
+  carbGrams?: number;
+  carbCalories?: number;
+  carbPct?: number;
+  fatGrams?: number;
+  fatCalories?: number;
+  fatPct?: number;
 }
 
 export const SmartCaloriePlannerFormSchema = z.object({
@@ -379,5 +401,3 @@ export const OnboardingFormSchema = z.object({
 });
 
 export type OnboardingFormValues = z.infer<typeof OnboardingFormSchema>;
-
-    

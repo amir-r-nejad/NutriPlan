@@ -39,36 +39,13 @@ import {
   mealNames as defaultMealNames, 
   defaultMacroPercentages,     
 } from "@/lib/constants";
-import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution } from "@/lib/schemas"; 
+import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution, type CalculatedTargets, type CustomCalculatedTargets } from "@/lib/schemas"; 
 import { calculateBMR, calculateTDEE, calculateEstimatedDailyTargets } from "@/lib/nutrition-calculator";
 import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
-
-interface CalculatedTargets {
-  bmr?: number;
-  tdee?: number;
-  targetCalories?: number;
-  targetProtein?: number;
-  targetCarbs?: number;
-  targetFat?: number;
-  current_weight_for_calc?: number; 
-}
-
-interface CustomCalculatedTargets {
-  totalCalories?: number;
-  proteinGrams?: number;
-  proteinCalories?: number;
-  proteinPct?: number;
-  carbGrams?: number;
-  carbCalories?: number;
-  carbPct?: number;
-  fatGrams?: number;
-  fatCalories?: number;
-  fatPct?: number;
-}
 
 interface TotalsForSplitter {
     calories: number;
@@ -93,7 +70,7 @@ export default function OnboardingPage() {
     mode: "onChange", 
     defaultValues: {
       age: undefined, gender: undefined, height_cm: undefined, current_weight: undefined,
-      goal_weight_1m: undefined, activityLevel: undefined, dietGoalOnboarding: undefined,
+      goal_weight_1m: undefined, activityLevel: undefined, dietGoalOnboarding: "fat_loss",
       bf_current: undefined, bf_target: undefined, bf_ideal: undefined,
       mm_current: undefined, mm_target: undefined, mm_ideal: undefined,
       bw_current: undefined, bw_target: undefined, bw_ideal: undefined,
@@ -103,7 +80,7 @@ export default function OnboardingPage() {
       left_leg_current: undefined, left_leg_goal_1m: undefined, left_leg_ideal: undefined,
       right_arm_current: undefined, right_arm_goal_1m: undefined, right_arm_ideal: undefined,
       left_arm_current: undefined, left_arm_goal_1m: undefined, left_arm_ideal: undefined,
-      preferredDiet: "", allergies: "", preferredCuisines: "", dispreferredCuisines: "",
+      preferredDiet: "none", allergies: "", preferredCuisines: "", dispreferredCuisines: "",
       preferredIngredients: "", dispreferredIngredients: "", mealsPerDay: 3,
       preferredMicronutrients: "", medicalConditions: "", medications: "",
       custom_total_calories: undefined, custom_protein_per_kg: undefined, remaining_calories_carb_pct: 50,
@@ -119,43 +96,47 @@ export default function OnboardingPage() {
     },
   });
   
-  const { fields: mealDistributionFields, replace: replaceMealDistributions } = useFieldArray({
+  const { fields: mealDistributionFields } = useFieldArray({
     control: form.control,
     name: "mealDistributions",
   });
 
   const activeStepData = onboardingStepsData.find(s => s.stepNumber === currentStep);
 
+  const updateCalculatedTargets = useCallback(() => {
+    const data = form.getValues();
+    if (data.age && data.gender && data.height_cm && data.current_weight && data.activityLevel && data.dietGoalOnboarding) {
+      const bmr = calculateBMR(data.gender, data.current_weight, data.height_cm, data.age);
+      const tdee = calculateTDEE(bmr, data.activityLevel);
+      const estimatedTargets = calculateEstimatedDailyTargets({
+        age: data.age, gender: data.gender, height: data.height_cm,
+        currentWeight: data.current_weight, activityLevel: data.activityLevel,
+        dietGoal: data.dietGoalOnboarding,
+      });
+      setCalculatedTargets({ 
+          bmr: Math.round(bmr), tdee: Math.round(tdee),
+          targetCalories: estimatedTargets.targetCalories ? Math.round(estimatedTargets.targetCalories) : undefined,
+          targetProtein: estimatedTargets.targetProtein ? Math.round(estimatedTargets.targetProtein) : undefined,
+          targetCarbs: estimatedTargets.targetCarbs ? Math.round(estimatedTargets.targetCarbs) : undefined,
+          targetFat: estimatedTargets.targetFat ? Math.round(estimatedTargets.targetFat) : undefined,
+          current_weight_for_calc: data.current_weight 
+      });
+    } else {
+      setCalculatedTargets(null);
+    }
+  }, [form]);
+
   useEffect(() => {
     if (currentStep === 7) { // Smart Calculation & Macros
-      const data = form.getValues();
-      if (data.age && data.gender && data.height_cm && data.current_weight && data.activityLevel && data.dietGoalOnboarding) {
-        const bmr = calculateBMR(data.gender, data.current_weight, data.height_cm, data.age);
-        const tdee = calculateTDEE(bmr, data.activityLevel);
-        const estimatedTargets = calculateEstimatedDailyTargets({
-          age: data.age, gender: data.gender, height: data.height_cm,
-          currentWeight: data.current_weight, activityLevel: data.activityLevel,
-          dietGoal: data.dietGoalOnboarding,
-        });
-        setCalculatedTargets({ 
-            bmr: Math.round(bmr), tdee: Math.round(tdee),
-            targetCalories: estimatedTargets.targetCalories ? Math.round(estimatedTargets.targetCalories) : undefined,
-            targetProtein: estimatedTargets.targetProtein ? Math.round(estimatedTargets.targetProtein) : undefined,
-            targetCarbs: estimatedTargets.targetCarbs ? Math.round(estimatedTargets.targetCarbs) : undefined,
-            targetFat: estimatedTargets.targetFat ? Math.round(estimatedTargets.targetFat) : undefined,
-            current_weight_for_calc: data.current_weight 
-        });
-      } else {
-        setCalculatedTargets(null);
-      }
+      updateCalculatedTargets();
     }
-  }, [currentStep, form]);
+  }, [currentStep, updateCalculatedTargets]);
 
   const watchedCustomInputs = form.watch([
     "custom_total_calories", "custom_protein_per_kg", "remaining_calories_carb_pct", "current_weight"
   ]);
 
-  useEffect(() => { // For Step 8: Customize Your Targets
+  useEffect(() => { 
     if (currentStep !== 8 || !calculatedTargets) return;
 
     const [customTotalCalories, customProteinPerKg, remainingCarbPct, formCurrentWeight] = watchedCustomInputs;
@@ -214,41 +195,46 @@ export default function OnboardingPage() {
     if (JSON.stringify(customCalculatedTargets) !== JSON.stringify(newCustomPlan)) {
         setCustomCalculatedTargets(newCustomPlan);
     }
-  }, [currentStep, watchedCustomInputs, calculatedTargets, customCalculatedTargets, form]);
+  }, [currentStep, watchedCustomInputs, calculatedTargets, customCalculatedTargets]);
 
-  useEffect(() => { // For Step 10: Distribute Macros Across Meals
-    if (currentStep === 10) {
-        const formValues = form.getValues();
-        let sourceTotals: TotalsForSplitter | null = null;
+  const updateTotalsForSplitter = useCallback(() => {
+    const formValues = form.getValues();
+    let sourceTotals: TotalsForSplitter | null = null;
 
-        if (formValues.manual_target_calories && formValues.manual_protein_g && formValues.manual_carbs_g && formValues.manual_fat_g) {
-            sourceTotals = { 
-                calories: formValues.manual_target_calories, 
-                protein_g: formValues.manual_protein_g, 
-                carbs_g: formValues.manual_carbs_g, 
-                fat_g: formValues.manual_fat_g 
-            };
-        } else if (customCalculatedTargets && customCalculatedTargets.totalCalories !== undefined && customCalculatedTargets.proteinGrams !== undefined && customCalculatedTargets.carbGrams !== undefined && customCalculatedTargets.fatGrams !== undefined) {
-            sourceTotals = { 
-                calories: customCalculatedTargets.totalCalories, 
-                protein_g: customCalculatedTargets.proteinGrams, 
-                carbs_g: customCalculatedTargets.carbGrams, 
-                fat_g: customCalculatedTargets.fatGrams 
-            };
-        } else if (calculatedTargets && calculatedTargets.targetCalories !== undefined && calculatedTargets.targetProtein !== undefined && calculatedTargets.targetCarbs !== undefined && calculatedTargets.targetFat !== undefined) {
-            sourceTotals = { 
-                calories: calculatedTargets.targetCalories, 
-                protein_g: calculatedTargets.targetProtein, 
-                carbs_g: calculatedTargets.targetCarbs, 
-                fat_g: calculatedTargets.targetFat 
-            };
-        }
-        setTotalsForSplitter(sourceTotals);
-        if (!sourceTotals) {
-            toast({title: "Input Needed", description: "Please complete a previous target calculation step (Smart, Custom, or Manual) before distributing macros.", variant: "destructive", duration: 5000});
-        }
+    if (formValues.manual_target_calories && formValues.manual_protein_g && formValues.manual_carbs_g && formValues.manual_fat_g) {
+        sourceTotals = { 
+            calories: formValues.manual_target_calories, 
+            protein_g: formValues.manual_protein_g, 
+            carbs_g: formValues.manual_carbs_g, 
+            fat_g: formValues.manual_fat_g 
+        };
+    } else if (customCalculatedTargets && customCalculatedTargets.totalCalories !== undefined && customCalculatedTargets.proteinGrams !== undefined && customCalculatedTargets.carbGrams !== undefined && customCalculatedTargets.fatGrams !== undefined) {
+        sourceTotals = { 
+            calories: customCalculatedTargets.totalCalories, 
+            protein_g: customCalculatedTargets.proteinGrams, 
+            carbs_g: customCalculatedTargets.carbGrams, 
+            fat_g: customCalculatedTargets.fatGrams 
+        };
+    } else if (calculatedTargets && calculatedTargets.targetCalories !== undefined && calculatedTargets.targetProtein !== undefined && calculatedTargets.targetCarbs !== undefined && calculatedTargets.targetFat !== undefined) {
+        sourceTotals = { 
+            calories: calculatedTargets.targetCalories, 
+            protein_g: calculatedTargets.targetProtein, 
+            carbs_g: calculatedTargets.targetCarbs, 
+            fat_g: calculatedTargets.targetFat 
+        };
     }
-  }, [currentStep, form, calculatedTargets, customCalculatedTargets, toast]);
+    setTotalsForSplitter(sourceTotals);
+    if (currentStep === 10 && !sourceTotals) { // Check only if on the relevant step
+        toast({title: "Input Needed", description: "Please complete a previous target calculation step (Smart, Custom, or Manual) before distributing macros.", variant: "destructive", duration: 5000});
+    }
+  }, [form, calculatedTargets, customCalculatedTargets, toast, currentStep]);
+
+
+  useEffect(() => { 
+    if (currentStep === 10) {
+      updateTotalsForSplitter();
+    }
+  }, [currentStep, updateTotalsForSplitter]);
 
   const watchedMealDistributions = form.watch("mealDistributions");
   const calculateColumnSum = (macroKey: keyof Omit<MealMacroDistribution, 'mealName'>) => {
@@ -258,8 +244,22 @@ export default function OnboardingPage() {
 
   const handleNext = async () => {
     if (activeStepData?.fieldsToValidate && activeStepData.fieldsToValidate.length > 0) {
+      // Trigger validation for specific fields for the current step
       const result = await form.trigger(activeStepData.fieldsToValidate as FieldPath<OnboardingFormValues>[]);
-      if (!result) return; 
+      if (!result) {
+        // Validation failed for current step, highlight errors
+        activeStepData.fieldsToValidate.forEach(field => {
+            const fieldError = form.formState.errors[field as keyof OnboardingFormValues];
+            if (fieldError && fieldError.message) {
+                 toast({ title: `Input Error: ${activeStepData.title}`, description: fieldError.message, variant: "destructive" });
+            }
+        });
+        return;
+      }
+    }
+    // If on step 7, ensure calculations are updated before potentially moving to step 8 that uses them
+    if (currentStep === 7) {
+        updateCalculatedTargets();
     }
     if (currentStep < onboardingStepsData.length) {
       setCurrentStep(prev => prev + 1);
@@ -278,63 +278,14 @@ export default function OnboardingPage() {
     }
   };
 
-  const processAndSaveData = (data: OnboardingFormValues) => {
-    const fullProfileData: OnboardingFormValues = { ...data };
-    const stringToArray = (str: string[]| string | undefined) => str ? typeof(str)=="string"?str.split(',').map(s => s.trim()).filter(s => s) : []:str;
-    
-    fullProfileData.allergies = stringToArray(data.allergies);
-    fullProfileData.preferredCuisines = stringToArray(data.preferredCuisines);
-    fullProfileData.dispreferredCuisines = stringToArray(data.dispreferredCuisines);
-    fullProfileData.preferredIngredients = stringToArray(data.preferredIngredients);
-    fullProfileData.dispreferredIngredients = stringToArray(data.dispreferredIngredients);
-    fullProfileData.preferredMicronutrients = stringToArray(data.preferredMicronutrients);
-    fullProfileData.medicalConditions = stringToArray(data.medicalConditions);
-    fullProfileData.medications = stringToArray(data.medications);
-    
-    fullProfileData.dietGoalOnboarding = data.dietGoalOnboarding; 
-
-    if (calculatedTargets) fullProfileData.systemCalculatedTargets = calculatedTargets;
-    if (customCalculatedTargets) fullProfileData.userCustomizedTargets = customCalculatedTargets;
-    
-    let finalTargetsForStorage: Partial<CalculatedTargets & CustomCalculatedTargets> = {};
-    if (data.manual_target_calories && data.manual_protein_g && data.manual_carbs_g && data.manual_fat_g) {
-        finalTargetsForStorage = {
-            targetCalories: data.manual_target_calories,
-            targetProtein: data.manual_protein_g,
-            targetCarbs: data.manual_carbs_g,
-            targetFat: data.manual_fat_g,
-        };
-    } else if (customCalculatedTargets?.totalCalories !== undefined) {
-        finalTargetsForStorage = {
-            targetCalories: customCalculatedTargets.totalCalories,
-            targetProtein: customCalculatedTargets.proteinGrams,
-            targetCarbs: customCalculatedTargets.carbGrams,
-            targetFat: customCalculatedTargets.fatGrams,
-        };
-    } else if (calculatedTargets?.targetCalories !== undefined) {
-         finalTargetsForStorage = { ...calculatedTargets };
+  const processAndSaveData = async (data: OnboardingFormValues) => {
+    if (!user) {
+        toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+        return;
     }
-
-    if (user?.uid) { 
-        
-        localStorage.setItem(`nutriplan_profile_${user.uid}`, JSON.stringify(fullProfileData));
-        if (Object.keys(finalTargetsForStorage).length > 0 && finalTargetsForStorage.targetCalories) {
-             localStorage.setItem(`nutriplan_smart_planner_results_${user.uid}`, JSON.stringify({
-                finalTargetCalories: finalTargetsForStorage.targetCalories,
-                proteinGrams: finalTargetsForStorage.targetProtein,
-                carbGrams: finalTargetsForStorage.targetCarbs,
-                fatGrams: finalTargetsForStorage.targetFat,
-                bmr: finalTargetsForStorage.bmr || calculatedTargets?.bmr, 
-                tdee: finalTargetsForStorage.tdee || calculatedTargets?.tdee,
-             }));
-        }
-    }
-    
-    completeOnboarding();
-    toast({
-      title: "Profile Setup Complete!",
-      description: "Welcome to NutriPlan! You can now generate your AI meal plan.",
-    });
+    // The completeOnboarding function in AuthContext now handles saving to Firestore.
+    // We just need to pass the collected form data.
+    await completeOnboarding(data); // AuthContext will show its own toasts
   };
 
   const renderTextField = (name: FieldPath<OnboardingFormValues>, label: string, placeholder: string, description?: string) => (
@@ -388,7 +339,7 @@ export default function OnboardingPage() {
       <CardHeader className="text-center">
         <div className="flex justify-center items-center mb-4"> <Leaf className="h-10 w-10 text-primary" /> </div>
         <Tooltip>
-            <TooltipTrigger asChild><span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span></TooltipTrigger>
+            <TooltipTrigger asChild><span> <CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span></TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs"> <p>{activeStepData.tooltipText}</p> </TooltipContent>
         </Tooltip>
         <CardDescription>{activeStepData.explanation}</CardDescription>
@@ -420,18 +371,11 @@ export default function OnboardingPage() {
                       </p>
                     </div>
                     <ScrollArea className="w-full">
-                      <Table className="min-w-[700px]">{/*
-                        */}<TableHeader>{/*
-                          */}<TableRow>{/*
-                            */}{tableHeaderLabels.map(header => (
+                      <Table className="min-w-[700px]">{/* */}<TableHeader>{/* */}<TableRow>{/* */}{tableHeaderLabels.map(header => (
                               <TableHead key={header.key} className={cn("px-2 py-1 text-xs font-medium h-9", header.className)}>
                                 {header.label}
                               </TableHead>
-                            ))}{/*
-                          */}</TableRow>{/*
-                        */}</TableHeader>{/*
-                        */}<TableBody>{/*
-                          */}{mealDistributionFields.map((field, index) => {
+                            ))}{/* */}</TableRow>{/* */}</TableHeader>{/* */}<TableBody>{/* */}{mealDistributionFields.map((field, index) => {
                             const currentPercentages = watchedMealDistributions?.[index];
                             let mealCal = NaN, mealP = NaN, mealC = NaN, mealF = NaN;
                             if (totalsForSplitter && currentPercentages) {
@@ -441,9 +385,7 @@ export default function OnboardingPage() {
                               mealF = totalsForSplitter.fat_g * ((currentPercentages.fat_pct || 0) / 100);
                             }
                             return (
-                              <TableRow key={field.id}>{/*
-                                */}<TableCell className="font-medium sticky left-0 bg-card z-10 px-2 py-1 text-sm h-10">{field.mealName}</TableCell>{/*
-                                */}{macroPctKeys.map(macroKey => (
+                              <TableRow key={field.id}>{/* */}<TableCell className="font-medium sticky left-0 bg-card z-10 px-2 py-1 text-sm h-10">{field.mealName}</TableCell>{/* */}{macroPctKeys.map(macroKey => (
                                   <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums h-10", macroKey === 'fat_pct' ? 'border-r' : '')}>
                                     <FormField
                                       control={form.control}
@@ -452,19 +394,9 @@ export default function OnboardingPage() {
                                         <FormControl><div><Input type="number" {...itemField} value={itemField.value ?? ''} onChange={e => itemField.onChange(parseFloat(e.target.value) || 0)} className="w-16 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl>
                                       )}/>
                                   </TableCell>
-                                ))}{/*
-                                */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>{/*
-                                */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>{/*
-                                */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>{/*
-                                */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>{/*
-                              */}</TableRow>
+                                ))}{/* */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>{/* */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>{/* */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>{/* */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>{/* */}</TableRow>
                             );
-                          })}{/*
-                        */}</TableBody>{/*
-                        */}<TableFooter>{/*
-                          */}<TableRow className="font-semibold text-xs h-10">{/*
-                            */}<TableCell className="sticky left-0 bg-card z-10 px-2 py-1">Input % Totals:</TableCell>{/*
-                            */}{macroPctKeys.map(key => {
+                          })}{/* */}</TableBody>{/* */}<TableFooter>{/* */}<TableRow className="font-semibold text-xs h-10">{/* */}<TableCell className="sticky left-0 bg-card z-10 px-2 py-1">Input % Totals:</TableCell>{/* */}{macroPctKeys.map(key => {
                               const sum = columnSums[key];
                               const isSum100 = Math.round(sum) === 100;
                               return (
@@ -473,11 +405,7 @@ export default function OnboardingPage() {
                                   {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
                                 </TableCell>
                               );
-                            })}{/*
-                            */}<TableCell colSpan={4} className="py-1"></TableCell>{/*
-                          */}</TableRow>{/*
-                        */}</TableFooter>{/*
-                      */}</Table>
+                            })}{/* */}<TableCell colSpan={4} className="py-1"></TableCell>{/* */}</TableRow>{/* */}</TableFooter>{/* */}</Table>
                       <ScrollBar orientation="horizontal" />
                     </ScrollArea>
                   </>
