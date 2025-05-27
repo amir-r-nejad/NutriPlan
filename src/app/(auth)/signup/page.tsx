@@ -53,9 +53,8 @@ export default function SignupPage() {
       return;
     }
     
-    await signup(email, password);
+    await signup(email, password); // AuthContext handles success/error toasts and navigation
     setIsSubmitting(false);
-    // Navigation to onboarding or dashboard is handled by AuthContext
   };
 
   const disabled = authIsLoading || isSubmitting;
@@ -118,6 +117,12 @@ export default function SignupPage() {
             Login
           </Link>
         </p>
+         <Link
+            href="/forgot-password"
+            className="text-xs text-primary hover:underline mt-2"
+          >
+            Forgot password?
+          </Link>
       </CardFooter>
     </Card>
   );

@@ -7,21 +7,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Leaf, LogIn } from 'lucide-react';
+import { Leaf, LogIn, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import "./page.css"
 import Image from "next/image";
 import Google from  "../../../public/google.svg"
-import { login, signInWithGoogle } from '@/lib/firebase/auth';
+import { useAuth } from '@/contexts/AuthContext'; // Updated import
+import { signInWithGoogle } from '@/lib/firebase/auth'; // Kept for Google sign-in
 
 
 export default  function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { toast } = useToast();
-  const handleSubmit = (e: React.FormEvent) => {
+  const { login, isLoading: authIsLoading } = useAuth(); // Use login from AuthContext
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Basic validation    
     if (!email || !password) {
       toast({
         title: "Login Failed",
@@ -30,13 +34,13 @@ export default  function LoginPage() {
       });
       return;
     }
-    // Simulate login
-    login(email,password);
-    toast({
-      title: "Login Successful",
-      description: `Welcome back, ${email}!`,
-    });
+    setIsSubmitting(true);
+    await login(email,password); // AuthContext handles success/error toasts and navigation
+    setIsSubmitting(false);
   };
+
+  const disabled = authIsLoading || isSubmitting;
+
   return (
     <Card className="w-full max-w-sm shadow-xl">
       <CardHeader className="space-y-1 text-center">
@@ -57,25 +61,36 @@ export default  function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              disabled={disabled}
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link
+                href="/forgot-password"
+                className="text-xs text-primary hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <Input
               id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={disabled}
             />
           </div>
-          <Button type="submit" className="w-full">
-            <LogIn className="mr-2 h-4 w-4" /> Login
-          </Button> 
+          <Button type="submit" className="w-full" disabled={disabled}>
+            {disabled ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
+            {disabled ? "Logging in..." : "Login"}
+          </Button>
 
-          <Button onClick={(e) => signInWithGoogle()} type="button" className="w-full">
+          <Button onClick={(e) => signInWithGoogle()} type="button" className="w-full" disabled={disabled}>
             <Image src={Google} alt='google' /> Login with Google
-          </Button> 
+          </Button>
 
           <div id="firebaseui-auth-container" className='w-full h-full' />
         </form>

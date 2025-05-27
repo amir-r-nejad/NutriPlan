@@ -54,4 +54,5 @@ export async function forgetPassword(email:string) {
 }
 export async function confirmPassword(oobCode: string, newPassword: string) {
     confirmPasswordReset(auth, oobCode, newPassword)
+
 }
