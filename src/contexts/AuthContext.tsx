@@ -16,23 +16,22 @@ import { app } from '@/lib/firebase'; // Import your Firebase app instance
 import { useToast } from '@/hooks/use-toast';
 
 interface User {
-  uid: string; // Changed from id to uid for Firebase consistency
+  uid: string; 
   email: string | null;
-  // Add other user properties as needed from FirebaseUser if desired
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isOnboarded: boolean;
-  login: (email: string, password_unused?: string) => Promise<void>; // Password will be handled by Firebase
-  signup: (email: string, password_unused?: string) => Promise<void>; // Password will be handled by Firebase
+  login: (email: string, password_unused?: string) => Promise<void>; 
+  signup: (email: string, password_unused?: string) => Promise<void>; 
   logout: () => Promise<void>;
   completeOnboarding: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const auth = getAuth(app); // Get auth instance
+const auth = getAuth(app); 
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -51,7 +50,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           email: firebaseUser.email,
         };
         setUser(appUser);
-        // Check onboarding status from localStorage, keyed by Firebase UID
         const storedOnboardingStatus = localStorage.getItem(`nutriplan_onboarded_${firebaseUser.uid}`);
         if (storedOnboardingStatus === 'true') {
           setIsOnboarded(true);
@@ -61,12 +59,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         setUser(null);
         setIsOnboarded(false);
-        localStorage.removeItem('nutriplan_onboarded'); // Clear general onboarding flag on logout
+        // No need to remove individual user's onboarding status here, 
+        // as it's keyed by UID and will be inaccessible anyway.
+        // If there was a general 'nutriplan_onboarded' key, it could be removed here.
       }
       setIsLoading(false);
     });
 
-    return () => unsubscribe(); // Cleanup subscription on unmount
+    return () => unsubscribe(); 
   }, []);
 
   useEffect(() => {
@@ -88,8 +88,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, emailProvided, passwordProvided);
-      // onAuthStateChanged will handle setting user and onboarding status
-      // Navigation will be handled by the useEffect hook
       toast({ title: "Login Successful", description: `Welcome back!` });
     } catch (error: any) {
       console.error("Firebase login error:", error);
@@ -100,7 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         errorMessage = "Please enter a valid email address.";
       }
       toast({ title: "Login Failed", description: errorMessage, variant: "destructive" });
-      setUser(null); // Ensure user is null on failed login attempt
+      setUser(null); 
       setIsOnboarded(false);
     } finally {
       setIsLoading(false);
@@ -111,8 +109,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, emailProvided, passwordProvided);
-      // onAuthStateChanged will handle setting user
-      // User will be redirected to onboarding by the useEffect hook as isOnboarded will be false
       toast({ title: "Signup Successful", description: "Welcome! Please complete your profile." });
     } catch (error: any) {
       console.error("Firebase signup error:", error);
@@ -123,6 +119,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         errorMessage = "Password is too weak. It should be at least 6 characters.";
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = "Please enter a valid email address.";
+      } else if (error.code === 'auth/operation-not-allowed') {
+        errorMessage = "Email/Password sign-up is not enabled for this project. Please check Firebase console settings.";
       }
       toast({ title: "Signup Failed", description: errorMessage, variant: "destructive" });
       setUser(null);
@@ -136,8 +134,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(true);
     try {
       await firebaseSignOut(auth);
-      // onAuthStateChanged will set user to null and clear onboarding
-      // localStorage.removeItem for specific user onboarding is handled in onAuthStateChanged
       router.push('/login');
     } catch (error) {
       console.error("Firebase logout error:", error);
@@ -150,8 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const completeOnboarding = () => {
     if (user) {
       setIsOnboarded(true);
-      localStorage.setItem(`nutriplan_onboarded_${user.uid}`, 'true'); // User-specific onboarding status
-      localStorage.setItem('nutriplan_onboarded', 'true'); // General onboarding status (could be removed if only uid-specific is used)
+      localStorage.setItem(`nutriplan_onboarded_${user.uid}`, 'true'); 
       router.push('/dashboard');
     }
   };
