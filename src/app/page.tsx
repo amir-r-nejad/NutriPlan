@@ -1,26 +1,23 @@
 
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useUser } from '@/hooks/use-user';
 
 export default function HomePage() {
-  const { user, isOnboarded, isLoading } = useAuth();
   const router = useRouter();
+  const user =  useUser()
 
   useEffect(() => {
-    if (!isLoading) {
-      if (!user) {
-        router.replace('/login');
-      } else if (!isOnboarded) {
-        router.replace('/onboarding');
-      } else {
-        router.replace('/dashboard');
-      }
+    console.log(user)
+    if (!user) {
+      router.replace('/login');
+    } else {
+      router.replace('/dashboard');
     }
-  }, [user, isOnboarded, isLoading, router]);
+  }, [user, router]);
 
   return (
     <div className="flex h-screen items-center justify-center">

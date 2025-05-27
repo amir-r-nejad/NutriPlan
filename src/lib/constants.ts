@@ -59,6 +59,15 @@ export const exerciseIntensities = [
   { value: "vigorous", label: "Vigorous" },
 ];
 
+export const firebaseConfig = {
+  apiKey: "AIzaSyBn52hl8ARjilr2TBAOKGHbAw6G3-CvGgw",
+  authDomain: "nutriplan-7wkxu.firebaseapp.com",
+  projectId: "nutriplan-7wkxu",
+  storageBucket: "nutriplan-7wkxu.firebasestorage.app",
+  messagingSenderId: "631126099554",
+  appId: "1:631126099554:web:45488015d6fda0f149f33b"
+};
+
 export const subscriptionStatuses = [
   { value: "free", label: "Free Tier" },
   { value: "premium", label: "Premium Monthly" },

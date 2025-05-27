@@ -1,8 +1,6 @@
-
-"use client";
+'use client'
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   User,
@@ -29,12 +27,13 @@ import {
   SidebarTrigger,
   SidebarSeparator, 
 } from '@/components/ui/sidebar';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAuth } from '@/contexts/AuthContext';
 import { Logo } from '@/components/Logo';
 import { Toaster } from "@/components/ui/toaster";
-import React from 'react';
+import React from "react";
+import { signOut } from "@/lib/firebase/auth";
+import {redirect} from "next/navigation"
+import { useUser } from "@/hooks/use-user";
 
 
 const navItems = [
@@ -53,22 +52,16 @@ const navItems = [
   { href: '/support/faq', label: 'FAQ & Chatbot', icon: HelpCircle },
 ];
 
-export default function AppLayout({
+export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const { user, logout, isLoading } = useAuth();
-  const router = useRouter();
+  const currentUser  = await  useUser()
 
-  React.useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-    }
-  }, [isLoading, user, router]);
-
-  if (isLoading || !user) {
+  if (!currentUser) {
+    console.log(currentUser)
+    redirect('/login');
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -95,11 +88,12 @@ export default function AppLayout({
               return (
                 <SidebarMenuItem key={item.label}>
                   <Link href={item.href!} legacyBehavior passHref>
+{/* {pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href!))} */}
                     <SidebarMenuButton
-                      isActive={pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href!))}
+                      isActive={false}
                       tooltip={item.label}
                     >
-                      <item.icon />
+                      {/* <item.icon /> */}
                       <span>{item.label}</span>
                     </SidebarMenuButton>
                   </Link>
@@ -111,14 +105,14 @@ export default function AppLayout({
         <SidebarFooter className="p-2">
            <div className="flex items-center gap-3 p-2 rounded-md border border-sidebar-border bg-sidebar-accent/50">
             <Avatar className="h-9 w-9">
-              <AvatarImage src={`https://placehold.co/100x100.png?text=${user.email?.[0]?.toUpperCase() ?? 'U'}`} alt={user.email ?? 'User Avatar'} data-ai-hint="avatar person" />
-              <AvatarFallback>{user.email?.[0]?.toUpperCase() ?? 'U'}</AvatarFallback>
+              <AvatarImage src={`https://placehold.co/100x100.png?text=${currentUser.email?.[0]?.toUpperCase() ?? 'U'}`} alt={currentUser.email ?? 'User Avatar'} data-ai-hint="avatar person" />
+              <AvatarFallback>{currentUser.email?.[0]?.toUpperCase() ?? 'U'}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col group-data-[collapsible=icon]:hidden">
-              <span className="text-sm font-medium text-sidebar-foreground truncate max-w-[120px]">{user.email}</span>
+              <span className="text-sm font-medium text-sidebar-foreground truncate max-w-[120px]">{currentUser.email}</span>
             </div>
           </div>
-          <SidebarMenuButton onClick={logout} tooltip="Logout" className="w-full">
+          <SidebarMenuButton onClick={signOut} tooltip="Logout" className="w-full">
             <LogOut />
             <span>Logout</span>
           </SidebarMenuButton>

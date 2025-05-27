@@ -1,5 +1,5 @@
 
-"use client";
+'use client'
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -7,32 +7,31 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { useAuth } from '@/contexts/AuthContext';
 import { Leaf, LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import "./page.css"
 import Image from "next/image";
 import Google from  "../../../public/google.svg"
+import { login, signInWithGoogle } from '@/lib/firebase/auth';
+import { useUser } from '@/hooks/use-user';
+import router from 'next/router';
 
-export const useMounted = () => {
-    const [mounted, setMounted] = useState<boolean>()
-    // effects run only client-side
-    // so we can detect when the component is hydrated/mounted
-    // @see https://react.dev/reference/react/useEffect
-    useEffect(() => {
-        setMounted(true)
-    }, [])
-    return mounted
-}
 
-export default function LoginPage() {
+export default  function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login,Glogin,onRedirectResult } = useAuth();
   const { toast } = useToast();
+  const user = useUser()
+
+  useEffect(()=>{
+    if(user){
+      console.log(user)
+      router.push('/dashboard');
+    }
+  },[user])
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Basic validation
+    // Basic validation    
     if (!email || !password) {
       toast({
         title: "Login Failed",
@@ -48,10 +47,6 @@ export default function LoginPage() {
       description: `Welcome back, ${email}!`,
     });
   };
-  useEffect(() => {
-    if(onRedirectResult)
-      onRedirectResult()
-  }, [])
   return (
     <Card className="w-full max-w-sm shadow-xl">
       <CardHeader className="space-y-1 text-center">
@@ -88,7 +83,7 @@ export default function LoginPage() {
             <LogIn className="mr-2 h-4 w-4" /> Login
           </Button> 
 
-          <Button onClick={(e) => Glogin()} type="button" className="w-full">
+          <Button onClick={(e) => signInWithGoogle()} type="button" className="w-full">
             <Image src={Google} alt='google' /> Login with Google
           </Button> 
 
