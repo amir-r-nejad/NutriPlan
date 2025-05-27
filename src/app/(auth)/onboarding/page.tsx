@@ -374,8 +374,10 @@ export default function OnboardingPage() {
       <CardHeader className="text-center">
         <div className="flex justify-center items-center mb-4"> <Leaf className="h-10 w-10 text-primary" /> </div>
         <Tooltip>
-          <TooltipTrigger asChild><span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span></TooltipTrigger>
-          <TooltipContent side="top" className="max-w-xs"> <p>{activeStepData.tooltipText}</p> </TooltipContent>
+            <TooltipTrigger asChild>
+                <span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs"> <p>{activeStepData.tooltipText}</p> </TooltipContent>
         </Tooltip>
         <CardDescription>{activeStepData.explanation}</CardDescription>
         <Progress value={progressValue} className="w-full mt-4" />
@@ -393,7 +395,83 @@ export default function OnboardingPage() {
             {currentStep === 7 && ( <div className="space-y-4 p-4 border rounded-md bg-muted/50"> <h3 className="text-lg font-semibold text-primary">Your Estimated Daily Targets:</h3> {calculatedTargets ? ( <> <p><strong>Basal Metabolic Rate (BMR):</strong> {calculatedTargets.bmr?.toFixed(0) ?? 'N/A'} kcal</p> <p><strong>Maintenance Calories (TDEE):</strong> {calculatedTargets.tdee?.toFixed(0) ?? 'N/A'} kcal</p> <p className="font-bold text-primary mt-2">Target Daily Calories: {calculatedTargets.targetCalories?.toFixed(0) ?? 'N/A'} kcal</p> <p>Target Protein: {calculatedTargets.targetProtein?.toFixed(1) ?? 'N/A'} g</p> <p>Target Carbs: {calculatedTargets.targetCarbs?.toFixed(1) ?? 'N/A'} g</p> <p>Target Fat: {calculatedTargets.targetFat?.toFixed(1) ?? 'N/A'} g</p> </> ) : ( <p className="text-destructive flex items-center"><AlertCircle className="mr-2 h-4 w-4" /> Not enough information from previous steps to calculate. Please go back and complete required fields.</p> )} <FormDescription className="text-xs mt-2">These are estimates. You can fine-tune these in the next step or later in the app's tools.</FormDescription> </div> )}
             {currentStep === 8 && ( <div className="space-y-6 p-4 border rounded-md bg-muted/50"> <h3 className="text-lg font-semibold text-primary mb-3">Customize Your Daily Targets</h3> {renderNumberField("custom_total_calories", "Custom Total Calories (Optional)", `e.g., ${calculatedTargets?.targetCalories?.toFixed(0) || '2000'}`)} {renderNumberField("custom_protein_per_kg", "Custom Protein (g/kg body weight) (Optional)", `e.g., ${(calculatedTargets?.targetProtein && calculatedTargets?.current_weight_for_calc ? (calculatedTargets.targetProtein / calculatedTargets.current_weight_for_calc).toFixed(1) : '1.6')}`, undefined, "0.1")} <FormField control={form.control} name="remaining_calories_carb_pct" render={({ field }) => { const carbPct = field.value ?? 50; const fatPct = 100 - carbPct; return ( <FormItem> <FormLabel>Remaining Calories Split (Carbs %)</FormLabel> <FormControl><div><Slider value={[carbPct]} onValueChange={(value) => field.onChange(value[0])} min={0} max={100} step={1} /></div></FormControl> <div className="flex justify-between text-xs text-muted-foreground"> <span>Carbs: {carbPct.toFixed(0)}%</span> <span>Fat: {fatPct.toFixed(0)}%</span> </div> <FormMessage /> </FormItem> ); }} /> {customCalculatedTargets && ( <div className="mt-4 space-y-1"> <h4 className="font-medium text-primary">Your Custom Plan:</h4> <p className="text-sm">Total Calories: {customCalculatedTargets.totalCalories?.toFixed(0) ?? 'N/A'} kcal</p> <p className="text-sm">Protein: {customCalculatedTargets.proteinGrams?.toFixed(1) ?? 'N/A'}g ({customCalculatedTargets.proteinPct?.toFixed(0) ?? 'N/A'}%)</p> <p className="text-sm">Carbs: {customCalculatedTargets.carbGrams?.toFixed(1) ?? 'N/A'}g ({customCalculatedTargets.carbPct?.toFixed(0) ?? 'N/A'}%)</p> <p className="text-sm">Fat: {customCalculatedTargets.fatGrams?.toFixed(1) ?? 'N/A'}g ({customCalculatedTargets.fatPct?.toFixed(0) ?? 'N/A'}%)</p> </div> )} </div> )}
             {currentStep === 9 && ( <div className="space-y-6 p-4 border rounded-md bg-muted/50"> <h3 className="text-lg font-semibold text-primary mb-3">Set Your Own Daily Targets (Optional)</h3> <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {renderNumberField("manual_target_calories", "Target Calories", "e.g., 2000")} {renderNumberField("manual_protein_g", "Protein (g)", "e.g., 150")} {renderNumberField("manual_carbs_g", "Carbohydrates (g)", "e.g., 250")} {renderNumberField("manual_fat_g", "Fat (g)", "e.g., 70")} </div> <FormDescription className="text-xs">If you fill these, they will be used for meal distribution in the next step, overriding previous calculations.</FormDescription> </div> )}
-            {currentStep === 10 && ( <div className="space-y-4 p-4 border rounded-md bg-muted/50"> <h3 className="text-lg font-semibold text-primary mb-3">Distribute Macros Across Meals (Optional)</h3> {totalsForSplitter ? ( <> <div className="mb-2 text-sm"> <p><strong>Total Daily Macros for Splitting:</strong></p> <p>Calories: {totalsForSplitter.calories.toFixed(0)} kcal, Protein: {totalsForSplitter.protein_g.toFixed(1)}g, Carbs: {totalsForSplitter.carbs_g.toFixed(1)}g, Fat: {totalsForSplitter.fat_g.toFixed(1)}g </p> </div> <Table> <TableHeader> <TableRow> <TableHead className="w-[120px]">Meal</TableHead> {macroPctKeys.map(key => <TableHead key={key} className="text-right w-16">{key.replace('_pct', '%').replace('calories', 'Cal').replace('protein', 'P').replace('carbs', 'C').replace('fat', 'F')}</TableHead>)} <TableHead className="text-right w-20">Calc. Cal</TableHead> <TableHead className="text-right w-20">Calc. P(g)</TableHead> <TableHead className="text-right w-20">Calc. C(g)</TableHead> <TableHead className="text-right w-20">Calc. F(g)</TableHead> </TableRow> </TableHeader> <TableBody> {mealDistributionFields.map((field, index) => { const currentPercentages = watchedMealDistributions?.[index]; let mealCal = NaN, mealP = NaN, mealC = NaN, mealF = NaN; if (totalsForSplitter && currentPercentages) { mealCal = totalsForSplitter.calories * ((currentPercentages.calories_pct || 0) / 100); mealP = totalsForSplitter.protein_g * ((currentPercentages.protein_pct || 0) / 100); mealC = totalsForSplitter.carbs_g * ((currentPercentages.carbs_pct || 0) / 100); mealF = totalsForSplitter.fat_g * ((currentPercentages.fat_pct || 0) / 100); } return ( <TableRow key={field.id}> <TableCell className="font-medium py-1">{field.mealName}</TableCell> {macroPctKeys.map(macroKey => ( <TableCell key={macroKey} className="py-1"> <FormField control={form.control} name={`mealDistributions.${index}.${macroKey}`} render={({ field: itemField }) => ( <FormControl><div><Input type="number" {...itemField} value={itemField.value ?? ''} onChange={e => itemField.onChange(parseFloat(e.target.value) || 0)} className="w-14 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl> )}/> </TableCell> ))} <TableCell className="text-right text-xs py-1 tabular-nums">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell> <TableCell className="text-right text-xs py-1 tabular-nums">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell> <TableCell className="text-right text-xs py-1 tabular-nums">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell> <TableCell className="text-right text-xs py-1 tabular-nums">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell> </TableRow> ); })} </TableBody> <TableFooter> <TableRow className="font-semibold text-xs"> <TableCell className="py-1">Input % Totals:</TableCell> {macroPctKeys.map(key => { const sum = columnSums[key]; const isSum100 = Math.round(sum) === 100; return ( <TableCell key={`sum-${key}`} className={cn("text-right py-1 tabular-nums", isSum100 ? 'text-green-600' : 'text-destructive')}> {sum.toFixed(0)}% {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />} </TableCell> ); })} <TableCell colSpan={4} className="py-1"></TableCell> </TableRow> </TableFooter> </Table> </> ) : ( <p className="text-destructive flex items-center"><AlertCircle className="mr-2 h-4 w-4" /> Please complete a target calculation (Smart, Custom, or Manual) in a previous step to enable meal distribution.</p> )} </div> )}
+            {currentStep === 10 && (
+              <div className="space-y-4 p-4 border rounded-md bg-muted/50">
+                <h3 className="text-lg font-semibold text-primary mb-3">Distribute Macros Across Meals (Optional)</h3>
+                {totalsForSplitter ? (
+                  <>
+                    <div className="mb-2 text-sm">
+                      <p><strong>Total Daily Macros for Splitting:</strong></p>
+                      <p>
+                        Calories: {totalsForSplitter.calories.toFixed(0)} kcal, Protein: {totalsForSplitter.protein_g.toFixed(1)}g, 
+                        Carbs: {totalsForSplitter.carbs_g.toFixed(1)}g, Fat: {totalsForSplitter.fat_g.toFixed(1)}g
+                      </p>
+                    </div>
+                    <Table>{/*
+                    */}<TableHeader>{/*
+                      */}<TableRow>{/*
+                        */}<TableHead className="w-[120px]">Meal</TableHead>{/*
+                        */}{macroPctKeys.map(key => <TableHead key={key} className="text-right w-16">{key.replace('_pct', '%').replace('calories', 'Cal').replace('protein', 'P').replace('carbs', 'C').replace('fat', 'F')}</TableHead>)}{/*
+                        */}<TableHead className="text-right w-20">Calc. Cal</TableHead>{/*
+                        */}<TableHead className="text-right w-20">Calc. P(g)</TableHead>{/*
+                        */}<TableHead className="text-right w-20">Calc. C(g)</TableHead>{/*
+                        */}<TableHead className="text-right w-20">Calc. F(g)</TableHead>{/*
+                      */}</TableRow>{/*
+                    */}</TableHeader>{/*
+                    */}<TableBody>{/*
+                      */}{mealDistributionFields.map((field, index) => {
+                        const currentPercentages = watchedMealDistributions?.[index];
+                        let mealCal = NaN, mealP = NaN, mealC = NaN, mealF = NaN;
+                        if (totalsForSplitter && currentPercentages) {
+                          mealCal = totalsForSplitter.calories * ((currentPercentages.calories_pct || 0) / 100);
+                          mealP = totalsForSplitter.protein_g * ((currentPercentages.protein_pct || 0) / 100);
+                          mealC = totalsForSplitter.carbs_g * ((currentPercentages.carbs_pct || 0) / 100);
+                          mealF = totalsForSplitter.fat_g * ((currentPercentages.fat_pct || 0) / 100);
+                        }
+                        return (
+                          <TableRow key={field.id}>{/*
+                            */}<TableCell className="font-medium py-1">{field.mealName}</TableCell>{/*
+                            */}{macroPctKeys.map(macroKey => (
+                              <TableCell key={macroKey} className="py-1">
+                                <FormField
+                                  control={form.control}
+                                  name={`mealDistributions.${index}.${macroKey}`}
+                                  render={({ field: itemField }) => (
+                                    <FormControl><div><Input type="number" {...itemField} value={itemField.value ?? ''} onChange={e => itemField.onChange(parseFloat(e.target.value) || 0)} className="w-14 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl>
+                                  )}/>
+                              </TableCell>
+                            ))}{/*
+                            */}<TableCell className="text-right text-xs py-1 tabular-nums">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>{/*
+                            */}<TableCell className="text-right text-xs py-1 tabular-nums">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>{/*
+                            */}<TableCell className="text-right text-xs py-1 tabular-nums">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>{/*
+                            */}<TableCell className="text-right text-xs py-1 tabular-nums">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>{/*
+                          */}</TableRow>
+                        );
+                      })}{/*
+                    */}</TableBody>{/*
+                    */}<TableFooter>{/*
+                      */}<TableRow className="font-semibold text-xs">{/*
+                        */}<TableCell className="py-1">Input % Totals:</TableCell>{/*
+                        */}{macroPctKeys.map(key => {
+                          const sum = columnSums[key];
+                          const isSum100 = Math.round(sum) === 100;
+                          return (
+                            <TableCell key={`sum-${key}`} className={cn("text-right py-1 tabular-nums", isSum100 ? 'text-green-600' : 'text-destructive')}>
+                              {sum.toFixed(0)}%
+                              {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
+                            </TableCell>
+                          );
+                        })}{/*
+                        */}<TableCell colSpan={4} className="py-1"></TableCell>{/*
+                      */}</TableRow>{/*
+                    */}</TableFooter>{/*
+                  */}</Table>
+                  </>
+                ) : (
+                  <p className="text-destructive flex items-center"><AlertCircle className="mr-2 h-4 w-4" /> Please complete a target calculation (Smart, Custom, or Manual) in a previous step to enable meal distribution.</p>
+                )}
+              </div>
+            )}
             {currentStep === 11 && ( <div> {renderTextareaField("typicalMealsDescription", "Describe Your Typical Meals", "e.g., Breakfast: Oats with berries. Lunch: Chicken salad sandwich...", "This helps our AI learn your habits.")} </div> )}
             {currentStep === 12 && ( <div className="text-center space-y-4"> <CheckCircle className="h-16 w-16 text-green-500 mx-auto" /> <p className="text-lg">You're all set! Your profile is complete.</p> <p className="text-muted-foreground">Click "Finish Onboarding" to save your profile and proceed to the dashboard. You can then generate your first AI-powered meal plan.</p> </div> )}
             
@@ -405,4 +483,3 @@ export default function OnboardingPage() {
     </TooltipProvider>
   );
 }
-
