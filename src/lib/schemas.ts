@@ -212,6 +212,7 @@ export const SmartCaloriePlannerFormSchema = z.object({
   hips_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   hips_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   hips_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
+  
   right_leg_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   right_leg_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   right_leg_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
@@ -341,4 +342,4 @@ export const OnboardingFormSchema = z.object({
 
 export type OnboardingFormValues = z.infer<typeof OnboardingFormSchema>;
 
-```
+    

@@ -109,14 +109,14 @@ export const onboardingStepsData = [
   {
     stepNumber: 1,
     title: "Welcome to NutriPlan!",
-    explanation: "Let’s personalize your nutrition journey. We’ll ask a few questions about your health and preferences to generate your ideal meal plan. It only takes a few minutes.",
-    tooltipText: "We’ll ask a few questions to personalize your nutrition plan. It only takes a few minutes.",
+    explanation: "Let’s personalize your nutrition journey. We’ll ask a few questions about your health and preferences to generate your ideal meal plan. It only takes 3–5 minutes.",
+    tooltipText: "We’ll ask a few questions to personalize your nutrition plan. It only takes 3–5 minutes.",
     fieldsToValidate: [],
     isOptional: false,
   },
   {
     stepNumber: 2,
-    title: "Basic Profile Setup",
+    title: "Step 2 – Basic Profile Setup",
     explanation: "This helps us calculate your calorie needs and goals. We use your age, sex, height, weight, and activity level to estimate your Basal Metabolic Rate (BMR) and Total Daily Energy Expenditure (TDEE) — the foundation of your meal plan.",
     tooltipText: "These details help us calculate your calorie needs based on your body and activity level.",
     fieldsToValidate: ["age", "gender", "height_cm", "current_weight", "goal_weight_1m", "activityLevel", "dietGoalOnboarding"],
@@ -124,7 +124,7 @@ export const onboardingStepsData = [
   },
   {
     stepNumber: 3,
-    title: "Body Composition (Optional)",
+    title: "Step 3 – Body Composition (Optional)",
     explanation: "These numbers help us tailor the plan beyond just weight. Your body fat, muscle mass, and water levels help refine calorie and macro goals, especially if you're focused on body recomposition.",
     tooltipText: "Used to fine-tune your plan based on your muscle, fat, and water levels — not just weight.",
     fieldsToValidate: ["bf_current", "bf_target", "bf_ideal", "mm_current", "mm_target", "mm_ideal", "bw_current", "bw_target", "bw_ideal"],
@@ -132,7 +132,7 @@ export const onboardingStepsData = [
   },
   {
     stepNumber: 4,
-    title: "Measurements (Optional)",
+    title: "Step 4 – Measurements (Optional)",
     explanation: "Track physical changes, not just weight. Waist, hips, and limb measurements give you visible ways to monitor progress beyond the scale — especially for fitness goals.",
     tooltipText: "Gives a more complete picture of your body changes and supports better progress tracking.",
     fieldsToValidate: ["waist_current", "waist_goal_1m", "waist_ideal", "hips_current", "hips_goal_1m", "hips_ideal", "right_leg_current", "right_leg_goal_1m", "right_leg_ideal", "left_leg_current", "left_leg_goal_1m", "left_leg_ideal", "right_arm_current", "right_arm_goal_1m", "right_arm_ideal", "left_arm_current", "left_arm_goal_1m", "left_arm_ideal"],
@@ -140,7 +140,7 @@ export const onboardingStepsData = [
   },
   {
     stepNumber: 5,
-    title: "Dietary Preferences & Restrictions",
+    title: "Step 5 – Dietary Preferences & Restrictions",
     explanation: "We personalize your meals to match your taste and lifestyle. By knowing your dietary style, allergies, and food preferences, the AI avoids what you dislike and suggests what you’ll enjoy and can eat safely.",
     tooltipText: "Let us know your diet style, allergies, and food likes/dislikes so we can build a plan you’ll enjoy.",
     fieldsToValidate: ["preferredDiet", "allergies", "preferredCuisines", "dispreferredCuisines", "preferredIngredients", "dispreferredIngredients", "mealsPerDay"],
@@ -148,7 +148,7 @@ export const onboardingStepsData = [
   },
   {
     stepNumber: 6,
-    title: "Medical Information (Optional)",
+    title: "Step 6 – Medical Information (Optional)",
     explanation: "Used only to improve meal recommendations. If you have health conditions or take medications, this helps our AI avoid foods that may conflict and recommend supportive ingredients. Not for diagnosis or treatment.",
     tooltipText: "Used only to improve suggestions and avoid conflicts — we don’t diagnose or treat any conditions.",
     fieldsToValidate: ["medicalConditions", "medications"],
@@ -156,15 +156,15 @@ export const onboardingStepsData = [
   },
   {
     stepNumber: 7,
-    title: "Smart Calculation & Macros",
+    title: "Step 7 – Smart Calculation & Macros",
     explanation: "We’ll generate your personal targets using your data. We estimate your daily calories and macronutrients to support your weight or health goals — whether it’s fat loss, muscle gain, or maintenance.",
     tooltipText: "Based on your inputs, we estimate ideal calories and macronutrients to support your goals.",
-    fieldsToValidate: [],
+    fieldsToValidate: [], // No direct input fields, but relies on previous steps
     isOptional: false,
   },
   {
     stepNumber: 8,
-    title: "Customize Your Targets (Optional)",
+    title: "Step 8 – Customize Your Targets (Optional)",
     explanation: "Want to fine-tune your plan? Adjust your total daily calories, protein intake, and how your remaining calories are split between carbs and fat.",
     tooltipText: "Optionally override the system-calculated targets with your own specific numbers.",
     fieldsToValidate: ["custom_total_calories", "custom_protein_per_kg", "remaining_calories_carb_pct"],
@@ -172,23 +172,23 @@ export const onboardingStepsData = [
   },
   {
     stepNumber: 9,
-    title: "Set Your Own Daily Targets (Optional)",
+    title: "Step 9 – Set Your Own Daily Targets (Optional)",
     explanation: "If you have specific daily calorie and macronutrient goals already, enter them here. This will override any previous calculations for the next step (meal distribution).",
-    tooltipText: "Define your exact daily calorie and macro targets if you prefer manual control.",
+    tooltipText: "Define your exact daily calorie, protein, carb, and fat targets if you prefer manual control.",
     fieldsToValidate: ["manual_target_calories", "manual_protein_g", "manual_carbs_g", "manual_fat_g"],
     isOptional: true,
   },
   {
     stepNumber: 10,
-    title: "Plan Your Meal Macros (Optional)",
+    title: "Step 10 – Plan Your Meal Macros (Optional)",
     explanation: "Allocate your total daily macros (calories, protein, carbs, fat) across your meals by percentage. This helps structure your eating day based on the targets set in the previous steps.",
     tooltipText: "Set the percentage of your daily calories, protein, carbs, and fat for each meal.",
-    fieldsToValidate: ["mealDistributions"], // This will need careful handling in UI for complex validation
+    fieldsToValidate: ["mealDistributions"],
     isOptional: true,
   },
   {
     stepNumber: 11,
-    title: "Describe Your Typical Meals",
+    title: "Step 11 – Describe Your Typical Meals",
     explanation: "Help us learn what you usually eat. By sharing your current meals, snacks, and eating habits, our AI can better understand your real-world preferences — including foods you enjoy, timing, and portion sizes. This helps us fine-tune your future meal plan to feel natural and sustainable.",
     tooltipText: "Show us what you typically eat. This helps our AI learn your habits and build a realistic, personalized plan.",
     fieldsToValidate: ["typicalMealsDescription"],
@@ -196,12 +196,10 @@ export const onboardingStepsData = [
   },
   {
     stepNumber: 12,
-    title: "Ready for Your AI Meal Plan!",
+    title: "Step 12 – Ready for Your AI Meal Plan!",
     explanation: "You're all set! Your profile is complete. Click 'Finish Onboarding' to save your profile and proceed to the dashboard. You can then generate your first AI-powered meal plan.",
     tooltipText: "Get your first weekly plan — customized to your needs, goals, and preferences. You can always tweak it.",
     fieldsToValidate: [],
     isOptional: false,
   }
 ];
-
-```
