@@ -39,13 +39,23 @@ import {
   mealNames as defaultMealNames, 
   defaultMacroPercentages,     
 } from "@/lib/constants";
-import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution, type CalculatedTargets, type CustomCalculatedTargets } from "@/lib/schemas"; 
+import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution, type CustomCalculatedTargets } from "@/lib/schemas"; 
 import { calculateBMR, calculateTDEE, calculateEstimatedDailyTargets } from "@/lib/nutrition-calculator";
 import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 
+// Interface for calculated targets to be displayed in Step 7
+interface CalculatedTargetsForDisplay {
+  bmr?: number;
+  tdee?: number;
+  targetCalories?: number;
+  targetProtein?: number;
+  targetCarbs?: number;
+  targetFat?: number;
+  current_weight_for_calc?: number;
+}
 
 interface TotalsForSplitter {
     calories: number;
@@ -60,7 +70,7 @@ export default function OnboardingPage() {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
 
-  const [calculatedTargets, setCalculatedTargets] = useState<CalculatedTargets | null>(null);
+  const [calculatedTargets, setCalculatedTargets] = useState<CalculatedTargetsForDisplay | null>(null);
   const [customCalculatedTargets, setCustomCalculatedTargets] = useState<CustomCalculatedTargets | null>(null);
   const [totalsForSplitter, setTotalsForSplitter] = useState<TotalsForSplitter | null>(null);
   
@@ -70,7 +80,7 @@ export default function OnboardingPage() {
     mode: "onChange", 
     defaultValues: {
       age: undefined, gender: undefined, height_cm: undefined, current_weight: undefined,
-      goal_weight_1m: undefined, activityLevel: undefined, dietGoalOnboarding: "fat_loss",
+      goal_weight_1m: undefined, ideal_goal_weight: undefined, activityLevel: undefined, dietGoalOnboarding: "fat_loss",
       bf_current: undefined, bf_target: undefined, bf_ideal: undefined,
       mm_current: undefined, mm_target: undefined, mm_ideal: undefined,
       bw_current: undefined, bw_target: undefined, bw_ideal: undefined,
@@ -96,7 +106,7 @@ export default function OnboardingPage() {
     },
   });
   
-  const { fields: mealDistributionFields } = useFieldArray({
+  const { fields: mealDistributionFields, replace: replaceMealDistributions } = useFieldArray({
     control: form.control,
     name: "mealDistributions",
   });
@@ -130,14 +140,17 @@ export default function OnboardingPage() {
     if (currentStep === 7) { // Smart Calculation & Macros
       updateCalculatedTargets();
     }
-  }, [currentStep, updateCalculatedTargets]);
+  }, [currentStep, updateCalculatedTargets, form]);
 
   const watchedCustomInputs = form.watch([
     "custom_total_calories", "custom_protein_per_kg", "remaining_calories_carb_pct", "current_weight"
   ]);
 
   useEffect(() => { 
-    if (currentStep !== 8 || !calculatedTargets) return;
+    if (currentStep !== 8 || !calculatedTargets) {
+      if (customCalculatedTargets !== null) setCustomCalculatedTargets(null); // Clear if not on step 8 or no base targets
+      return;
+    }
 
     const [customTotalCalories, customProteinPerKg, remainingCarbPct, formCurrentWeight] = watchedCustomInputs;
     const baseWeight = formCurrentWeight || calculatedTargets?.current_weight_for_calc;
@@ -174,7 +187,7 @@ export default function OnboardingPage() {
       calculatedCarbGrams = calculatedCarbCalories / 4;
       calculatedFatGrams = calculatedFatCalories / 9;
     } else {
-      remainingCaloriesForCustom = 0; 
+      remainingCaloriesForCustom = 0; // Ensure it's not negative for calculation
     }
     
     const finalCustomTotalCalories = calculatedProteinCalories + calculatedCarbCalories + calculatedFatCalories;
@@ -195,7 +208,8 @@ export default function OnboardingPage() {
     if (JSON.stringify(customCalculatedTargets) !== JSON.stringify(newCustomPlan)) {
         setCustomCalculatedTargets(newCustomPlan);
     }
-  }, [currentStep, watchedCustomInputs, calculatedTargets, customCalculatedTargets]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, watchedCustomInputs, calculatedTargets]); // customCalculatedTargets removed from deps to prevent loop
 
   const updateTotalsForSplitter = useCallback(() => {
     const formValues = form.getValues();
@@ -224,8 +238,8 @@ export default function OnboardingPage() {
         };
     }
     setTotalsForSplitter(sourceTotals);
-    if (currentStep === 10 && !sourceTotals) { // Check only if on the relevant step
-        toast({title: "Input Needed", description: "Please complete a previous target calculation step (Smart, Custom, or Manual) before distributing macros.", variant: "destructive", duration: 5000});
+    if (currentStep === 10 && !sourceTotals) { 
+        toast({title: "Input Needed", description: "Please complete a target calculation step (Smart, Custom, or Manual) before distributing macros.", variant: "destructive", duration: 5000});
     }
   }, [form, calculatedTargets, customCalculatedTargets, toast, currentStep]);
 
@@ -233,8 +247,18 @@ export default function OnboardingPage() {
   useEffect(() => { 
     if (currentStep === 10) {
       updateTotalsForSplitter();
+      const currentMealDist = form.getValues("mealDistributions");
+      if (!currentMealDist || currentMealDist.length === 0) {
+        replaceMealDistributions(defaultMealNames.map(name => ({
+            mealName: name,
+            calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
+            protein_pct: defaultMacroPercentages[name]?.protein_pct || 0,
+            carbs_pct: defaultMacroPercentages[name]?.carbs_pct || 0,
+            fat_pct: defaultMacroPercentages[name]?.fat_pct || 0,
+        })));
+      }
     }
-  }, [currentStep, updateTotalsForSplitter]);
+  }, [currentStep, updateTotalsForSplitter, form, replaceMealDistributions]);
 
   const watchedMealDistributions = form.watch("mealDistributions");
   const calculateColumnSum = (macroKey: keyof Omit<MealMacroDistribution, 'mealName'>) => {
@@ -244,10 +268,8 @@ export default function OnboardingPage() {
 
   const handleNext = async () => {
     if (activeStepData?.fieldsToValidate && activeStepData.fieldsToValidate.length > 0) {
-      // Trigger validation for specific fields for the current step
       const result = await form.trigger(activeStepData.fieldsToValidate as FieldPath<OnboardingFormValues>[]);
       if (!result) {
-        // Validation failed for current step, highlight errors
         activeStepData.fieldsToValidate.forEach(field => {
             const fieldError = form.formState.errors[field as keyof OnboardingFormValues];
             if (fieldError && fieldError.message) {
@@ -257,7 +279,6 @@ export default function OnboardingPage() {
         return;
       }
     }
-    // If on step 7, ensure calculations are updated before potentially moving to step 8 that uses them
     if (currentStep === 7) {
         updateCalculatedTargets();
     }
@@ -283,9 +304,27 @@ export default function OnboardingPage() {
         toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
         return;
     }
-    // The completeOnboarding function in AuthContext now handles saving to Firestore.
-    // We just need to pass the collected form data.
-    await completeOnboarding(data); // AuthContext will show its own toasts
+
+    const processedData: Record<string, any> = { ...data };
+    for (const key in processedData) {
+      if (processedData[key] === undefined) {
+        processedData[key] = null; // Convert undefined to null for Firestore
+      }
+    }
+    
+    // Convert comma-separated strings to arrays for specific fields
+    const arrayFields: (keyof OnboardingFormValues)[] = ['allergies', 'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients', 'preferredMicronutrients', 'medicalConditions', 'medications'];
+    arrayFields.forEach(field => {
+        if (typeof processedData[field] === 'string') {
+            processedData[field] = (processedData[field] as string).split(',').map(s => s.trim()).filter(s => s);
+        } else if (processedData[field] === null || processedData[field] === undefined) {
+            processedData[field] = []; // Ensure it's an empty array if not provided
+        }
+    });
+
+
+    await completeOnboarding(processedData as OnboardingFormValues); 
+    toast({ title: "Onboarding Complete!", description: "Your profile has been saved. Welcome to NutriPlan!" });
   };
 
   const renderTextField = (name: FieldPath<OnboardingFormValues>, label: string, placeholder: string, description?: string) => (
@@ -322,10 +361,10 @@ export default function OnboardingPage() {
   };
   const tableHeaderLabels = [
     { key: "meal", label: "Meal", className: "sticky left-0 bg-card z-10 w-[120px] text-left font-medium" },
-    { key: "cal_pct", label: "Cal%", className: "text-right min-w-[70px]" },
-    { key: "p_pct", label: "P%", className: "text-right min-w-[70px]" },
-    { key: "c_pct", label: "C%", className: "text-right min-w-[70px]" },
-    { key: "f_pct", label: "F%", className: "text-right min-w-[70px] border-r" },
+    { key: "cal_pct", label: "%Cal", className: "text-right min-w-[70px]" },
+    { key: "p_pct", label: "%P", className: "text-right min-w-[70px]" },
+    { key: "c_pct", label: "%C", className: "text-right min-w-[70px]" },
+    { key: "f_pct", label: "%F", className: "text-right min-w-[70px] border-r" },
     { key: "kcal", label: "Cal", className: "text-right min-w-[60px]" },
     { key: "p_g", label: "P(g)", className: "text-right min-w-[60px]" },
     { key: "c_g", label: "C(g)", className: "text-right min-w-[60px]" },
@@ -339,7 +378,7 @@ export default function OnboardingPage() {
       <CardHeader className="text-center">
         <div className="flex justify-center items-center mb-4"> <Leaf className="h-10 w-10 text-primary" /> </div>
         <Tooltip>
-            <TooltipTrigger asChild><span> <CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span></TooltipTrigger>
+            <TooltipTrigger asChild><span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span></TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs"> <p>{activeStepData.tooltipText}</p> </TooltipContent>
         </Tooltip>
         <CardDescription>{activeStepData.explanation}</CardDescription>
@@ -350,7 +389,7 @@ export default function OnboardingPage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(processAndSaveData)} className="space-y-8">
             {currentStep === 1 && ( <div className="text-center p-4">  </div> )}
-            {currentStep === 2 && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {renderNumberField("age", "Age (Years)", "e.g., 30")} {renderSelectField("gender", "Biological Sex", "Select sex", genders)} {renderNumberField("height_cm", "Height (cm)", "e.g., 175")} {renderNumberField("current_weight", "Current Weight (kg)", "e.g., 70")} {renderNumberField("goal_weight_1m", "Target Weight After 1 Month (kg)", "e.g., 68")} {renderSelectField("activityLevel", "Physical Activity Level", "Select activity level", activityLevels)} {renderSelectField("dietGoalOnboarding", "Primary Diet Goal", "Select your diet goal", smartPlannerDietGoals)} </div> )}
+            {currentStep === 2 && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {renderNumberField("age", "Age (Years)", "e.g., 30")} {renderSelectField("gender", "Biological Sex", "Select sex", genders)} {renderNumberField("height_cm", "Height (cm)", "e.g., 175")} {renderNumberField("current_weight", "Current Weight (kg)", "e.g., 70")} {renderNumberField("goal_weight_1m", "Target Weight After 1 Month (kg)", "e.g., 68")} {renderNumberField("ideal_goal_weight", "Long-Term Goal Weight (kg, Optional)", "e.g., 65")} {renderSelectField("activityLevel", "Physical Activity Level", "Select activity level", activityLevels)} {renderSelectField("dietGoalOnboarding", "Primary Diet Goal", "Select your diet goal", smartPlannerDietGoals)} </div> )}
             {currentStep === 3 && ( <div className="space-y-4"> <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground"> <span className="col-span-1">Metric</span> <span className="text-center">Current (%)</span> <span className="text-center">Target (1 Mth) (%)</span> <span className="text-center">Ideal (%)</span> </div> {(['Body Fat', 'Muscle Mass', 'Body Water'] as const).map((metric) => { const keys = { 'Body Fat': ['bf_current', 'bf_target', 'bf_ideal'], 'Muscle Mass': ['mm_current', 'mm_target', 'mm_ideal'], 'Body Water': ['bw_current', 'bw_target', 'bw_ideal'], }[metric] as [FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>]; return ( <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> <FormLabel className="text-sm pt-2">{metric}</FormLabel> {keys.map(key => ( <FormField key={key} control={form.control} name={key} render={({ field }) => ( <FormItem className="text-center"> <FormControl><div><Input type="number" placeholder="e.g., 20" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" /></div></FormControl> <FormMessage className="text-xs text-center"/> </FormItem> )}/> ))} </div> ); })} </div> )}
             {currentStep === 4 && ( <div className="space-y-4"> <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground"> <span className="col-span-1">Metric</span> <span className="text-center">Current (cm)</span> <span className="text-center">1-Mth Goal (cm)</span> <span className="text-center">Ideal (cm)</span> </div> {(['Waist', 'Hips', 'Right Leg', 'Left Leg', 'Right Arm', 'Left Arm'] as const).map((metric) => { const keys = { 'Waist': ['waist_current', 'waist_goal_1m', 'waist_ideal'], 'Hips': ['hips_current', 'hips_goal_1m', 'hips_ideal'], 'Right Leg': ['right_leg_current', 'right_leg_goal_1m', 'right_leg_ideal'], 'Left Leg': ['left_leg_current', 'left_leg_goal_1m', 'left_leg_ideal'], 'Right Arm': ['right_arm_current', 'right_arm_goal_1m', 'right_arm_ideal'], 'Left Arm': ['left_arm_current', 'left_arm_goal_1m', 'left_arm_ideal'], }[metric] as [FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>]; return ( <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> <FormLabel className="text-sm pt-2">{metric}</FormLabel> {keys.map(key => ( <FormField key={key} control={form.control} name={key} render={({ field }) => ( <FormItem className="text-center"> <FormControl><div><Input type="number" placeholder="e.g., 80" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" /></div></FormControl> <FormMessage className="text-xs text-center"/> </FormItem> )}/> ))} </div> ); })} </div> )}
             {currentStep === 5 && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {renderSelectField("preferredDiet", "Preferred Diet (Optional)", "e.g., Vegetarian", preferredDiets)} {renderSelectField("mealsPerDay", "Meals Per Day", "Select number of meals", mealsPerDayOptions)} {renderTextareaField("allergies", "Allergies (comma-separated, Optional)", "e.g., Peanuts, Shellfish", "List any food allergies.")} {renderTextareaField("preferredCuisines", "Preferred Cuisines (comma-separated, Optional)", "e.g., Italian, Mexican")} {renderTextareaField("dispreferredCuisines", "Dispreferred Cuisines (comma-separated, Optional)", "e.g., Thai, Indian")} {renderTextareaField("preferredIngredients", "Favorite Ingredients (comma-separated, Optional)", "e.g., Chicken, Avocado")} {renderTextareaField("dispreferredIngredients", "Disliked Ingredients (comma-separated, Optional)", "e.g., Tofu, Olives")} {renderTextareaField("preferredMicronutrients", "Targeted Micronutrients (Optional)", "e.g., Vitamin D, Iron")} </div> )}
@@ -371,11 +410,18 @@ export default function OnboardingPage() {
                       </p>
                     </div>
                     <ScrollArea className="w-full">
-                      <Table className="min-w-[700px]">{/* */}<TableHeader>{/* */}<TableRow>{/* */}{tableHeaderLabels.map(header => (
+                      <Table className="min-w-[700px]">
+                        <TableHeader>
+                          <TableRow>
+                            {tableHeaderLabels.map(header => (
                               <TableHead key={header.key} className={cn("px-2 py-1 text-xs font-medium h-9", header.className)}>
                                 {header.label}
                               </TableHead>
-                            ))}{/* */}</TableRow>{/* */}</TableHeader>{/* */}<TableBody>{/* */}{mealDistributionFields.map((field, index) => {
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {mealDistributionFields.map((field, index) => {
                             const currentPercentages = watchedMealDistributions?.[index];
                             let mealCal = NaN, mealP = NaN, mealC = NaN, mealF = NaN;
                             if (totalsForSplitter && currentPercentages) {
@@ -385,18 +431,33 @@ export default function OnboardingPage() {
                               mealF = totalsForSplitter.fat_g * ((currentPercentages.fat_pct || 0) / 100);
                             }
                             return (
-                              <TableRow key={field.id}>{/* */}<TableCell className="font-medium sticky left-0 bg-card z-10 px-2 py-1 text-sm h-10">{field.mealName}</TableCell>{/* */}{macroPctKeys.map(macroKey => (
+                              <TableRow key={field.id}>
+                                <TableCell className="font-medium sticky left-0 bg-card z-10 px-2 py-1 text-sm h-10">{field.mealName}</TableCell>
+                                {macroPctKeys.map(macroKey => (
                                   <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums h-10", macroKey === 'fat_pct' ? 'border-r' : '')}>
                                     <FormField
                                       control={form.control}
                                       name={`mealDistributions.${index}.${macroKey}`}
                                       render={({ field: itemField }) => (
+                                        <FormItem> {/* Added FormItem wrapper */}
                                         <FormControl><div><Input type="number" {...itemField} value={itemField.value ?? ''} onChange={e => itemField.onChange(parseFloat(e.target.value) || 0)} className="w-16 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl>
+                                        <FormMessage /> {/* Added FormMessage */}
+                                        </FormItem>
                                       )}/>
                                   </TableCell>
-                                ))}{/* */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>{/* */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>{/* */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>{/* */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>{/* */}</TableRow>
+                                ))}
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>
+                              </TableRow>
                             );
-                          })}{/* */}</TableBody>{/* */}<TableFooter>{/* */}<TableRow className="font-semibold text-xs h-10">{/* */}<TableCell className="sticky left-0 bg-card z-10 px-2 py-1">Input % Totals:</TableCell>{/* */}{macroPctKeys.map(key => {
+                          })}
+                        </TableBody>
+                        <TableFooter>
+                          <TableRow className="font-semibold text-xs h-10">
+                            <TableCell className="sticky left-0 bg-card z-10 px-2 py-1">Input % Totals:</TableCell>
+                            {macroPctKeys.map(key => {
                               const sum = columnSums[key];
                               const isSum100 = Math.round(sum) === 100;
                               return (
@@ -405,7 +466,11 @@ export default function OnboardingPage() {
                                   {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
                                 </TableCell>
                               );
-                            })}{/* */}<TableCell colSpan={4} className="py-1"></TableCell>{/* */}</TableRow>{/* */}</TableFooter>{/* */}</Table>
+                            })}
+                            <TableCell colSpan={4} className="py-1"></TableCell>
+                          </TableRow>
+                        </TableFooter>
+                      </Table>
                       <ScrollBar orientation="horizontal" />
                     </ScrollArea>
                   </>

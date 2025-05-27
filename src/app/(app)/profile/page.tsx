@@ -24,17 +24,16 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ProfileFormSchema, type ProfileFormValues as FullProfileType, type ProfileFormValues } from "@/lib/schemas"; // Use FullProfileType for localStorage
+import { ProfileFormSchema, type FullProfileType, type ProfileFormValues } from "@/lib/schemas"; 
 import { useAuth } from "@/contexts/AuthContext"; 
 import { useToast } from "@/hooks/use-toast";
 import React, { useEffect, useState } from "react";
-import { subscriptionStatuses } from "@/lib/constants";
+import { subscriptionStatuses, exerciseFrequencies, exerciseIntensities } from "@/lib/constants";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/clientApp';
 
 
 async function getProfileData(userId: string): Promise<Partial<ProfileFormValues>> {
-  console.log("Fetching profile for user:", userId);
   if (!userId) return {};
   try {
     const userProfileRef = doc(db, "users", userId);
@@ -45,11 +44,9 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
       return {
         name: fullProfile.name,
         subscriptionStatus: fullProfile.subscriptionStatus,
-        // Fields for 'Pain/Mobility & Physical Limitations'
         painMobilityIssues: fullProfile.painMobilityIssues,
-        injuries: fullProfile.injuries || [], // ensure array if undefined
-        surgeries: fullProfile.surgeries || [], // ensure array if undefined
-        // Fields for 'Exercise Preferences'
+        injuries: fullProfile.injuries || [], 
+        surgeries: fullProfile.surgeries || [], 
         exerciseGoals: fullProfile.exerciseGoals || [],
         exercisePreferences: fullProfile.exercisePreferences || [],
         exerciseFrequency: fullProfile.exerciseFrequency,
@@ -60,30 +57,30 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
   } catch (error) {
     console.error("Error fetching profile from Firestore:", error);
   }
-  return {}; // Return minimal defaults if not found or error
+  return { 
+    name: "", subscriptionStatus: undefined, painMobilityIssues: "", injuries: [], surgeries: [],
+    exerciseGoals: [], exercisePreferences: [], exerciseFrequency: undefined, exerciseIntensity: undefined, equipmentAccess: []
+  };
 }
 
 async function saveProfileData(userId: string, data: ProfileFormValues) {
-  console.log("Saving profile for user:", userId, data);
   if (!userId) throw new Error("User ID is required to save profile data.");
   
   try {
     const userProfileRef = doc(db, "users", userId);
-    // Fetch existing full profile to merge with
-    const docSnap = await getDoc(userProfileRef);
-    let existingProfile: FullProfileType = docSnap.exists() ? (docSnap.data() as FullProfileType) : {};
-
-    // Merge new data into existing profile
-    const updatedFullProfile: FullProfileType = {
-      ...existingProfile,
-      ...data, // data contains only fields from this form
-    };
+    const dataToSave: Record<string, any> = { ...data };
     
-    await setDoc(userProfileRef, updatedFullProfile, { merge: true }); // Use merge: true to only update specified fields
-    return { success: true };
+    // Convert undefined optional fields to null for Firestore compatibility
+    (Object.keys(dataToSave) as Array<keyof ProfileFormValues>).forEach(key => {
+        if (dataToSave[key] === undefined) {
+            dataToSave[key] = null;
+        }
+    });
+    
+    await setDoc(userProfileRef, dataToSave, { merge: true }); 
   } catch (error) {
      console.error("Error saving profile to Firestore:", error);
-     throw error; // Propagate error
+     throw error; 
   }
 }
 
@@ -110,7 +107,7 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    if (user?.uid) { // Changed from user.id to user.uid
+    if (user?.uid) { 
       setIsLoading(true);
       getProfileData(user.uid).then((profileDataSubset) => {
         form.reset(profileDataSubset); 
@@ -126,7 +123,7 @@ export default function ProfilePage() {
   }, [user, form, toast]);
 
   async function onSubmit(data: ProfileFormValues) {
-    if (!user?.uid) { // Changed from user.id to user.uid
+    if (!user?.uid) { 
       toast({ title: "Error", description: "User not found.", variant: "destructive" });
       return;
     }
@@ -147,18 +144,17 @@ export default function ProfilePage() {
       control={form.control}
       name={fieldName}
       render={({ field }) => {
-        // Ensure field.value is always an array for .join, then handle input as string
         const displayValue = Array.isArray(field.value) ? field.value.join(', ') : '';
         return (
           <FormItem>
             <FormLabel>{label}</FormLabel>
-            <FormControl>
+            <FormControl><div>
               <Textarea
                 placeholder={placeholder}
                 value={displayValue}
                 onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(s => s))}
                 className="h-10 resize-none" 
-              />
+              /></div>
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -181,7 +177,7 @@ export default function ProfilePage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             
-            <Accordion type="multiple" defaultValue={['account-info']} className="w-full">
+            <Accordion type="multiple" defaultValue={['account-info', 'medical-physical', 'exercise-preferences']} className="w-full">
               <AccordionItem value="account-info">
                 <AccordionTrigger className="text-xl font-semibold">Account Information</AccordionTrigger>
                 <AccordionContent className="space-y-6 pt-4 px-1">
@@ -191,9 +187,9 @@ export default function ProfilePage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Name</FormLabel>
-                        <FormControl>
+                        <FormControl><div>
                           <Input placeholder="Your full name" {...field} value={field.value ?? ''} />
-                        </FormControl>
+                        </div></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -212,11 +208,11 @@ export default function ProfilePage() {
                       <FormItem>
                         <FormLabel>Subscription Status</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                          <FormControl>
+                          <FormControl><div>
                             <SelectTrigger>
                               <SelectValue placeholder="Select your subscription status" />
                             </SelectTrigger>
-                          </FormControl>
+                          </div></FormControl>
                           <SelectContent>
                             {subscriptionStatuses.map(status => (
                               <SelectItem key={status.value} value={status.value}>
@@ -241,13 +237,13 @@ export default function ProfilePage() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Pain/Mobility Issues (Optional)</FormLabel>
-                        <FormControl>
+                        <FormControl><div>
                           <Textarea 
                             placeholder="Describe any pain or mobility issues, e.g., knee pain, limited shoulder range" 
                             {...field} 
                             value={field.value ?? ''} 
                             className="h-20"
-                          />
+                          /></div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -270,14 +266,11 @@ export default function ProfilePage() {
                       <FormItem>
                         <FormLabel>Exercise Frequency (Optional)</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                          <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select how often you exercise" /></SelectTrigger>
-                          </FormControl>
+                          <FormControl><div><SelectTrigger><SelectValue placeholder="Select how often you exercise" /></SelectTrigger></div></FormControl>
                           <SelectContent>
-                            <SelectItem value="1-2_days">1-2 days/week</SelectItem>
-                            <SelectItem value="3-4_days">3-4 days/week</SelectItem>
-                            <SelectItem value="5-6_days">5-6 days/week</SelectItem>
-                            <SelectItem value="daily">Daily</SelectItem>
+                            {exerciseFrequencies.map(ef => (
+                                <SelectItem key={ef.value} value={ef.value}>{ef.label}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -291,13 +284,11 @@ export default function ProfilePage() {
                       <FormItem>
                         <FormLabel>Typical Exercise Intensity (Optional)</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                          <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select intensity" /></SelectTrigger>
-                          </FormControl>
+                          <FormControl><div><SelectTrigger><SelectValue placeholder="Select intensity" /></SelectTrigger></div></FormControl>
                           <SelectContent>
-                            <SelectItem value="light">Light</SelectItem>
-                            <SelectItem value="moderate">Moderate</SelectItem>
-                            <SelectItem value="vigorous">Vigorous</SelectItem>
+                            {exerciseIntensities.map(ei => (
+                                <SelectItem key={ei.value} value={ei.value}>{ei.label}</SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                         <FormMessage />
