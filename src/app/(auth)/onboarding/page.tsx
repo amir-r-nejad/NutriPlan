@@ -44,6 +44,8 @@ import { calculateBMR, calculateTDEE, calculateEstimatedDailyTargets } from "@/l
 import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+
 
 interface CalculatedTargets {
   bmr?: number;
@@ -125,7 +127,7 @@ export default function OnboardingPage() {
   const activeStepData = onboardingStepsData.find(s => s.stepNumber === currentStep);
 
   useEffect(() => {
-    if (currentStep === 7) {
+    if (currentStep === 7) { // Smart Calculation & Macros
       const data = form.getValues();
       if (data.age && data.gender && data.height_cm && data.current_weight && data.activityLevel && data.dietGoalOnboarding) {
         const bmr = calculateBMR(data.gender, data.current_weight, data.height_cm, data.age);
@@ -153,8 +155,8 @@ export default function OnboardingPage() {
     "custom_total_calories", "custom_protein_per_kg", "remaining_calories_carb_pct", "current_weight"
   ]);
 
-  useEffect(() => {
-    if (currentStep !== 8) return;
+  useEffect(() => { // For Step 8: Customize Your Targets
+    if (currentStep !== 8 || !calculatedTargets) return;
 
     const [customTotalCalories, customProteinPerKg, remainingCarbPct, formCurrentWeight] = watchedCustomInputs;
     const baseWeight = formCurrentWeight || calculatedTargets?.current_weight_for_calc;
@@ -214,7 +216,7 @@ export default function OnboardingPage() {
     }
   }, [currentStep, watchedCustomInputs, calculatedTargets, customCalculatedTargets, form]);
 
-  useEffect(() => {
+  useEffect(() => { // For Step 10: Distribute Macros Across Meals
     if (currentStep === 10) {
         const formValues = form.getValues();
         let sourceTotals: TotalsForSplitter | null = null;
@@ -355,8 +357,8 @@ export default function OnboardingPage() {
       render={({ field }) => ( <FormItem> <FormLabel>{label}</FormLabel> <FormControl><div><Textarea placeholder={placeholder} {...field} value={field.value as string || ''} className="h-20"/></div></FormControl> {description && <FormDescription>{description}</FormDescription>} <FormMessage /> </FormItem> )} />
   );
 
-  if (!activeStepData) return <p>Loading step...</p>;
-  if (!user) return <p>Loading user information...</p>;
+  if (!activeStepData) return <div className="flex justify-center items-center h-screen"><p>Loading step...</p></div>;
+  if (!user) return <div className="flex justify-center items-center h-screen"><p>Loading user information...</p></div>;
 
   const progressValue = (currentStep / onboardingStepsData.length) * 100;
   
@@ -367,6 +369,18 @@ export default function OnboardingPage() {
     carbs_pct: calculateColumnSum('carbs_pct'),
     fat_pct: calculateColumnSum('fat_pct'),
   };
+  const tableHeaderLabels = [
+    { key: "meal", label: "Meal", className: "sticky left-0 bg-card z-10 w-[120px] text-left font-medium" },
+    { key: "cal_pct", label: "Cal%", className: "text-right min-w-[70px]" },
+    { key: "p_pct", label: "P%", className: "text-right min-w-[70px]" },
+    { key: "c_pct", label: "C%", className: "text-right min-w-[70px]" },
+    { key: "f_pct", label: "F%", className: "text-right min-w-[70px] border-r" },
+    { key: "kcal", label: "Cal", className: "text-right min-w-[60px]" },
+    { key: "p_g", label: "P(g)", className: "text-right min-w-[60px]" },
+    { key: "c_g", label: "C(g)", className: "text-right min-w-[60px]" },
+    { key: "f_g", label: "F(g)", className: "text-right min-w-[60px]" },
+  ];
+
 
   return (
     <TooltipProvider>
@@ -374,9 +388,7 @@ export default function OnboardingPage() {
       <CardHeader className="text-center">
         <div className="flex justify-center items-center mb-4"> <Leaf className="h-10 w-10 text-primary" /> </div>
         <Tooltip>
-            <TooltipTrigger asChild>
-                <span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span>
-            </TooltipTrigger>
+            <TooltipTrigger asChild><span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span></TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs"> <p>{activeStepData.tooltipText}</p> </TooltipContent>
         </Tooltip>
         <CardDescription>{activeStepData.explanation}</CardDescription>
@@ -397,75 +409,77 @@ export default function OnboardingPage() {
             {currentStep === 9 && ( <div className="space-y-6 p-4 border rounded-md bg-muted/50"> <h3 className="text-lg font-semibold text-primary mb-3">Set Your Own Daily Targets (Optional)</h3> <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> {renderNumberField("manual_target_calories", "Target Calories", "e.g., 2000")} {renderNumberField("manual_protein_g", "Protein (g)", "e.g., 150")} {renderNumberField("manual_carbs_g", "Carbohydrates (g)", "e.g., 250")} {renderNumberField("manual_fat_g", "Fat (g)", "e.g., 70")} </div> <FormDescription className="text-xs">If you fill these, they will be used for meal distribution in the next step, overriding previous calculations.</FormDescription> </div> )}
             {currentStep === 10 && (
               <div className="space-y-4 p-4 border rounded-md bg-muted/50">
-                <h3 className="text-lg font-semibold text-primary mb-3">Distribute Macros Across Meals (Optional)</h3>
+                <h3 className="text-lg font-semibold text-primary mb-1">Distribute Macros Across Meals</h3>
                 {totalsForSplitter ? (
                   <>
-                    <div className="mb-2 text-sm">
-                      <p><strong>Total Daily Macros for Splitting:</strong></p>
+                    <div className="mb-3 text-sm">
+                      <p className="font-medium">Total Daily Macros for Splitting:</p>
                       <p>
                         Calories: {totalsForSplitter.calories.toFixed(0)} kcal, Protein: {totalsForSplitter.protein_g.toFixed(1)}g, 
                         Carbs: {totalsForSplitter.carbs_g.toFixed(1)}g, Fat: {totalsForSplitter.fat_g.toFixed(1)}g
                       </p>
                     </div>
-                    <Table>{/*
-                    */}<TableHeader>{/*
-                      */}<TableRow>{/*
-                        */}<TableHead className="w-[120px]">Meal</TableHead>{/*
-                        */}{macroPctKeys.map(key => <TableHead key={key} className="text-right w-16">{key.replace('_pct', '%').replace('calories', 'Cal').replace('protein', 'P').replace('carbs', 'C').replace('fat', 'F')}</TableHead>)}{/*
-                        */}<TableHead className="text-right w-20">Calc. Cal</TableHead>{/*
-                        */}<TableHead className="text-right w-20">Calc. P(g)</TableHead>{/*
-                        */}<TableHead className="text-right w-20">Calc. C(g)</TableHead>{/*
-                        */}<TableHead className="text-right w-20">Calc. F(g)</TableHead>{/*
-                      */}</TableRow>{/*
-                    */}</TableHeader>{/*
-                    */}<TableBody>{/*
-                      */}{mealDistributionFields.map((field, index) => {
-                        const currentPercentages = watchedMealDistributions?.[index];
-                        let mealCal = NaN, mealP = NaN, mealC = NaN, mealF = NaN;
-                        if (totalsForSplitter && currentPercentages) {
-                          mealCal = totalsForSplitter.calories * ((currentPercentages.calories_pct || 0) / 100);
-                          mealP = totalsForSplitter.protein_g * ((currentPercentages.protein_pct || 0) / 100);
-                          mealC = totalsForSplitter.carbs_g * ((currentPercentages.carbs_pct || 0) / 100);
-                          mealF = totalsForSplitter.fat_g * ((currentPercentages.fat_pct || 0) / 100);
-                        }
-                        return (
-                          <TableRow key={field.id}>{/*
-                            */}<TableCell className="font-medium py-1">{field.mealName}</TableCell>{/*
-                            */}{macroPctKeys.map(macroKey => (
-                              <TableCell key={macroKey} className="py-1">
-                                <FormField
-                                  control={form.control}
-                                  name={`mealDistributions.${index}.${macroKey}`}
-                                  render={({ field: itemField }) => (
-                                    <FormControl><div><Input type="number" {...itemField} value={itemField.value ?? ''} onChange={e => itemField.onChange(parseFloat(e.target.value) || 0)} className="w-14 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl>
-                                  )}/>
-                              </TableCell>
+                    <ScrollArea className="w-full">
+                      <Table className="min-w-[700px]">{/*
+                        */}<TableHeader>{/*
+                          */}<TableRow>{/*
+                            */}{tableHeaderLabels.map(header => (
+                              <TableHead key={header.key} className={cn("px-2 py-1 text-xs font-medium h-9", header.className)}>
+                                {header.label}
+                              </TableHead>
                             ))}{/*
-                            */}<TableCell className="text-right text-xs py-1 tabular-nums">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>{/*
-                            */}<TableCell className="text-right text-xs py-1 tabular-nums">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>{/*
-                            */}<TableCell className="text-right text-xs py-1 tabular-nums">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>{/*
-                            */}<TableCell className="text-right text-xs py-1 tabular-nums">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>{/*
-                          */}</TableRow>
-                        );
-                      })}{/*
-                    */}</TableBody>{/*
-                    */}<TableFooter>{/*
-                      */}<TableRow className="font-semibold text-xs">{/*
-                        */}<TableCell className="py-1">Input % Totals:</TableCell>{/*
-                        */}{macroPctKeys.map(key => {
-                          const sum = columnSums[key];
-                          const isSum100 = Math.round(sum) === 100;
-                          return (
-                            <TableCell key={`sum-${key}`} className={cn("text-right py-1 tabular-nums", isSum100 ? 'text-green-600' : 'text-destructive')}>
-                              {sum.toFixed(0)}%
-                              {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
-                            </TableCell>
-                          );
-                        })}{/*
-                        */}<TableCell colSpan={4} className="py-1"></TableCell>{/*
-                      */}</TableRow>{/*
-                    */}</TableFooter>{/*
-                  */}</Table>
+                          */}</TableRow>{/*
+                        */}</TableHeader>{/*
+                        */}<TableBody>{/*
+                          */}{mealDistributionFields.map((field, index) => {
+                            const currentPercentages = watchedMealDistributions?.[index];
+                            let mealCal = NaN, mealP = NaN, mealC = NaN, mealF = NaN;
+                            if (totalsForSplitter && currentPercentages) {
+                              mealCal = totalsForSplitter.calories * ((currentPercentages.calories_pct || 0) / 100);
+                              mealP = totalsForSplitter.protein_g * ((currentPercentages.protein_pct || 0) / 100);
+                              mealC = totalsForSplitter.carbs_g * ((currentPercentages.carbs_pct || 0) / 100);
+                              mealF = totalsForSplitter.fat_g * ((currentPercentages.fat_pct || 0) / 100);
+                            }
+                            return (
+                              <TableRow key={field.id}>{/*
+                                */}<TableCell className="font-medium sticky left-0 bg-card z-10 px-2 py-1 text-sm h-10">{field.mealName}</TableCell>{/*
+                                */}{macroPctKeys.map(macroKey => (
+                                  <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums h-10", macroKey === 'fat_pct' ? 'border-r' : '')}>
+                                    <FormField
+                                      control={form.control}
+                                      name={`mealDistributions.${index}.${macroKey}`}
+                                      render={({ field: itemField }) => (
+                                        <FormControl><div><Input type="number" {...itemField} value={itemField.value ?? ''} onChange={e => itemField.onChange(parseFloat(e.target.value) || 0)} className="w-16 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl>
+                                      )}/>
+                                  </TableCell>
+                                ))}{/*
+                                */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>{/*
+                                */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>{/*
+                                */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>{/*
+                                */}<TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>{/*
+                              */}</TableRow>
+                            );
+                          })}{/*
+                        */}</TableBody>{/*
+                        */}<TableFooter>{/*
+                          */}<TableRow className="font-semibold text-xs h-10">{/*
+                            */}<TableCell className="sticky left-0 bg-card z-10 px-2 py-1">Input % Totals:</TableCell>{/*
+                            */}{macroPctKeys.map(key => {
+                              const sum = columnSums[key];
+                              const isSum100 = Math.round(sum) === 100;
+                              return (
+                                <TableCell key={`sum-${key}`} className={cn("text-right py-1 tabular-nums", isSum100 ? 'text-green-600' : 'text-destructive', key === 'fat_pct' ? 'border-r' : '')}>
+                                  {sum.toFixed(0)}%
+                                  {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
+                                </TableCell>
+                              );
+                            })}{/*
+                            */}<TableCell colSpan={4} className="py-1"></TableCell>{/*
+                          */}</TableRow>{/*
+                        */}</TableFooter>{/*
+                      */}</Table>
+                      <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
                   </>
                 ) : (
                   <p className="text-destructive flex items-center"><AlertCircle className="mr-2 h-4 w-4" /> Please complete a target calculation (Smart, Custom, or Manual) in a previous step to enable meal distribution.</p>
