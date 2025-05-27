@@ -7,6 +7,8 @@ import {
   User,
   signInWithRedirect,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  confirmPasswordReset,
 } from "firebase/auth";
 
 import { auth } from "./clientApp";
@@ -46,3 +48,10 @@ export async function login(email: string, password: string) {
         const errorMessage = error.message;
     }
 };
+
+export async function forgetPassword(email:string) {
+    sendPasswordResetEmail(auth,email)
+}
+export async function confirmPassword(oobCode: string, newPassword: string) {
+    confirmPasswordReset(auth, oobCode, newPassword)
+}
