@@ -1,3 +1,4 @@
+
 'use client'
 
 import Link from 'next/link';
@@ -30,10 +31,9 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Logo } from '@/components/Logo';
 import { Toaster } from "@/components/ui/toaster";
-import React from "react";
+import React from "react"; 
 import { signOut } from "@/lib/firebase/auth";
-import {redirect} from "next/navigation"
-import { useUser } from "@/hooks/use-user";
+import { useAuth } from "@/contexts/AuthContext"; 
 
 
 const navItems = [
@@ -52,22 +52,33 @@ const navItems = [
   { href: '/support/faq', label: 'FAQ & Chatbot', icon: HelpCircle },
 ];
 
-export default async function AppLayout({
+export default function AppLayout({ 
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const currentUser  = await  useUser()
+  const { user: currentUser, isLoading } = useAuth(); 
 
-  if (!currentUser) {
-    console.log(currentUser)
-    redirect('/login');
+  if (isLoading) { 
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
+
+  if (!currentUser) {
+    // AuthProvider should handle redirection. 
+    // This is a fallback rendering if redirection hasn't happened yet.
+    return (
+        <div className="flex h-screen items-center justify-center">
+            {/* You can put a more specific message or keep the spinner */}
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <p className="ml-2">Redirecting...</p>
+        </div>
+    );
+  }
+
 
   return (
     <SidebarProvider defaultOpen>
@@ -82,18 +93,19 @@ export default async function AppLayout({
                 return (
                   <React.Fragment key={`separator-${index}`}>
                     {index !== 0 && <SidebarSeparator className="my-2" />} 
+                    {/* Removed the label for section as it's just a separator now based on previous styling */}
                   </React.Fragment>
                 );
               }
+              const IconComponent = item.icon; // Get the icon component
               return (
                 <SidebarMenuItem key={item.label}>
                   <Link href={item.href!} legacyBehavior passHref>
-{/* {pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href!))} */}
                     <SidebarMenuButton
-                      isActive={false}
+                      isActive={false} // This needs to be dynamic based on current path
                       tooltip={item.label}
                     >
-                      {/* <item.icon /> */}
+                      <IconComponent className="h-5 w-5" /> {/* Render the icon component */}
                       <span>{item.label}</span>
                     </SidebarMenuButton>
                   </Link>
@@ -113,7 +125,7 @@ export default async function AppLayout({
             </div>
           </div>
           <SidebarMenuButton onClick={signOut} tooltip="Logout" className="w-full">
-            <LogOut />
+            <LogOut className="h-5 w-5" />
             <span>Logout</span>
           </SidebarMenuButton>
         </SidebarFooter>
@@ -130,5 +142,3 @@ export default async function AppLayout({
     </SidebarProvider>
   );
 }
-
-    
