@@ -1,17 +1,17 @@
+
 "use client";
 
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app"; // Added getApps, getApp
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { firebaseConfig } from "../constants";
 
-// Use automatic initialization
-// https://firebase.google.com/docs/app-hosting/firebase-sdks#initialize-with-no-arguments
+// Initialize Firebase only if it hasn't been initialized yet
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
+export const firebaseApp = app; // Export the singleton app instance
 
-export const firebaseApp = initializeApp(firebaseConfig);
-
-export const auth = getAuth(firebaseApp);
-export const db = getFirestore(firebaseApp);
-export const storage = getStorage(firebaseApp);
+export const auth = getAuth(app); // Use the singleton app instance for auth
+export const db = getFirestore(app); // Use the singleton app instance for firestore
+export const storage = getStorage(app); // Use the singleton app instance for storage
