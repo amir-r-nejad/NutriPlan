@@ -1,6 +1,6 @@
 
 import * as z from "zod";
-import { preferredDiets, genders, activityLevels as allActivityLevels, mealsPerDayOptions, smartPlannerDietGoals, subscriptionStatuses } from "./constants";
+import { preferredDiets, genders, activityLevels as allActivityLevels, mealsPerDayOptions, smartPlannerDietGoals, subscriptionStatuses, mealNames as defaultMealNames, defaultMacroPercentages } from "./constants";
 
 // Helper for preprocessing optional number fields: empty string, null, or non-numeric becomes undefined
 const preprocessOptionalNumber = (val: unknown) => {
@@ -17,8 +17,8 @@ export const ProfileFormSchema = z.object({
 
   // Pain/Mobility & Physical Limitations
   painMobilityIssues: z.string().optional(),
-  injuries: z.array(z.string()).optional(), // Kept as array for direct form handling
-  surgeries: z.array(z.string()).optional(), // Kept as array for direct form handling
+  injuries: z.array(z.string()).optional(), 
+  surgeries: z.array(z.string()).optional(), 
 
   // Exercise Preferences
   exerciseGoals: z.array(z.string()).optional(),
@@ -148,7 +148,7 @@ export const IngredientSwapSuggestionSchema = z.object({
 });
 export type IngredientSwapSuggestion = z.infer<typeof IngredientSwapSuggestionSchema>;
 
-const MealMacroDistributionSchema = z.object({
+export const MealMacroDistributionSchema = z.object({
   mealName: z.string(),
   calories_pct: z.coerce.number().min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
   protein_pct: z.coerce.number().min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
@@ -159,7 +159,7 @@ export type MealMacroDistribution = z.infer<typeof MealMacroDistributionSchema>;
 
 export const MacroSplitterFormSchema = z.object({
   mealDistributions: z.array(MealMacroDistributionSchema)
-    .length(6, `Must have 6 meal entries.`), // Assuming 6 meals from constants
+    .length(6, `Must have 6 meal entries.`), 
 }).superRefine((data, ctx) => {
   const checkSum = (macroKey: keyof Omit<MealMacroDistribution, 'mealName'>, macroName: string) => {
     const sum = data.mealDistributions.reduce((acc, meal) => acc + (Number(meal[macroKey]) || 0), 0);
@@ -276,7 +276,7 @@ export const OnboardingFormSchema = z.object({
   activityLevel: z.enum(allActivityLevels.map(al => al.value) as [string, ...string[]], { required_error: "Activity level is required." }),
   dietGoalOnboarding: z.enum(smartPlannerDietGoals.map(g => g.value) as [string, ...string[]], { required_error: "Diet goal is required." }),
 
-  // Step 3: Body Composition (Optional) - Mirroring SmartCaloriePlannerFormSchema fields
+  // Step 3: Body Composition (Optional)
   bf_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
   bf_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
   bf_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
@@ -287,7 +287,7 @@ export const OnboardingFormSchema = z.object({
   bw_target: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
   bw_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional()),
   
-  // Step 4: Measurements (Optional) - Mirroring SmartCaloriePlannerFormSchema fields
+  // Step 4: Measurements (Optional)
   waist_current: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   waist_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   waist_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
@@ -309,20 +309,36 @@ export const OnboardingFormSchema = z.object({
 
   // Step 5: Dietary Preferences & Restrictions
   preferredDiet: z.string().optional(),
-  allergies: z.string().optional(), // Stored as comma-separated string, processed to array later
+  allergies: z.string().optional(),
   preferredCuisines: z.string().optional(),
   dispreferredCuisines: z.string().optional(),
   preferredIngredients: z.string().optional(),
   dispreferredIngredients: z.string().optional(),
-  mealsPerDay: z.coerce.number().min(2).max(7).default(3), // Re-added mealsPerDay for onboarding context
-  preferredMicronutrients: z.string().optional(), // Added from full profile schema
+  mealsPerDay: z.coerce.number().min(2).max(7).default(3), 
+  preferredMicronutrients: z.string().optional(),
 
   // Step 6: Medical Information (Optional)
   medicalConditions: z.string().optional(),
   medications: z.string().optional(),
 
-  // Step 8: Current Meal Plan Input
+  // Step 8: Customize Your Targets (Optional)
+  custom_total_calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().positive("Custom calories must be positive if provided.").optional()),
+  custom_protein_per_kg: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Protein per kg must be non-negative if provided.").optional()),
+  remaining_calories_carb_pct: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).max(100).optional().default(50)),
+
+  // Step 9: Manual Daily Targets (Optional)
+  manual_target_calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().positive("Calories must be positive").optional()),
+  manual_protein_g: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Protein must be non-negative").optional()),
+  manual_carbs_g: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Carbs must be non-negative").optional()),
+  manual_fat_g: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Fat must be non-negative").optional()),
+
+  // Step 10: Meal Macro Distribution (Optional)
+  mealDistributions: z.array(MealMacroDistributionSchema).optional(),
+
+  // Step 11: Current Meal Plan Input
   typicalMealsDescription: z.string().optional(),
 });
 
 export type OnboardingFormValues = z.infer<typeof OnboardingFormSchema>;
+
+```
