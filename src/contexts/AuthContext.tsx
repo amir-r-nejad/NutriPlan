@@ -12,7 +12,7 @@ import {
   signOut as firebaseSignOut,
   type User as FirebaseUser 
 } from 'firebase/auth';
-import { app } from '@/lib/firebase'; // Import your Firebase app instance
+import { app } from '@/lib/firebase'; 
 import { useToast } from '@/hooks/use-toast';
 
 interface User {
@@ -59,9 +59,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else {
         setUser(null);
         setIsOnboarded(false);
-        // No need to remove individual user's onboarding status here, 
-        // as it's keyed by UID and will be inaccessible anyway.
-        // If there was a general 'nutriplan_onboarded' key, it could be removed here.
       }
       setIsLoading(false);
     });

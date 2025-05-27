@@ -15,29 +15,44 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const { signup, isLoading: authIsLoading } = useAuth(); // Use signup and isLoading from AuthContext
+  const { signup, isLoading: authIsLoading } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+
+    if (!email || !password || !confirmPassword) {
+      toast({
+        title: "Signup Failed",
+        description: "Please fill all fields.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Signup Failed",
+        description: "Password should be at least 6 characters.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast({
         title: "Signup Failed",
         description: "Passwords do not match.",
         variant: "destructive",
       });
+      setIsSubmitting(false);
       return;
     }
-    if (!email || !password) {
-      toast({
-        title: "Signup Failed",
-        description: "Please fill all fields.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setIsSubmitting(true);
+    
     await signup(email, password);
     setIsSubmitting(false);
     // Navigation to onboarding or dashboard is handled by AuthContext
