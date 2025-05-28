@@ -13,11 +13,11 @@ import { Loader2, ChefHat, AlertTriangle, Sparkles, Settings } from 'lucide-reac
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"; 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { ProfileFormValues as FullProfileType, CalculatedTargets, MacroResults } from '@/lib/schemas'; 
+import type { FullProfileType } from '@/lib/schemas'; 
 import { MealSuggestionPreferencesSchema, type MealSuggestionPreferencesValues } from '@/lib/schemas'; 
 import { suggestMealsForMacros, type SuggestMealsForMacrosInput, type SuggestMealsForMacrosOutput } from '@/ai/flows/suggest-meals-for-macros';
 import { mealNames, defaultMacroPercentages, preferredDiets } from '@/lib/constants'; 
@@ -67,7 +67,7 @@ function MealSuggestionsContent() {
     defaultValues: {
       preferredDiet: undefined, preferredCuisines: [], dispreferredCuisines: [],
       preferredIngredients: [], dispreferredIngredients: [], allergies: [],
-      preferredMicronutrients: [], medicalConditions: [], medications: [],
+      // preferredMicronutrients: [], medicalConditions: [], medications: [], // These were removed from profile, ensure they are not expected here unless re-added
     },
   });
 
@@ -78,15 +78,15 @@ function MealSuggestionsContent() {
         .then(data => {
           setFullProfileData(data);
           preferenceForm.reset({
-            preferredDiet: data.preferredDiet,
+            preferredDiet: data.preferredDiet || undefined,
             preferredCuisines: data.preferredCuisines || [],
             dispreferredCuisines: data.dispreferredCuisines || [],
             preferredIngredients: data.preferredIngredients || [],
             dispreferredIngredients: data.dispreferredIngredients || [],
             allergies: data.allergies || [],
-            preferredMicronutrients: data.preferredMicronutrients || [],
-            medicalConditions: data.medicalConditions || [],
-            medications: data.medications || [],
+            // preferredMicronutrients: data.preferredMicronutrients || [],
+            // medicalConditions: data.medicalConditions || [],
+            // medications: data.medications || [],
           });
         })
         .catch(() => toast({title: "Error", description: "Could not load profile data.", variant: "destructive"}))
@@ -96,7 +96,7 @@ function MealSuggestionsContent() {
       preferenceForm.reset({
             preferredDiet: undefined, preferredCuisines: [], dispreferredCuisines: [],
             preferredIngredients: [], dispreferredIngredients: [], allergies: [],
-            preferredMicronutrients: [], medicalConditions: [], medications: [],
+            // preferredMicronutrients: [], medicalConditions: [], medications: [],
       });
     }
   }, [user, toast, preferenceForm]);
@@ -107,7 +107,7 @@ function MealSuggestionsContent() {
       return;
     }
 
-    if (isLoadingProfile && (!fullProfileData || Object.keys(fullProfileData).length === 0) ) { // Wait if profile is loading and no data yet
+    if (isLoadingProfile && (!fullProfileData || Object.keys(fullProfileData).length === 0) ) {
       setIsLoadingTargets(true);
       return;
     }
@@ -115,8 +115,6 @@ function MealSuggestionsContent() {
 
     let demoModeTriggered = false;
     const exampleTargets = { mealName: selectedMealName, calories: 500, protein: 30, carbs: 60, fat: 20 };
-
-    // Use profile data from state if available
     const profileToUse = fullProfileData;
 
     if (profileToUse && profileToUse.age && profileToUse.current_weight && profileToUse.height_cm && profileToUse.activityLevel && profileToUse.dietGoal) {
@@ -142,12 +140,12 @@ function MealSuggestionsContent() {
       } else {
         setTargetMacros(exampleTargets);
         demoModeTriggered = true;
-        if (!isDemoMode) toast({ title: "Using Example Targets", description: `Could not calculate specific targets for ${selectedMealName} from profile.`, duration: 4000 });
+        if (!isDemoMode) toast({ title: "Using Example Targets", description: `Could not calculate specific targets for ${selectedMealName} from profile. Ensure profile basics are complete.`, duration: 4000, variant: "default" });
       }
     } else {
       setTargetMacros(exampleTargets);
       demoModeTriggered = true;
-      if (!isDemoMode) toast({ title: "Profile Incomplete", description: `Showing example targets for ${selectedMealName}. Please complete your profile for personalized calculations.`, duration: 5000 });
+      if (!isDemoMode) toast({ title: "Profile Incomplete", description: `Showing example targets for ${selectedMealName}. Please complete your profile for personalized calculations.`, duration: 5000, variant: "default" });
     }
     setIsDemoMode(demoModeTriggered);
     setSuggestions([]);
@@ -195,6 +193,8 @@ function MealSuggestionsContent() {
 
   const handleMealSelectionChange = (mealValue: string) => {
     setSelectedMealName(mealValue);
+    setSuggestions([]); // Clear previous suggestions when meal changes
+    setError(null); // Clear previous errors
   };
 
   const handleGetSuggestions = async () => {
@@ -202,18 +202,14 @@ function MealSuggestionsContent() {
       toast({title: "Error", description: "Target macros not loaded. Select a meal first.", variant: "destructive"});
       return;
     }
-    if (!user && !isDemoMode) {
-        toast({title: "Please wait", description: "User profile is still loading or not available.", variant: "default"});
-        return;
-    }
     if (isLoadingProfile && !isDemoMode && (!fullProfileData || Object.keys(fullProfileData).length === 0)){
         toast({title: "Please wait", description: "User profile is still loading.", variant: "default"});
         return;
     }
 
     setIsLoadingAiSuggestions(true);
-    setSuggestions([]);
-    setError(null);
+    setSuggestions([]); // Clear previous suggestions
+    setError(null); // Clear previous errors
 
     const currentPreferences = preferenceForm.getValues();
     const profileToUseForAI = fullProfileData;
@@ -328,16 +324,22 @@ function MealSuggestionsContent() {
                         {renderPreferenceTextarea("dispreferredCuisines", "Dispreferred Cuisines", "e.g., Thai, French")}
                         {renderPreferenceTextarea("preferredIngredients", "Preferred Ingredients", "e.g., Chicken, Broccoli")}
                         {renderPreferenceTextarea("dispreferredIngredients", "Dispreferred Ingredients", "e.g., Tofu, Mushrooms")}
+                        {/* 
+                        These fields were removed from profile schema, if needed here, add them to MealSuggestionPreferencesSchema
                         {renderPreferenceTextarea("preferredMicronutrients", "Targeted Micronutrients", "e.g., Vitamin D, Iron")}
+                        */}
                       </CardContent>
                     </Card>
+                    {/* 
+                    These fields were removed from profile schema, if needed here, add them to MealSuggestionPreferencesSchema
                       <Card>
                       <CardHeader><CardTitle className="text-xl">Medical Information (for AI awareness)</CardTitle></CardHeader>
                       <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
                         {renderPreferenceTextarea("medicalConditions", "Medical Conditions", "e.g., Diabetes, Hypertension")}
                         {renderPreferenceTextarea("medications", "Medications", "e.g., Metformin, Lisinopril")}
                       </CardContent>
-                    </Card>
+                    </Card> 
+                    */}
                   </form>
                 </Form>
               </AccordionContent>
@@ -369,7 +371,7 @@ function MealSuggestionsContent() {
             <>
               <div className="mb-6 p-4 border rounded-md bg-muted/50">
                 <h3 className="text-lg font-semibold mb-2 text-primary">Target Macros for {targetMacros.mealName}:</h3>
-                {isDemoMode && <p className="text-sm text-amber-600 dark:text-amber-400 mb-2">(Displaying example targets as profile is incomplete or direct calculation was not possible.)</p>}
+                {isDemoMode && <p className="text-sm text-amber-600 dark:text-amber-400 mb-2">(Displaying example targets. Complete profile or navigate from Macro Splitter for personalized targets.)</p>}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <p><span className="font-medium">Calories:</span> {targetMacros.calories.toFixed(0)} kcal</p>
                   <p><span className="font-medium">Protein:</span> {targetMacros.protein.toFixed(1)} g</p>
@@ -378,9 +380,9 @@ function MealSuggestionsContent() {
                 </div>
               </div>
 
-              <Button onClick={handleGetSuggestions} disabled={isLoadingAiSuggestions || (isLoadingProfile && !isDemoMode)} size="lg" className="w-full md:w-auto">
+              <Button onClick={handleGetSuggestions} disabled={isLoadingAiSuggestions || isLoadingProfile} size="lg" className="w-full md:w-auto">
                 {isLoadingAiSuggestions ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
-                {(isLoadingProfile && !isDemoMode && (!fullProfileData || Object.keys(fullProfileData).length === 0)) && !isLoadingAiSuggestions ? "Loading Profile..." : (isLoadingAiSuggestions ? "Getting Suggestions..." : "Get AI Meal Suggestions")}
+                {isLoadingProfile && !isDemoMode && (!fullProfileData || Object.keys(fullProfileData).length === 0) && !isLoadingAiSuggestions ? "Loading Profile..." : (isLoadingAiSuggestions ? "Getting Suggestions..." : "Get AI Meal Suggestions")}
               </Button>
               
               {error && (<p className="text-destructive mt-4"><AlertTriangle className="inline mr-1 h-4 w-4" />{error}</p>)}
@@ -398,7 +400,7 @@ function MealSuggestionsContent() {
 
       {suggestions.length > 0 && !isLoadingAiSuggestions && (
         <div className="space-y-4">
-          <h2 className="text-2xl font-semibold text-primary mt-8 mb-4">Here are some ideas for your {selectedMealName || 'meal'}:</h2>
+          <h2 className="text-2xl font-semibold text-primary mt-8 mb-4">Here are some ideas for your {targetMacros?.mealName || 'meal'}:</h2>
           {suggestions.map((suggestion, index) => (
             <Card key={index} className="shadow-md hover:shadow-lg transition-shadow">
               <CardHeader>
@@ -463,3 +465,6 @@ export default function MealSuggestionsPage() {
     </Suspense>
   );
 }
+
+
+    
