@@ -18,21 +18,21 @@ const AIServiceIngredientSchema = z.object({
   name: z.string().describe("Name of the ingredient."),
   quantity: z.number().describe("Quantity of the ingredient."),
   unit: z.string().describe("Unit for the quantity (e.g., g, ml, piece)."),
-  calories: z.number().describe("Total calories for this quantity of the ingredient."),
-  protein: z.number().describe("Total protein (g) for this quantity of the ingredient."),
-  carbs: z.number().describe("Total carbohydrates (g) for this quantity of the ingredient."),
-  fat: z.number().describe("Total fat (g) for this quantity of the ingredient."),
+  calories: z.number().describe("Total calories for this specific quantity of the ingredient."),
+  protein: z.number().describe("Total protein (g) for this specific quantity of the ingredient."),
+  carbs: z.number().describe("Total carbohydrates (g) for this specific quantity of the ingredient."),
+  fat: z.number().describe("Total fat (g) for this specific quantity of the ingredient."),
 });
 
-// Define Zod schema for a meal as expected by AI (total macros for given quantity)
+// Define Zod schema for a meal as expected by AI (macros are totals for given quantities)
 const AIServiceMealSchema = z.object({
-  name: z.string().describe("Original meal name (e.g., Breakfast, Lunch)."),
+  name: z.string().describe("Original meal name (e.g., Breakfast, Lunch). This should generally not be changed by the AI unless the meal becomes fundamentally different."),
   customName: z.string().optional().describe("Custom name of the meal if any (e.g., Chicken Salad). AI can update this if the meal changes significantly."),
-  ingredients: z.array(AIServiceIngredientSchema).describe("List of ingredients in the meal."),
-  totalCalories: z.number().describe("Total calories for the meal."),
-  totalProtein: z.number().describe("Total protein (g) for the meal."),
-  totalCarbs: z.number().describe("Total carbohydrates (g) for the meal."),
-  totalFat: z.number().describe("Total fat (g) for the meal."),
+  ingredients: z.array(AIServiceIngredientSchema).describe("List of ingredients in the meal. Each ingredient MUST have its nutritional information (calories, protein, carbs, fat) correctly calculated for its specified quantity and unit."),
+  totalCalories: z.number().describe("Total calories for the meal. This MUST be the sum of 'calories' from the 'ingredients' list."),
+  totalProtein: z.number().describe("Total protein (g) for the meal. This MUST be the sum of 'protein' from the 'ingredients' list."),
+  totalCarbs: z.number().describe("Total carbohydrates (g) for the meal. This MUST be the sum of 'carbs' from the 'ingredients' list."),
+  totalFat: z.number().describe("Total fat (g) for the meal. This MUST be the sum of 'fat' from the 'ingredients' list."),
 });
 
 
@@ -59,7 +59,7 @@ export type AdjustMealIngredientsInput = z.infer<typeof AdjustMealIngredientsInp
 
 
 const AdjustMealIngredientsOutputSchema = z.object({
-  adjustedMeal: AIServiceMealSchema.describe("The meal object after AI adjustments, with new ingredients and recalculated total macros."),
+  adjustedMeal: AIServiceMealSchema.describe("The meal object after AI adjustments, with new ingredients and recalculated total macros. All ingredient nutritional values MUST be for their specific quantities. The meal's total macros MUST be the sum of its ingredients' macros."),
   explanation: z.string().describe("A brief explanation of the changes made by the AI to meet the targets."),
 });
 export type AdjustMealIngredientsOutput = z.infer<typeof AdjustMealIngredientsOutputSchema>;
@@ -81,7 +81,7 @@ User Profile:
 {{#if userProfile.activityLevel}}Activity Level: {{{userProfile.activityLevel}}}{{/if}}
 {{#if userProfile.dietGoal}}Diet Goal: {{{userProfile.dietGoal}}}{{/if}}
 {{#if userProfile.preferredDiet}}Preferred Diet: {{{userProfile.preferredDiet}}}{{/if}}
-{{#if userProfile.allergies.length}}Allergies: {{#each userProfile.allergies}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}} (Strictly avoid these){{/if}}
+{{#if userProfile.allergies.length}}Allergies: {{#each userProfile.allergies}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}} (Strictly avoid these ingredients){{/if}}
 {{#if userProfile.dispreferredIngredients.length}}Disliked Ingredients: {{#each userProfile.dispreferredIngredients}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}} (Avoid if possible){{/if}}
 {{#if userProfile.preferredIngredients.length}}Preferred Ingredients: {{#each userProfile.preferredIngredients}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}} (Try to include if suitable){{/if}}
 
@@ -105,17 +105,23 @@ Instructions:
 2. Compare current macros with the target macros.
 3. Adjust the meal to meet the target macros as closely as possible. This may involve:
     - Changing quantities of existing ingredients.
-    - Swapping ingredients for healthier or more suitable alternatives.
+    - Swapping ingredients for healthier or more suitable alternatives (respecting allergies and preferences).
     - Adding new ingredients.
     - Removing ingredients.
-4. Adhere strictly to user allergies. Try to accommodate disliked/preferred ingredients.
-5. The 'adjustedMeal' output's 'ingredients' array MUST contain the complete new list of ingredients. For each ingredient, you MUST provide its name, quantity, unit, and its TOTAL calories, protein (g), carbs (g), and fat (g) for that specific quantity and unit.
-6. Recalculate and provide the new 'totalCalories', 'totalProtein', 'totalCarbs', and 'totalFat' for the 'adjustedMeal' based on the new ingredient list.
-7. Provide a concise 'explanation' detailing the main changes you made and why (e.g., "Reduced chicken quantity to lower protein, added avocado for healthy fats to meet calorie target.").
+4. For the 'adjustedMeal.ingredients' output, for EACH ingredient, you MUST provide:
+    - 'name': The name of the ingredient.
+    - 'quantity': The new quantity of this ingredient.
+    - 'unit': The unit for the quantity (e.g., g, ml, piece).
+    - 'calories': TOTAL calories for THIS SPECIFIC QUANTITY of this ingredient.
+    - 'protein': TOTAL protein (g) for THIS SPECIFIC QUANTITY of this ingredient.
+    - 'carbs': TOTAL carbohydrates (g) for THIS SPECIFIC QUANTITY of this ingredient.
+    - 'fat': TOTAL fat (g) for THIS SPECIFIC QUANTITY of this ingredient.
+5.  The 'adjustedMeal' output's 'totalCalories', 'totalProtein', 'totalCarbs', and 'totalFat' MUST be the accurate sum of the respective nutritional values from the 'ingredients' list you provide. Double-check your calculations.
+6.  Provide a concise 'explanation' detailing the main changes you made and why (e.g., "Reduced chicken quantity to lower protein, added avocado for healthy fats to meet calorie target.").
+7.  If the original meal was empty or targets are very hard to meet with the original items, try to create a new simple meal that fits the targets and preferences, and explain this. The adjusted meal name ('name' field of AIServiceMealSchema) should ideally remain the same as the original meal's name unless the meal is fundamentally changed. The 'customName' can be updated or added.
 
 Return the 'adjustedMeal' and 'explanation' in the specified JSON format.
-Ensure the 'adjustedMeal.ingredients' list accurately reflects the new composition and that the total macros for 'adjustedMeal' are correctly summed from these new ingredients.
-If the original meal was empty or targets are impossible to meet with sensible food choices, try your best to create a new simple meal that fits the targets and preferences, and explain this.
+Ensure all fields in the 'adjustedMeal' (especially the ingredients list and total macros) are complete and accurate.
 `,
 });
 
@@ -130,7 +136,11 @@ const adjustMealIngredientsFlow = ai.defineFlow(
     if (!output) {
       throw new Error("AI did not return an output for meal adjustment.");
     }
-    // Potentially add validation here to ensure output.adjustedMeal.ingredients sum up to output.adjustedMeal.totalMacros
+    // TODO: Potentially add validation here to ensure output.adjustedMeal.ingredients sum up to output.adjustedMeal.totalMacros
+    // For example:
+    // let calSum = 0; output.adjustedMeal.ingredients.forEach(ing => calSum += ing.calories);
+    // if (Math.abs(calSum - output.adjustedMeal.totalCalories) > 5) { /* throw error or log warning */ }
     return output;
   }
 );
+
