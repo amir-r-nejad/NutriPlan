@@ -11,7 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro model object
+// Removed direct import of geminiPro as we rely on the global default
 
 const SuggestMealsForMacrosInputSchema = z.object({
   mealName: z.string().describe("The name of the meal type, e.g., Breakfast, Lunch."),
@@ -20,7 +20,6 @@ const SuggestMealsForMacrosInputSchema = z.object({
   targetCarbsGrams: z.number().describe("Target carbohydrates in grams for the meal."),
   targetFatGrams: z.number().describe("Target fat in grams for the meal."),
   
-  // Optional user profile data for personalization
   age: z.number().optional().describe('The age of the user.'),
   gender: z.string().optional().describe('The gender of the user.'),
   activityLevel: z.string().optional().describe('The activity level of the user (e.g., sedentary, light, moderate, active).'),
@@ -68,7 +67,7 @@ export async function suggestMealsForMacros(input: SuggestMealsForMacrosInput): 
 // Defining the prompt for suggesting meals
 const prompt = ai.definePrompt({
   name: 'suggestMealsForMacrosPrompt',
-  model: geminiPro, // Using the imported geminiPro model object
+  // model: geminiPro, // Relying on global default model from genkit.ts
   input: { schema: SuggestMealsForMacrosInputSchema },
   output: { schema: SuggestMealsForMacrosOutputSchema },
   prompt: `You are a creative nutritionist and recipe developer. Your task is to suggest 1-3 detailed meal ideas for a specific mealtime that meet the user's macronutrient targets and adhere to their preferences.
