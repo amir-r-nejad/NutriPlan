@@ -11,7 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { geminiPro } from '@genkit-ai/googleai'; // Import the specific model reference
+import { geminiPro } from '@genkit-ai/googleai'; // Ensure geminiPro is imported
 
 const SuggestMealsForMacrosInputSchema = z.object({
   mealName: z.string().describe("The name of the meal type, e.g., Breakfast, Lunch."),
@@ -65,9 +65,10 @@ export async function suggestMealsForMacros(input: SuggestMealsForMacrosInput): 
   return suggestMealsForMacrosFlow(input);
 }
 
+// Defining the prompt for suggesting meals
 const prompt = ai.definePrompt({
   name: 'suggestMealsForMacrosPrompt',
-  model: geminiPro, // Use the imported model object
+  model: geminiPro, // Explicitly using the imported geminiPro model reference
   input: { schema: SuggestMealsForMacrosInputSchema },
   output: { schema: SuggestMealsForMacrosOutputSchema },
   prompt: `You are a creative nutritionist and recipe developer. Your task is to suggest 1-3 detailed meal ideas for a specific mealtime that meet the user's macronutrient targets and adhere to their preferences.
@@ -119,6 +120,7 @@ const suggestMealsForMacrosFlow = ai.defineFlow(
     outputSchema: SuggestMealsForMacrosOutputSchema,
   },
   async (input) => {
+    // Making the AI call
     const { output } = await prompt(input);
     if (!output) {
       throw new Error("AI did not return an output.");
@@ -128,3 +130,7 @@ const suggestMealsForMacrosFlow = ai.defineFlow(
   }
 );
 
+// Ensuring the model is explicitly set for this prompt.
+// This comment is to help with cache busting if needed.
+
+    
