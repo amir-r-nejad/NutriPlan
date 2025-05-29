@@ -31,14 +31,15 @@ export const preferredDiets = [
   { value: "high_protein", label: "High Protein" },
 ];
 
-export const mealsPerDayOptions = [
-  { value: 2, label: "2 meals per day" },
-  { value: 3, label: "3 meals per day" },
-  { value: 4, label: "4 meals per day" },
-  { value: 5, label: "5 meals per day" },
-  { value: 6, label: "6 meals per day" },
-  { value: 7, label: "7 meals per day" },
-];
+// mealsPerDayOptions is removed as the field is removed from onboarding
+// export const mealsPerDayOptions = [
+//   { value: 2, label: "2 meals per day" },
+//   { value: 3, label: "3 meals per day" },
+//   { value: 4, label: "4 meals per day" },
+//   { value: 5, label: "5 meals per day" },
+//   { value: 6, label: "6 meals per day" },
+//   { value: 7, label: "7 meals per day" },
+// ];
 
 export const genders = [
   { value: "male", label: "Male" },
@@ -143,7 +144,7 @@ export const onboardingStepsData = [
     title: "Step 5 – Dietary Preferences & Restrictions",
     explanation: "We personalize your meals to match your taste and lifestyle. By knowing your dietary style, allergies, and food preferences, the AI avoids what you dislike and suggests what you’ll enjoy and can eat safely.",
     tooltipText: "Let us know your diet style, allergies, and food likes/dislikes so we can build a plan you’ll enjoy.",
-    fieldsToValidate: ["preferredDiet", "allergies", "preferredCuisines", "dispreferredCuisines", "preferredIngredients", "dispreferredIngredients", "mealsPerDay"],
+    fieldsToValidate: ["preferredDiet", "allergies", "preferredCuisines", "dispreferredCuisines", "preferredIngredients", "dispreferredIngredients" /* "mealsPerDay" removed */],
     isOptional: false,
   },
   {
@@ -159,7 +160,7 @@ export const onboardingStepsData = [
     title: "Step 7 – Smart Calculation & Macros",
     explanation: "We’ll generate your personal targets using your data. We estimate your daily calories and macronutrients to support your weight or health goals — whether it’s fat loss, muscle gain, or maintenance.",
     tooltipText: "Based on your inputs, we estimate ideal calories and macronutrients to support your goals.",
-    fieldsToValidate: [], // No direct input fields, but relies on previous steps
+    fieldsToValidate: [], 
     isOptional: false,
   },
   {
@@ -170,33 +171,26 @@ export const onboardingStepsData = [
     fieldsToValidate: ["custom_total_calories", "custom_protein_per_kg", "remaining_calories_carb_pct"],
     isOptional: true,
   },
+  // Old Step 9 (Set Your Own Daily Targets) is REMOVED
   {
-    stepNumber: 9,
-    title: "Step 9 – Set Your Own Daily Targets (Optional)",
-    explanation: "If you have specific daily calorie and macronutrient goals already, enter them here. This will override any previous calculations for the next step (meal distribution).",
-    tooltipText: "Define your exact daily calorie, protein, carb, and fat targets if you prefer manual control.",
-    fieldsToValidate: ["manual_target_calories", "manual_protein_g", "manual_carbs_g", "manual_fat_g"],
-    isOptional: true,
-  },
-  {
-    stepNumber: 10,
-    title: "Step 10 – Plan Your Meal Macros (Optional)",
+    stepNumber: 9, // Was 10
+    title: "Step 9 – Plan Your Meal Macros (Optional)",
     explanation: "Allocate your total daily macros (calories, protein, carbs, fat) across your meals by percentage. This helps structure your eating day based on the targets set in the previous steps.",
     tooltipText: "Set the percentage of your daily calories, protein, carbs, and fat for each meal.",
-    fieldsToValidate: ["mealDistributions"],
+    fieldsToValidate: ["mealDistributions"], // This implies that the sum validation in the component should be met or handled
     isOptional: true,
   },
   {
-    stepNumber: 11,
-    title: "Step 11 – Describe Your Typical Meals",
+    stepNumber: 10, // Was 11
+    title: "Step 10 – Describe Your Typical Meals",
     explanation: "Help us learn what you usually eat. By sharing your current meals, snacks, and eating habits, our AI can better understand your real-world preferences — including foods you enjoy, timing, and portion sizes. This helps us fine-tune your future meal plan to feel natural and sustainable.",
     tooltipText: "Show us what you typically eat. This helps our AI learn your habits and build a realistic, personalized plan.",
     fieldsToValidate: ["typicalMealsDescription"],
     isOptional: false,
   },
   {
-    stepNumber: 12,
-    title: "Step 12 – Ready for Your AI Meal Plan!",
+    stepNumber: 11, // Was 12
+    title: "Step 11 – Ready for Your AI Meal Plan!",
     explanation: "You're all set! Your profile is complete. Click 'Finish Onboarding' to save your profile and proceed to the dashboard. You can then generate your first AI-powered meal plan.",
     tooltipText: "Get your first weekly plan — customized to your needs, goals, and preferences. You can always tweak it.",
     fieldsToValidate: [],
