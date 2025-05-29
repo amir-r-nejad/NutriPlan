@@ -11,7 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-// Removed import of geminiPro, will use string identifier
+import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro model object
 
 const SuggestMealsForMacrosInputSchema = z.object({
   mealName: z.string().describe("The name of the meal type, e.g., Breakfast, Lunch."),
@@ -68,7 +68,7 @@ export async function suggestMealsForMacros(input: SuggestMealsForMacrosInput): 
 // Defining the prompt for suggesting meals
 const prompt = ai.definePrompt({
   name: 'suggestMealsForMacrosPrompt',
-  model: 'gemini-1.0-pro', // Using string identifier for the model
+  model: geminiPro, // Using the imported geminiPro model object
   input: { schema: SuggestMealsForMacrosInputSchema },
   output: { schema: SuggestMealsForMacrosOutputSchema },
   prompt: `You are a creative nutritionist and recipe developer. Your task is to suggest 1-3 detailed meal ideas for a specific mealtime that meet the user's macronutrient targets and adhere to their preferences.
@@ -129,5 +129,3 @@ const suggestMealsForMacrosFlow = ai.defineFlow(
     return output;
   }
 );
-
-// Model specified in definePrompt with string identifier.
