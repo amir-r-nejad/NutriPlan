@@ -31,6 +31,7 @@ import React, { useEffect, useState } from "react";
 import { subscriptionStatuses, exerciseFrequencies, exerciseIntensities } from "@/lib/constants";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/clientApp';
+import { AlertTriangle, RefreshCcw } from "lucide-react";
 
 
 async function getProfileData(userId: string): Promise<Partial<ProfileFormValues>> {
@@ -42,15 +43,16 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
       const fullProfile = docSnap.data() as FullProfileType;
       // Extract only the fields relevant to this simplified profile form
       return {
-        name: fullProfile.name,
-        subscriptionStatus: fullProfile.subscriptionStatus,
-        painMobilityIssues: fullProfile.painMobilityIssues,
+        name: fullProfile.name ?? undefined,
+        subscriptionStatus: fullProfile.subscriptionStatus ?? undefined,
+        // Fields removed in previous steps are not loaded into this specific form
+        painMobilityIssues: fullProfile.painMobilityIssues ?? undefined,
         injuries: fullProfile.injuries || [], 
         surgeries: fullProfile.surgeries || [], 
         exerciseGoals: fullProfile.exerciseGoals || [],
         exercisePreferences: fullProfile.exercisePreferences || [],
-        exerciseFrequency: fullProfile.exerciseFrequency,
-        exerciseIntensity: fullProfile.exerciseIntensity,
+        exerciseFrequency: fullProfile.exerciseFrequency ?? undefined,
+        exerciseIntensity: fullProfile.exerciseIntensity ?? undefined,
         equipmentAccess: fullProfile.equipmentAccess || [],
       };
     }
@@ -58,8 +60,10 @@ async function getProfileData(userId: string): Promise<Partial<ProfileFormValues
     console.error("Error fetching profile from Firestore:", error);
   }
   return { 
-    name: "", subscriptionStatus: undefined, painMobilityIssues: "", injuries: [], surgeries: [],
-    exerciseGoals: [], exercisePreferences: [], exerciseFrequency: undefined, exerciseIntensity: undefined, equipmentAccess: []
+    name: undefined, subscriptionStatus: undefined, 
+    painMobilityIssues: undefined, injuries: [], surgeries: [],
+    exerciseGoals: [], exercisePreferences: [], exerciseFrequency: undefined, 
+    exerciseIntensity: undefined, equipmentAccess: []
   };
 }
 
@@ -68,14 +72,25 @@ async function saveProfileData(userId: string, data: ProfileFormValues) {
   
   try {
     const userProfileRef = doc(db, "users", userId);
-    const dataToSave: Record<string, any> = { ...data };
+    const docSnap = await getDoc(userProfileRef);
+    let existingProfile: Partial<FullProfileType> = {};
+    if (docSnap.exists()) {
+      existingProfile = docSnap.data() as FullProfileType;
+    }
+
+    const dataToSave: Record<string, any> = { ...existingProfile };
     
-    // Convert undefined optional fields to null for Firestore compatibility
-    (Object.keys(dataToSave) as Array<keyof ProfileFormValues>).forEach(key => {
-        if (dataToSave[key] === undefined) {
-            dataToSave[key] = null;
+    // Merge only the fields present in ProfileFormValues
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        const formKey = key as keyof ProfileFormValues;
+        if (data[formKey] === undefined) {
+          dataToSave[formKey] = null; // Convert undefined from form to null for Firestore
+        } else {
+          dataToSave[formKey] = data[formKey];
         }
-    });
+      }
+    }
     
     await setDoc(userProfileRef, dataToSave, { merge: true }); 
   } catch (error) {
@@ -93,9 +108,9 @@ export default function ProfilePage() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(ProfileFormSchema),
     defaultValues: {
-      name: "",
+      name: undefined,
       subscriptionStatus: undefined,
-      painMobilityIssues: "",
+      painMobilityIssues: undefined,
       injuries: [],
       surgeries: [],
       exerciseGoals: [],
@@ -144,7 +159,8 @@ export default function ProfilePage() {
       control={form.control}
       name={fieldName}
       render={({ field }) => {
-        const displayValue = Array.isArray(field.value) ? field.value.join(', ') : '';
+        // Ensure value is always a string for the textarea
+        const displayValue = Array.isArray(field.value) ? field.value.join(', ') : (field.value || '');
         return (
           <FormItem>
             <FormLabel>{label}</FormLabel>
@@ -162,6 +178,26 @@ export default function ProfilePage() {
       }}
     />
   );
+
+  const handleResetOnboarding = async () => {
+    if (!user?.uid) {
+      toast({ title: "Error", description: "User not found.", variant: "destructive" });
+      return;
+    }
+    try {
+      const userProfileRef = doc(db, "users", user.uid);
+      await setDoc(userProfileRef, { onboardingComplete: false }, { merge: true });
+      toast({
+        title: "Onboarding Reset",
+        description: "Your onboarding status has been reset. The app will now reload.",
+      });
+      // Force a reload to trigger AuthContext to re-evaluate onboarding status
+      window.location.reload();
+    } catch (error) {
+      console.error("Error resetting onboarding status:", error);
+      toast({ title: "Reset Failed", description: "Could not reset onboarding status.", variant: "destructive" });
+    }
+  };
   
   if (isLoading && user) { 
     return <div className="flex justify-center items-center h-full"><p>Loading profile...</p></div>;
@@ -177,7 +213,7 @@ export default function ProfilePage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             
-            <Accordion type="multiple" defaultValue={['account-info', 'medical-physical', 'exercise-preferences']} className="w-full">
+            <Accordion type="multiple" defaultValue={['account-info']} className="w-full">
               <AccordionItem value="account-info">
                 <AccordionTrigger className="text-xl font-semibold">Account Information</AccordionTrigger>
                 <AccordionContent className="space-y-6 pt-4 px-1">
@@ -227,8 +263,10 @@ export default function ProfilePage() {
                   />
                 </AccordionContent>
               </AccordionItem>
-
-              <AccordionItem value="medical-physical">
+             
+               {/* Medical Info & Physical Limitations and Exercise Preferences accordions were removed */}
+               {/* Adding them back for completeness as per user's current file state */}
+               <AccordionItem value="medical-physical">
                 <AccordionTrigger className="text-xl font-semibold">Medical Info & Physical Limitations</AccordionTrigger>
                 <AccordionContent className="space-y-6 pt-4 px-1">
                   <FormField
@@ -306,6 +344,31 @@ export default function ProfilePage() {
             </Button>
           </form>
         </Form>
+
+        {/* Developer Section for Resetting Onboarding */}
+        <Card className="mt-12 border-destructive/50">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center text-destructive">
+              <AlertTriangle className="mr-2 h-5 w-5" /> Developer Tools
+            </CardTitle>
+            <CardDescription>
+              Use these tools for testing purposes only.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              variant="destructive"
+              onClick={handleResetOnboarding}
+              className="w-full"
+            >
+              <RefreshCcw className="mr-2 h-4 w-4" /> Reset Onboarding Status
+            </Button>
+            <p className="text-xs text-muted-foreground mt-2">
+              This will set your onboarding status to incomplete, allowing you to go through the onboarding flow again. The page will reload.
+            </p>
+          </CardContent>
+        </Card>
+
       </CardContent>
     </Card>
   );
