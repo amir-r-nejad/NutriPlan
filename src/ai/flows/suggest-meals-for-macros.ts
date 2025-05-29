@@ -11,7 +11,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-// Removed direct import of geminiPro as we rely on the global default
+import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro directly
 
 const SuggestMealsForMacrosInputSchema = z.object({
   mealName: z.string().describe("The name of the meal type, e.g., Breakfast, Lunch."),
@@ -64,32 +64,38 @@ export async function suggestMealsForMacros(input: SuggestMealsForMacrosInput): 
   return suggestMealsForMacrosFlow(input);
 }
 
-// Defining the prompt for suggesting meals
-const prompt = ai.definePrompt({
-  name: 'suggestMealsForMacrosPrompt',
-  // model: geminiPro, // Relying on global default model from genkit.ts
-  input: { schema: SuggestMealsForMacrosInputSchema },
-  output: { schema: SuggestMealsForMacrosOutputSchema },
-  prompt: `You are a creative nutritionist and recipe developer. Your task is to suggest 1-3 detailed meal ideas for a specific mealtime that meet the user's macronutrient targets and adhere to their preferences.
+// Removed ai.definePrompt block
 
-Meal Type: {{{mealName}}}
-Target Calories: {{{targetCalories}}} kcal
-Target Protein: {{{targetProteinGrams}}} g
-Target Carbohydrates: {{{targetCarbsGrams}}} g
-Target Fat: {{{targetFatGrams}}} g
+const suggestMealsForMacrosFlow = ai.defineFlow(
+  {
+    name: 'suggestMealsForMacrosFlow',
+    inputSchema: SuggestMealsForMacrosInputSchema,
+    outputSchema: SuggestMealsForMacrosOutputSchema,
+  },
+  async (input) => {
+    // Manually construct the prompt string
+    let promptText = `You are a creative nutritionist and recipe developer. Your task is to suggest 1-3 detailed meal ideas for a specific mealtime that meet the user's macronutrient targets and adhere to their preferences.
+
+Meal Type: ${input.mealName}
+Target Calories: ${input.targetCalories} kcal
+Target Protein: ${input.targetProteinGrams} g
+Target Carbohydrates: ${input.targetCarbsGrams} g
+Target Fat: ${input.targetFatGrams} g
 
 User Profile (if provided, use for personalization):
-{{#if age}}Age: {{{age}}}{{/if}}
-{{#if gender}}Gender: {{{gender}}}{{/if}}
-{{#if activityLevel}}Activity Level: {{{activityLevel}}}{{/if}}
-{{#if dietGoal}}Diet Goal: {{{dietGoal}}}{{/if}}
-{{#if preferredDiet}}Preferred Diet: {{{preferredDiet}}}{{/if}}
-{{#if preferredCuisines.length}}Preferred Cuisines: {{#each preferredCuisines}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
-{{#if dispreferredCuisines.length}}Dispreferred Cuisines: {{#each dispreferredCuisines}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
-{{#if preferredIngredients.length}}Preferred Ingredients: {{#each preferredIngredients}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
-{{#if dispreferredIngredients.length}}Dispreferred Ingredients: {{#each dispreferredIngredients}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}{{/if}}
-{{#if allergies.length}}Allergies: {{#each allergies}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}} (Ensure suggestions strictly avoid these allergens.){{/if}}
+`;
+    if (input.age) promptText += `Age: ${input.age}\n`;
+    if (input.gender) promptText += `Gender: ${input.gender}\n`;
+    if (input.activityLevel) promptText += `Activity Level: ${input.activityLevel}\n`;
+    if (input.dietGoal) promptText += `Diet Goal: ${input.dietGoal}\n`;
+    if (input.preferredDiet) promptText += `Preferred Diet: ${input.preferredDiet}\n`;
+    if (input.preferredCuisines && input.preferredCuisines.length > 0) promptText += `Preferred Cuisines: ${input.preferredCuisines.join(', ')}\n`;
+    if (input.dispreferredCuisines && input.dispreferredCuisines.length > 0) promptText += `Dispreferred Cuisines: ${input.dispreferredCuisines.join(', ')}\n`;
+    if (input.preferredIngredients && input.preferredIngredients.length > 0) promptText += `Preferred Ingredients: ${input.preferredIngredients.join(', ')}\n`;
+    if (input.dispreferredIngredients && input.dispreferredIngredients.length > 0) promptText += `Dispreferred Ingredients: ${input.dispreferredIngredients.join(', ')}\n`;
+    if (input.allergies && input.allergies.length > 0) promptText += `Allergies: ${input.allergies.join(', ')} (Ensure suggestions strictly avoid these allergens.)\n`;
 
+    promptText += `
 For each meal suggestion, provide:
 1.  A catchy 'mealTitle'.
 2.  A brief 'description' (1-2 sentences) that is appetizing and explains how it generally fits the nutritional goals.
@@ -109,22 +115,20 @@ Generate practical and appealing meal ideas.
 Return the output strictly in the specified JSON format, ensuring all numeric values are actual numbers and all string fields are populated.
 The 'ingredients' array must not be empty, and each ingredient object within it must be complete.
 The 'totalCalories', 'totalProtein', 'totalCarbs', and 'totalFat' for the meal MUST accurately reflect the sum of the respective values from the 'ingredients' you provide.
-`,
-});
+`;
 
-const suggestMealsForMacrosFlow = ai.defineFlow(
-  {
-    name: 'suggestMealsForMacrosFlow',
-    inputSchema: SuggestMealsForMacrosInputSchema,
-    outputSchema: SuggestMealsForMacrosOutputSchema,
-  },
-  async (input) => {
-    // Making the AI call
-    const { output } = await prompt(input);
+    // Making the AI call directly with ai.generate()
+    const { output } = await ai.generate({
+        model: geminiPro, // Explicitly use the imported model object
+        prompt: promptText,
+        output: { schema: SuggestMealsForMacrosOutputSchema, format: 'json' }, // Request structured output
+        // You could also add config here if needed, e.g., safetySettings
+    });
+
     if (!output) {
       throw new Error("AI did not return an output.");
     }
-    // Additional validation can be added here if needed, e.g., check if totals match sum of ingredients
+    // Additional validation can be added here if needed
     return output;
   }
 );
