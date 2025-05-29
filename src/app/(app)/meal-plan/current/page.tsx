@@ -1,14 +1,14 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
 import { Pencil, PlusCircle, Trash2, Wand2, Loader2 } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { daysOfWeek, mealNames, defaultMacroPercentages } from '@/lib/constants';
-import type { Meal, DailyMealPlan, WeeklyMealPlan, Ingredient, ProfileFormValues as FullProfileType, CalculatedTargets, MacroResults } from '@/lib/schemas';
+import type { Meal, DailyMealPlan, WeeklyMealPlan, Ingredient, FullProfileType, CalculatedTargets, MacroResults } from '@/lib/schemas';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -74,7 +74,26 @@ async function getProfileDataForOptimization(userId: string): Promise<Partial<Fu
     const userProfileRef = doc(db, "users", userId);
     const docSnap = await getDoc(userProfileRef);
     if (docSnap.exists()) {
-      return docSnap.data() as Partial<FullProfileType>;
+      const data = docSnap.data();
+      const profile: Partial<FullProfileType> = {
+        age: data.age,
+        gender: data.gender,
+        current_weight: data.current_weight,
+        height_cm: data.height_cm,
+        activityLevel: data.activityLevel,
+        dietGoal: data.dietGoalOnboarding, // Assuming dietGoal for tools is set during onboarding
+        preferredDiet: data.preferredDiet,
+        allergies: data.allergies || [],
+        dispreferredIngredients: data.dispreferredIngredients || [],
+        preferredIngredients: data.preferredIngredients || [],
+      };
+       // Convert undefined to null for fields that might be missing but AI expects
+      Object.keys(profile).forEach(key => {
+        if (profile[key as keyof Partial<FullProfileType>] === undefined) {
+          (profile as any)[key] = null;
+        }
+      });
+      return profile;
     }
   } catch (error) {
     console.error("Error fetching profile data from Firestore for optimization:", error);
@@ -133,7 +152,7 @@ export default function CurrentMealPlanPage() {
 
   const handleEditMeal = (dayIndex: number, mealIndex: number) => {
     const mealToEdit = weeklyPlan.days[dayIndex].meals[mealIndex];
-    setEditingMeal({ dayIndex, mealIndex, meal: mealToEdit });
+    setEditingMeal({ dayIndex, mealIndex, meal: JSON.parse(JSON.stringify(mealToEdit)) }); // Use deep copy for editing
   };
 
   const handleSaveMeal = async (updatedMeal: Meal) => {
@@ -144,7 +163,7 @@ export default function CurrentMealPlanPage() {
     setEditingMeal(null);
     try {
       await saveMealPlanData(user.uid, newWeeklyPlan);
-      toast({ title: "Meal Saved", description: `${updatedMeal.name} has been updated.` });
+      toast({ title: "Meal Saved", description: `${updatedMeal.customName || updatedMeal.name} has been updated.` });
     } catch (error) {
       toast({ title: "Save Error", description: "Could not save meal plan.", variant: "destructive" });
     }
@@ -155,17 +174,12 @@ export default function CurrentMealPlanPage() {
     const mealKey = `${weeklyPlan.days[dayIndex].dayOfWeek}-${mealToOptimize.name}-${mealIndex}`;
     setOptimizingMealKey(mealKey);
 
-    if (!profileData || Object.keys(profileData).length === 0) {
-      toast({ title: "Profile Missing", description: "Please complete your user profile for AI optimization.", variant: "destructive" });
-      setOptimizingMealKey(null); return;
-    }
-     if (isLoadingProfile) {
-      toast({ title: "Loading", description: "Profile data is still loading. Please wait.", variant: "default" });
+    if (!profileData || Object.keys(profileData).length === 0 || isLoadingProfile) {
+      toast({ title: "Profile Data Needed", description: "User profile data is still loading or incomplete. Please ensure your profile is complete for AI optimization.", variant: "destructive" });
       setOptimizingMealKey(null); return;
     }
 
     try {
-      // Use profile data from state for calculations
       const dailyTotals = calculateEstimatedDailyTargets({
         age: profileData.age,
         gender: profileData.gender,
@@ -190,21 +204,35 @@ export default function CurrentMealPlanPage() {
       };
       
       const preparedIngredients = mealToOptimize.ingredients.map(ing => ({
-        ...ing, calories: Number(ing.calories) || 0, protein: Number(ing.protein) || 0,
-        carbs: Number(ing.carbs) || 0, fat: Number(ing.fat) || 0,
+        name: ing.name,
+        quantity: Number(ing.quantity) || 0,
+        unit: ing.unit,
+        calories: Number(ing.calories) || 0, 
+        protein: Number(ing.protein) || 0,
+        carbs: Number(ing.carbs) || 0, 
+        fat: Number(ing.fat) || 0,
       }));
 
       const aiInput: AdjustMealIngredientsInput = {
-        originalMeal: { ...mealToOptimize, ingredients: preparedIngredients,
-            totalCalories: Number(mealToOptimize.totalCalories) || 0, totalProtein: Number(mealToOptimize.totalProtein) || 0,
-            totalCarbs: Number(mealToOptimize.totalCarbs) || 0, totalFat: Number(mealToOptimize.totalFat) || 0,
+        originalMeal: { 
+            name: mealToOptimize.name,
+            customName: mealToOptimize.customName,
+            ingredients: preparedIngredients,
+            totalCalories: Number(mealToOptimize.totalCalories) || 0, 
+            totalProtein: Number(mealToOptimize.totalProtein) || 0,
+            totalCarbs: Number(mealToOptimize.totalCarbs) || 0, 
+            totalFat: Number(mealToOptimize.totalFat) || 0,
         },
         targetMacros: targetMacrosForMeal,
         userProfile: {
-          age: profileData.age, gender: profileData.gender, activityLevel: profileData.activityLevel,
-          dietGoal: profileData.dietGoal, preferredDiet: profileData.preferredDiet,
-          allergies: profileData.allergies, dispreferredIngredients: profileData.dispreferredIngredients,
-          preferredIngredients: profileData.preferredIngredients,
+          age: profileData.age ?? undefined, 
+          gender: profileData.gender ?? undefined, 
+          activityLevel: profileData.activityLevel ?? undefined,
+          dietGoal: profileData.dietGoal ?? undefined, 
+          preferredDiet: profileData.preferredDiet ?? undefined,
+          allergies: profileData.allergies ?? [], 
+          dispreferredIngredients: profileData.dispreferredIngredients ?? [],
+          preferredIngredients: profileData.preferredIngredients ?? [],
         }
       };
 
@@ -212,25 +240,28 @@ export default function CurrentMealPlanPage() {
 
       if (result.adjustedMeal && user?.uid) {
         const newWeeklyPlan = JSON.parse(JSON.stringify(weeklyPlan)); // Deep copy
-        newWeeklyPlan.days[dayIndex].meals[mealIndex] = result.adjustedMeal;
+        newWeeklyPlan.days[dayIndex].meals[mealIndex] = {
+          ...result.adjustedMeal,
+          id: mealToOptimize.id // Preserve ID if it exists
+        };
         setWeeklyPlan(newWeeklyPlan);
         await saveMealPlanData(user.uid, newWeeklyPlan);
         toast({ title: `Meal Optimized: ${mealToOptimize.name}`, description: result.explanation || "AI has adjusted the ingredients." });
       } else {
-        throw new Error("AI did not return an adjusted meal.");
+        throw new Error("AI did not return an adjusted meal or an unexpected format was received.");
       }
 
     } catch (error) {
       console.error("Error optimizing meal:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : "Unknown error during optimization.";
       toast({ title: "Optimization Failed", description: `Could not optimize meal: ${errorMessage}`, variant: "destructive" });
     } finally {
       setOptimizingMealKey(null);
     }
   };
 
-  if (isLoadingPlan) {
-    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-lg">Loading meal plan...</p></div>;
+  if (isLoadingPlan || (user && isLoadingProfile)) { // Show loading if plan is loading OR user exists and profile is loading
+    return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-lg">Loading data...</p></div>;
   }
 
   return (
@@ -318,14 +349,14 @@ interface EditMealDialogProps {
 }
 
 function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogProps) {
-  const [meal, setMeal] = useState<Meal>({...initialMeal});
+  const [meal, setMeal] = useState<Meal>(JSON.parse(JSON.stringify(initialMeal))); // Deep copy
 
-  const handleIngredientChange = (index: number, field: keyof Meal['ingredients'][0], value: string | number) => {
+  const handleIngredientChange = (index: number, field: keyof Ingredient, value: string | number) => {
     const newIngredients = [...meal.ingredients];
     const targetIngredient = { ...newIngredients[index] };
     
     if (field === 'quantity' || field === 'calories' || field === 'protein' || field === 'carbs' || field === 'fat') {
-        (targetIngredient as any)[field] = value === '' ? undefined : Number(value);
+        (targetIngredient as any)[field] = value === '' || value === undefined || Number.isNaN(Number(value)) ? undefined : Number(value);
     } else {
         (targetIngredient as any)[field] = value;
     }
@@ -347,7 +378,7 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
     }));
   };
 
-  const calculateTotals = () => {
+  const calculateTotals = useCallback(() => {
     let totalCalories = 0;
     let totalProtein = 0;
     let totalCarbs = 0;
@@ -360,10 +391,15 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
         totalFat += Number(ing.fat) || 0;
     });
     setMeal(prev => ({...prev, totalCalories, totalProtein, totalCarbs, totalFat}));
-  }
+  }, [meal.ingredients]);
+
+  useEffect(() => {
+    calculateTotals();
+  }, [meal.ingredients, calculateTotals]);
 
 
   const handleSubmit = () => {
+    // Recalculate one last time before saving, though useEffect should handle it
     let finalTotalCalories = 0, finalTotalProtein = 0, finalTotalCarbs = 0, finalTotalFat = 0;
     meal.ingredients.forEach(ing => {
         finalTotalCalories += Number(ing.calories) || 0;
@@ -372,7 +408,13 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
         finalTotalFat += Number(ing.fat) || 0;
     });
     
-    const mealToSave = { ...meal, totalCalories: finalTotalCalories, totalProtein: finalTotalProtein, totalCarbs: finalTotalCarbs, totalFat: finalTotalFat };
+    const mealToSave: Meal = { 
+      ...meal, 
+      totalCalories: finalTotalCalories, 
+      totalProtein: finalTotalProtein, 
+      totalCarbs: finalTotalCarbs, 
+      totalFat: finalTotalFat 
+    };
     onSave(mealToSave);
   };
 
@@ -415,15 +457,15 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
           <Button variant="outline" onClick={addIngredient} className="w-full"> <PlusCircle className="mr-2 h-4 w-4" /> Add Ingredient </Button>
           <div className="mt-4 p-3 border rounded-md bg-muted/50">
             <h4 className="font-semibold mb-1">Calculated Totals:</h4>
-            <p className="text-sm">Calories: {meal.totalCalories?.toFixed(0) ?? 'N/A'}</p>
-            <p className="text-sm">Protein: {meal.totalProtein?.toFixed(1) ?? 'N/A'}g</p>
-            <p className="text-sm">Carbs: {meal.totalCarbs?.toFixed(1) ?? 'N/A'}g</p>
-            <p className="text-sm">Fat: {meal.totalFat?.toFixed(1) ?? 'N/A'}g</p>
+            <p className="text-sm">Calories: {meal.totalCalories?.toFixed(0) ?? '0'}</p>
+            <p className="text-sm">Protein: {meal.totalProtein?.toFixed(1) ?? '0.0'}g</p>
+            <p className="text-sm">Carbs: {meal.totalCarbs?.toFixed(1) ?? '0.0'}g</p>
+            <p className="text-sm">Fat: {meal.totalFat?.toFixed(1) ?? '0.0'}g</p>
              <Button onClick={calculateTotals} size="sm" variant="ghost" className="mt-1 text-xs">Recalculate Manually</Button>
           </div>
         </div>
         <DialogFooter>
-          <DialogClose asChild> <Button type="button" variant="outline" onClick={onClose}>Cancel</Button> </DialogClose>
+          <DialogClose asChild><Button type="button" variant="outline" onClick={onClose}>Cancel</Button></DialogClose>
           <Button type="button" onClick={handleSubmit}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
@@ -431,3 +473,4 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
   );
 }
 
+        
