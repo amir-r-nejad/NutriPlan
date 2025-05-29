@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -11,6 +12,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro
 
 const SuggestIngredientSwapInputSchema = z.object({
   mealName: z.string().describe('The name of the meal (e.g., Breakfast, Lunch, Dinner).'),
@@ -49,6 +51,7 @@ export async function suggestIngredientSwap(input: SuggestIngredientSwapInput): 
 
 const prompt = ai.definePrompt({
   name: 'suggestIngredientSwapPrompt',
+  model: geminiPro, // Explicitly set the model
   input: {schema: SuggestIngredientSwapInputSchema},
   output: {schema: SuggestIngredientSwapOutputSchema},
   prompt: `You are a nutritional expert. Given a meal and a user's dietary preferences and restrictions, suggest ingredient swaps that maintain the meal's nutritional balance.
