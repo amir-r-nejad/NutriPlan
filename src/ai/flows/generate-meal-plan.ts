@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro
 
 const GeneratePersonalizedMealPlanInputSchema = z.object({
   age: z.number().describe('The age of the user.'),
@@ -18,8 +19,8 @@ const GeneratePersonalizedMealPlanInputSchema = z.object({
   current_weight: z.number().describe('The current weight of the user in kilograms.'),
   goal_weight_1m: z.number().describe('The goal weight of the user in 1 month in kilograms.'),
   activityLevel: z.string().describe('The activity level of the user (e.g., sedentary, light, moderate, active).'),
-  dietGoal: z.string().describe('The diet goal of the user (e.g., fat_loss, muscle_gain, recomp).'), // Matched to smartPlannerDietGoals
-
+  dietGoalOnboarding: z.string().describe('The diet goal of the user (e.g., fat_loss, muscle_gain, recomp).'), // Renamed from dietGoal to match onboarding
+  
   // Optional fields from onboarding/profile
   ideal_goal_weight: z.number().optional().describe('The ideal goal weight of the user in kilograms.'),
   
@@ -54,28 +55,18 @@ const GeneratePersonalizedMealPlanInputSchema = z.object({
   left_arm_ideal: z.number().optional().describe('Ideal left arm measurement in centimeters.'),
 
   preferredDiet: z.string().optional().describe('The preferred diet of the user (e.g., vegetarian, vegan, keto).'),
-  mealsPerDay: z.number().optional().describe('The number of meals per day the user prefers.'),
-  allergies: z.array(z.string()).optional().describe('The allergies of the user.'),
-  preferredCuisines: z.array(z.string()).optional().describe('The preferred cuisines of the user.'),
-  dispreferredCuisines: z.array(z.string()).optional().describe('The dispreferred cuisines of the user.'),
-  preferredIngredients: z.array(z.string()).optional().describe('The preferred ingredients of the user.'),
-  dispreferredIngredients: z.array(z.string()).optional().describe('The dispreferred ingredients of the user.'),
-  preferredMicronutrients: z.array(z.string()).optional().describe('The preferred micronutrients of the user.'),
+  // mealsPerDay removed
+  allergies: z.array(z.string()).optional().describe('The allergies of the user.'), // Changed from string to array
+  preferredCuisines: z.array(z.string()).optional().describe('The preferred cuisines of the user.'), // Changed from string to array
+  dispreferredCuisines: z.array(z.string()).optional().describe('The dispreferred cuisines of the user.'), // Changed from string to array
+  preferredIngredients: z.array(z.string()).optional().describe('The preferred ingredients of the user.'), // Changed from string to array
+  dispreferredIngredients: z.array(z.string()).optional().describe('The dispreferred ingredients of the user.'), // Changed from string to array
+  preferredMicronutrients: z.array(z.string()).optional().describe('The preferred micronutrients of the user.'), // Changed from string to array
   
-  medicalConditions: z.array(z.string()).optional().describe('The medical conditions of the user.'),
-  medications: z.array(z.string()).optional().describe('The medications the user is taking.'),
+  medicalConditions: z.array(z.string()).optional().describe('The medical conditions of the user.'), // Changed from string to array
+  medications: z.array(z.string()).optional().describe('The medications the user is taking.'), // Changed from string to array
   
   typicalMealsDescription: z.string().optional().describe('A description of the user’s typical meals and eating habits.'),
-
-  // Exercise preferences (can be added from profile schema if needed for AI context)
-  // painMobilityIssues: z.string().optional(),
-  // injuries: z.array(z.string()).optional(),
-  // surgeries: z.array(z.string()).optional(),
-  // exerciseGoals: z.array(z.string()).optional(),
-  // exercisePreferences: z.array(z.string()).optional(),
-  // exerciseFrequency: z.string().optional(),
-  // exerciseIntensity: z.string().optional(),
-  // equipmentAccess: z.array(z.string()).optional(),
 });
 export type GeneratePersonalizedMealPlanInput = z.infer<
   typeof GeneratePersonalizedMealPlanInputSchema
@@ -128,6 +119,7 @@ export async function generatePersonalizedMealPlan(
 
 const prompt = ai.definePrompt({
   name: 'generatePersonalizedMealPlanPrompt',
+  model: geminiPro, // Explicitly set the model
   input: {schema: GeneratePersonalizedMealPlanInputSchema},
   output: {schema: GeneratePersonalizedMealPlanOutputSchema},
   prompt: `You are a nutritionist who will generate a personalized weekly meal plan based on the user's profile data and preferences.
@@ -141,9 +133,8 @@ const prompt = ai.definePrompt({
   {{#if ideal_goal_weight}}Ideal Goal Weight: {{{ideal_goal_weight}}} kg{{/if}}
   
   Activity Level: {{{activityLevel}}}
-  Diet Goal: {{{dietGoal}}}
-  {{#if mealsPerDay}}Meals Per Day: {{{mealsPerDay}}}{{/if}}
-
+  Diet Goal: {{{dietGoalOnboarding}}}
+  
   {{#if bf_current}}Current Body Fat: {{{bf_current}}}%{{/if}}
   {{#if bf_target}}Target Body Fat (1 Month): {{{bf_target}}}%{{/if}}
   {{#if bf_ideal}}Ideal Body Fat: {{{bf_ideal}}}%{{/if}}
@@ -189,7 +180,7 @@ const prompt = ai.definePrompt({
   
   {{#if typicalMealsDescription}}User's Typical Meals/Habits: {{{typicalMealsDescription}}}{{/if}}
 
-  Based on this information, generate a detailed weekly meal plan with 7 days. Each day should include the number of meals specified by 'mealsPerDay' if available, otherwise assume 3 main meals and 2 snacks. Each meal should be a valid and tasty combination of ingredients.
+  Based on this information, generate a detailed weekly meal plan with 7 days. Assume 3 main meals and 2 snacks per day unless specified otherwise by a future 'mealsPerDay' field (which is not currently in the input schema). Each meal should be a valid and tasty combination of ingredients.
   Make sure to account for all the user's preferences and dietary restrictions. The meal plan should be optimized for nutrition and should help the user achieve their diet goal.
 
   Ensure that the weekly summary accurately reflects the total nutritional content of the generated meal plan.

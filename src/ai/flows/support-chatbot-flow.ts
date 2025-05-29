@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro
 
 const SupportChatbotInputSchema = z.object({
   userQuery: z.string().describe("The user's question about how to use the NutriPlan website or its features."),
@@ -27,6 +28,7 @@ export async function handleSupportQuery(input: SupportChatbotInput): Promise<Su
 
 const prompt = ai.definePrompt({
   name: 'supportChatbotPrompt',
+  model: geminiPro, // Explicitly set the model
   input: {schema: SupportChatbotInputSchema},
   output: {schema: SupportChatbotOutputSchema},
   prompt: `You are a friendly and helpful support chatbot for "NutriPlan", a web application designed for personalized nutrition and meal planning.
@@ -38,7 +40,7 @@ Available NutriPlan features you can talk about:
 - Dashboard: Overview of the app.
 - Profile: Where users manage general medical information and exercise preferences. Detailed physical metrics and dietary preferences are managed in specific tools.
 - Smart Calorie Planner: Calculates daily calorie and macro targets based on user stats, goals, body composition, and measurements.
-- Daily Macro Breakdown: A tool to calculate daily macronutrient breakdown based on weight, protein per kg, target calories, and carb/fat percentage split.
+- Daily Macro Breakdown: A tool to calculate daily macronutrient breakdown based on weight, protein per kg, target calories, and carb/fat percentage split. (This feature is now part of Smart Calorie Planner)
 - Macro Splitter: Allows users to distribute their total daily macros across 6 meals by percentage.
 - Meal Suggestions: Provides AI-powered meal ideas based on macronutrient targets for a specific meal, adjusted with user preferences.
 - Current Meal Plan: Page to view, manage, and manually edit the weekly meal schedule. Users can also AI-optimize individual meals here.
