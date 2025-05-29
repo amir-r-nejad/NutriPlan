@@ -11,7 +11,8 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import type { Meal as AppMealSchema, Ingredient as AppIngredientSchema, ProfileFormValues } from '@/lib/schemas'; // Using types from app
+import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro
+import type { Meal as AppMealSchema, Ingredient as AppIngredientSchema, FullProfileType } from '@/lib/schemas'; // Using types from app
 
 // Define Zod schema for ingredients as expected by AI (total macros for given quantity)
 const AIServiceIngredientSchema = z.object({
@@ -71,6 +72,7 @@ export async function adjustMealIngredients(input: AdjustMealIngredientsInput): 
 
 const prompt = ai.definePrompt({
   name: 'adjustMealIngredientsPrompt',
+  model: geminiPro, // Explicitly set the model
   input: {schema: AdjustMealIngredientsInputSchema},
   output: {schema: AdjustMealIngredientsOutputSchema},
   prompt: `You are an expert nutritionist and chef. Your task is to adjust the ingredients of an existing meal to meet specific macronutrient targets, while considering the user's profile (allergies, preferences).
