@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Pencil, PlusCircle, Trash2, Wand2, Loader2 } from 'lucide-react';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { daysOfWeek, mealNames, defaultMacroPercentages } from '@/lib/constants';
-import type { Meal, DailyMealPlan, WeeklyMealPlan, Ingredient, FullProfileType, CalculatedTargets, MacroResults } from '@/lib/schemas';
+import type { Meal, DailyMealPlan, WeeklyMealPlan, Ingredient, FullProfileType } from '@/lib/schemas';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,7 +27,7 @@ async function getMealPlanData(userId: string): Promise<WeeklyMealPlan | null> {
     const userProfileRef = doc(db, "users", userId);
     const docSnap = await getDoc(userProfileRef);
     if (docSnap.exists()) {
-      const profileData = docSnap.data() as FullProfileType & { currentWeeklyPlan?: WeeklyMealPlan };
+      const profileData = docSnap.data() as FullProfileType;
       if (profileData.currentWeeklyPlan) {
         // Ensure all meals and days are present, filling with defaults if not
         const fullPlan: WeeklyMealPlan = {
@@ -57,11 +57,29 @@ async function getMealPlanData(userId: string): Promise<WeeklyMealPlan | null> {
   return null; // Return null if not found or error
 }
 
+// Helper function to sanitize data for Firestore (convert undefined to null)
+function sanitizeForFirestore(data: any): any {
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeForFirestore(item));
+  } else if (typeof data === 'object' && data !== null) {
+    const sanitizedObject: { [key: string]: any } = {};
+    for (const key in data) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
+        const value = data[key];
+        sanitizedObject[key] = value === undefined ? null : sanitizeForFirestore(value);
+      }
+    }
+    return sanitizedObject;
+  }
+  return data;
+}
+
 async function saveMealPlanData(userId: string, planData: WeeklyMealPlan) {
   if (!userId) throw new Error("User ID required to save meal plan.");
   try {
     const userProfileRef = doc(db, "users", userId);
-    await setDoc(userProfileRef, { currentWeeklyPlan: planData }, { merge: true });
+    const sanitizedPlanData = sanitizeForFirestore(planData);
+    await setDoc(userProfileRef, { currentWeeklyPlan: sanitizedPlanData }, { merge: true });
   } catch (error) {
     console.error("Error saving meal plan data to Firestore:", error);
     throw error;
@@ -74,20 +92,19 @@ async function getProfileDataForOptimization(userId: string): Promise<Partial<Fu
     const userProfileRef = doc(db, "users", userId);
     const docSnap = await getDoc(userProfileRef);
     if (docSnap.exists()) {
-      const data = docSnap.data();
+      const data = docSnap.data() as FullProfileType;
       const profile: Partial<FullProfileType> = {
         age: data.age,
         gender: data.gender,
         current_weight: data.current_weight,
         height_cm: data.height_cm,
         activityLevel: data.activityLevel,
-        dietGoal: data.dietGoalOnboarding, // Assuming dietGoal for tools is set during onboarding
+        dietGoal: data.dietGoalOnboarding, 
         preferredDiet: data.preferredDiet,
         allergies: data.allergies || [],
         dispreferredIngredients: data.dispreferredIngredients || [],
         preferredIngredients: data.preferredIngredients || [],
       };
-       // Convert undefined to null for fields that might be missing but AI expects
       Object.keys(profile).forEach(key => {
         if (profile[key as keyof Partial<FullProfileType>] === undefined) {
           (profile as any)[key] = null;
@@ -105,8 +122,7 @@ async function getProfileDataForOptimization(userId: string): Promise<Partial<Fu
 const generateInitialWeeklyPlan = (): WeeklyMealPlan => ({
   days: daysOfWeek.map(day => ({
     dayOfWeek: day,
-    meals: mealNames.map(mealName => ({
-      name: mealName, customName: "", ingredients: [],
+    meals: mealNames.map(mealName => ({ name: mealName, customName: "", ingredients: [],
       totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0,
     })),
   })),
@@ -130,12 +146,11 @@ export default function CurrentMealPlanPage() {
         if (plan) {
           setWeeklyPlan(plan);
         } else {
-          // If no plan found, ensure a default empty structure is set
           setWeeklyPlan(generateInitialWeeklyPlan());
         }
       }).catch(() => {
         toast({ title: "Error", description: "Could not load meal plan.", variant: "destructive" });
-        setWeeklyPlan(generateInitialWeeklyPlan()); // Fallback
+        setWeeklyPlan(generateInitialWeeklyPlan()); 
       }).finally(() => setIsLoadingPlan(false));
 
       setIsLoadingProfile(true);
@@ -146,18 +161,18 @@ export default function CurrentMealPlanPage() {
     } else {
       setIsLoadingPlan(false);
       setIsLoadingProfile(false);
-      setWeeklyPlan(generateInitialWeeklyPlan()); // Fallback if no user
+      setWeeklyPlan(generateInitialWeeklyPlan()); 
     }
   }, [user, toast]);
 
   const handleEditMeal = (dayIndex: number, mealIndex: number) => {
     const mealToEdit = weeklyPlan.days[dayIndex].meals[mealIndex];
-    setEditingMeal({ dayIndex, mealIndex, meal: JSON.parse(JSON.stringify(mealToEdit)) }); // Use deep copy for editing
+    setEditingMeal({ dayIndex, mealIndex, meal: JSON.parse(JSON.stringify(mealToEdit)) }); 
   };
 
   const handleSaveMeal = async (updatedMeal: Meal) => {
     if (!editingMeal || !user?.uid) return;
-    const newWeeklyPlan = JSON.parse(JSON.stringify(weeklyPlan)); // Deep copy
+    const newWeeklyPlan = JSON.parse(JSON.stringify(weeklyPlan)); 
     newWeeklyPlan.days[editingMeal.dayIndex].meals[editingMeal.mealIndex] = updatedMeal;
     setWeeklyPlan(newWeeklyPlan);
     setEditingMeal(null);
@@ -186,7 +201,7 @@ export default function CurrentMealPlanPage() {
         currentWeight: profileData.current_weight,
         height: profileData.height_cm,
         activityLevel: profileData.activityLevel,
-        dietGoal: profileData.dietGoal,
+        dietGoal: profileData.dietGoalOnboarding,
       });
       
       if (!dailyTotals.targetCalories || !dailyTotals.targetProtein || !dailyTotals.targetCarbs || !dailyTotals.targetFat) {
@@ -228,7 +243,7 @@ export default function CurrentMealPlanPage() {
           age: profileData.age ?? undefined, 
           gender: profileData.gender ?? undefined, 
           activityLevel: profileData.activityLevel ?? undefined,
-          dietGoal: profileData.dietGoal ?? undefined, 
+          dietGoal: profileData.dietGoalOnboarding ?? undefined, 
           preferredDiet: profileData.preferredDiet ?? undefined,
           allergies: profileData.allergies ?? [], 
           dispreferredIngredients: profileData.dispreferredIngredients ?? [],
@@ -239,10 +254,10 @@ export default function CurrentMealPlanPage() {
       const result = await adjustMealIngredients(aiInput);
 
       if (result.adjustedMeal && user?.uid) {
-        const newWeeklyPlan = JSON.parse(JSON.stringify(weeklyPlan)); // Deep copy
+        const newWeeklyPlan = JSON.parse(JSON.stringify(weeklyPlan)); 
         newWeeklyPlan.days[dayIndex].meals[mealIndex] = {
           ...result.adjustedMeal,
-          id: mealToOptimize.id // Preserve ID if it exists
+          id: mealToOptimize.id 
         };
         setWeeklyPlan(newWeeklyPlan);
         await saveMealPlanData(user.uid, newWeeklyPlan);
@@ -260,7 +275,7 @@ export default function CurrentMealPlanPage() {
     }
   };
 
-  if (isLoadingPlan || (user && isLoadingProfile)) { // Show loading if plan is loading OR user exists and profile is loading
+  if (isLoadingPlan || (user && isLoadingProfile)) { 
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-lg">Loading data...</p></div>;
   }
 
@@ -349,14 +364,15 @@ interface EditMealDialogProps {
 }
 
 function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogProps) {
-  const [meal, setMeal] = useState<Meal>(JSON.parse(JSON.stringify(initialMeal))); // Deep copy
+  const [meal, setMeal] = useState<Meal>(JSON.parse(JSON.stringify(initialMeal))); 
 
   const handleIngredientChange = (index: number, field: keyof Ingredient, value: string | number) => {
     const newIngredients = [...meal.ingredients];
     const targetIngredient = { ...newIngredients[index] };
     
     if (field === 'quantity' || field === 'calories' || field === 'protein' || field === 'carbs' || field === 'fat') {
-        (targetIngredient as any)[field] = value === '' || value === undefined || Number.isNaN(Number(value)) ? undefined : Number(value);
+        const numValue = Number(value);
+        (targetIngredient as any)[field] = value === '' || value === undefined || Number.isNaN(numValue) ? null : numValue;
     } else {
         (targetIngredient as any)[field] = value;
     }
@@ -367,7 +383,7 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
   const addIngredient = () => {
     setMeal(prev => ({
       ...prev,
-      ingredients: [...prev.ingredients, { name: '', quantity: 0, unit: 'g', calories: undefined, protein: undefined, carbs: undefined, fat: undefined }]
+      ingredients: [...prev.ingredients, { name: '', quantity: 0, unit: 'g', calories: null, protein: null, carbs: null, fat: null }]
     }));
   };
   
@@ -399,7 +415,6 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
 
 
   const handleSubmit = () => {
-    // Recalculate one last time before saving, though useEffect should handle it
     let finalTotalCalories = 0, finalTotalProtein = 0, finalTotalCarbs = 0, finalTotalFat = 0;
     meal.ingredients.forEach(ing => {
         finalTotalCalories += Number(ing.calories) || 0;
@@ -472,5 +487,3 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
     </Dialog>
   );
 }
-
-        
