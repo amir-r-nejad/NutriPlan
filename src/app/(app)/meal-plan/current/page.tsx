@@ -99,7 +99,7 @@ async function getProfileDataForOptimization(userId: string): Promise<Partial<Fu
         current_weight: data.current_weight,
         height_cm: data.height_cm,
         activityLevel: data.activityLevel,
-        dietGoalOnboarding: data.dietGoalOnboarding, 
+        dietGoalOnboarding: data.dietGoalOnboarding,
         preferredDiet: data.preferredDiet,
         allergies: data.allergies || [],
         dispreferredIngredients: data.dispreferredIngredients || [],
@@ -123,7 +123,8 @@ async function getProfileDataForOptimization(userId: string): Promise<Partial<Fu
 const generateInitialWeeklyPlan = (): WeeklyMealPlan => ({
   days: daysOfWeek.map(day => ({
     dayOfWeek: day,
-    meals: mealNames.map(mealName => ({ name: mealName, customName: "", ingredients: [],
+    meals: mealNames.map(mealName => ({
+      name: mealName, customName: "", ingredients: [],
       totalCalories: null, totalProtein: null, totalCarbs: null, totalFat: null,
     })),
   })),
@@ -134,7 +135,7 @@ export default function CurrentMealPlanPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [weeklyPlan, setWeeklyPlan] = useState<WeeklyMealPlan>(generateInitialWeeklyPlan());
-  const [editingMeal, setEditingMeal] = useState<{dayIndex: number, mealIndex: number, meal: Meal} | null>(null);
+  const [editingMeal, setEditingMeal] = useState<{ dayIndex: number, mealIndex: number, meal: Meal } | null>(null);
   const [optimizingMealKey, setOptimizingMealKey] = useState<string | null>(null);
   const [profileData, setProfileData] = useState<Partial<FullProfileType> | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -151,7 +152,7 @@ export default function CurrentMealPlanPage() {
         }
       }).catch(() => {
         toast({ title: "Error", description: "Could not load meal plan.", variant: "destructive" });
-        setWeeklyPlan(generateInitialWeeklyPlan()); 
+        setWeeklyPlan(generateInitialWeeklyPlan());
       }).finally(() => setIsLoadingPlan(false));
 
       setIsLoadingProfile(true);
@@ -162,18 +163,18 @@ export default function CurrentMealPlanPage() {
     } else {
       setIsLoadingPlan(false);
       setIsLoadingProfile(false);
-      setWeeklyPlan(generateInitialWeeklyPlan()); 
+      setWeeklyPlan(generateInitialWeeklyPlan());
     }
   }, [user, toast]);
 
   const handleEditMeal = (dayIndex: number, mealIndex: number) => {
     const mealToEdit = weeklyPlan.days[dayIndex].meals[mealIndex];
-    setEditingMeal({ dayIndex, mealIndex, meal: JSON.parse(JSON.stringify(mealToEdit)) }); 
+    setEditingMeal({ dayIndex, mealIndex, meal: JSON.parse(JSON.stringify(mealToEdit)) });
   };
 
   const handleSaveMeal = async (updatedMeal: Meal) => {
     if (!editingMeal || !user?.uid) return;
-    const newWeeklyPlan = JSON.parse(JSON.stringify(weeklyPlan)); 
+    const newWeeklyPlan = JSON.parse(JSON.stringify(weeklyPlan));
     newWeeklyPlan.days[editingMeal.dayIndex].meals[editingMeal.mealIndex] = updatedMeal;
     setWeeklyPlan(newWeeklyPlan);
     setEditingMeal(null);
@@ -194,7 +195,7 @@ export default function CurrentMealPlanPage() {
       toast({ title: "Profile Data Loading", description: "User profile data is still loading. Please wait a moment and try again.", variant: "default" });
       setOptimizingMealKey(null); return;
     }
-    
+
     const requiredFields: (keyof FullProfileType)[] = ['age', 'gender', 'current_weight', 'height_cm', 'activityLevel', 'dietGoalOnboarding'];
     const missingFields = requiredFields.filter(field => !profileData[field]);
 
@@ -218,7 +219,7 @@ export default function CurrentMealPlanPage() {
         activityLevel: profileData.activityLevel!,
         dietGoal: profileData.dietGoalOnboarding!,
       });
-      
+
       if (!dailyTotals.targetCalories || !dailyTotals.targetProtein || !dailyTotals.targetCarbs || !dailyTotals.targetFat) {
         toast({ title: "Calculation Error", description: "Could not calculate daily targets from profile. Ensure profile is complete. This might happen if some values are zero or invalid.", variant: "destructive" });
         setOptimizingMealKey(null); return;
@@ -232,35 +233,35 @@ export default function CurrentMealPlanPage() {
         carbs: Math.round(dailyTotals.targetCarbs * (mealDistribution.carbs_pct / 100)),
         fat: Math.round(dailyTotals.targetFat * (mealDistribution.fat_pct / 100)),
       };
-      
+
       const preparedIngredients = mealToOptimize.ingredients.map(ing => ({
         name: ing.name,
         quantity: Number(ing.quantity) || 0,
         unit: ing.unit,
-        calories: Number(ing.calories) || 0, 
+        calories: Number(ing.calories) || 0,
         protein: Number(ing.protein) || 0,
-        carbs: Number(ing.carbs) || 0, 
+        carbs: Number(ing.carbs) || 0,
         fat: Number(ing.fat) || 0,
       }));
 
       const aiInput: AdjustMealIngredientsInput = {
-        originalMeal: { 
-            name: mealToOptimize.name,
-            customName: mealToOptimize.customName || "",
-            ingredients: preparedIngredients,
-            totalCalories: Number(mealToOptimize.totalCalories) || 0, 
-            totalProtein: Number(mealToOptimize.totalProtein) || 0,
-            totalCarbs: Number(mealToOptimize.totalCarbs) || 0, 
-            totalFat: Number(mealToOptimize.totalFat) || 0,
+        originalMeal: {
+          name: mealToOptimize.name,
+          customName: mealToOptimize.customName || "",
+          ingredients: preparedIngredients,
+          totalCalories: Number(mealToOptimize.totalCalories) || 0,
+          totalProtein: Number(mealToOptimize.totalProtein) || 0,
+          totalCarbs: Number(mealToOptimize.totalCarbs) || 0,
+          totalFat: Number(mealToOptimize.totalFat) || 0,
         },
         targetMacros: targetMacrosForMeal,
         userProfile: {
-          age: profileData.age ?? undefined, 
-          gender: profileData.gender ?? undefined, 
+          age: profileData.age ?? undefined,
+          gender: profileData.gender ?? undefined,
           activityLevel: profileData.activityLevel ?? undefined,
-          dietGoal: profileData.dietGoalOnboarding ?? undefined, 
+          dietGoal: profileData.dietGoalOnboarding ?? undefined,
           preferredDiet: profileData.preferredDiet ?? undefined,
-          allergies: profileData.allergies ?? [], 
+          allergies: profileData.allergies ?? [],
           dispreferredIngredients: profileData.dispreferredIngredients ?? [],
           preferredIngredients: profileData.preferredIngredients ?? [],
         }
@@ -269,23 +270,23 @@ export default function CurrentMealPlanPage() {
       const result = await adjustMealIngredients(aiInput);
 
       if (result.adjustedMeal && user?.uid) {
-        const newWeeklyPlan = JSON.parse(JSON.stringify(weeklyPlan)); 
+        const newWeeklyPlan = JSON.parse(JSON.stringify(weeklyPlan));
         const updatedMealData = {
-            ...result.adjustedMeal,
-            id: mealToOptimize.id, // Preserve original ID if exists
-            // Ensure all macro fields are numbers or null
-            totalCalories: Number(result.adjustedMeal.totalCalories) || null,
-            totalProtein: Number(result.adjustedMeal.totalProtein) || null,
-            totalCarbs: Number(result.adjustedMeal.totalCarbs) || null,
-            totalFat: Number(result.adjustedMeal.totalFat) || null,
-            ingredients: result.adjustedMeal.ingredients.map(ing => ({
-                ...ing,
-                quantity: Number(ing.quantity) || 0,
-                calories: Number(ing.calories) || null,
-                protein: Number(ing.protein) || null,
-                carbs: Number(ing.carbs) || null,
-                fat: Number(ing.fat) || null,
-            }))
+          ...result.adjustedMeal,
+          id: mealToOptimize.id, // Preserve original ID if exists
+          // Ensure all macro fields are numbers or null
+          totalCalories: Number(result.adjustedMeal.totalCalories) || null,
+          totalProtein: Number(result.adjustedMeal.totalProtein) || null,
+          totalCarbs: Number(result.adjustedMeal.totalCarbs) || null,
+          totalFat: Number(result.adjustedMeal.totalFat) || null,
+          ingredients: result.adjustedMeal.ingredients.map(ing => ({
+            ...ing,
+            quantity: Number(ing.quantity) || 0,
+            calories: Number(ing.calories) || null,
+            protein: Number(ing.protein) || null,
+            carbs: Number(ing.carbs) || null,
+            fat: Number(ing.fat) || null,
+          }))
         };
         newWeeklyPlan.days[dayIndex].meals[mealIndex] = updatedMealData;
         setWeeklyPlan(newWeeklyPlan);
@@ -295,16 +296,17 @@ export default function CurrentMealPlanPage() {
         throw new Error("AI did not return an adjusted meal or an unexpected format was received.");
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error optimizing meal:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error during optimization.";
+      console.error("Full AI error object:", error); // Log the full error object
+      const errorMessage = error.message || "Unknown error during optimization.";
       toast({ title: "Optimization Failed", description: `Could not optimize meal: ${errorMessage}`, variant: "destructive" });
     } finally {
       setOptimizingMealKey(null);
     }
   };
 
-  if (isLoadingPlan || (user && isLoadingProfile)) { 
+  if (isLoadingPlan || (user && isLoadingProfile)) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="ml-4 text-lg">Loading data...</p></div>;
   }
 
@@ -325,7 +327,7 @@ export default function CurrentMealPlanPage() {
               </TabsList>
               <ScrollBar orientation="horizontal" />
             </ScrollArea>
-            
+
             {weeklyPlan.days.map((dayPlan, dayIndex) => (
               <TabsContent key={dayPlan.dayOfWeek} value={dayPlan.dayOfWeek} className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -349,10 +351,10 @@ export default function CurrentMealPlanPage() {
                             <p className="text-sm text-muted-foreground italic">No ingredients added yet.</p>
                           )}
                           <div className="mt-2 text-xs space-y-0.5">
-                              <p>Calories: {meal.totalCalories?.toFixed(0) ?? 'N/A'}</p>
-                              <p>Protein: {meal.totalProtein?.toFixed(1) ?? 'N/A'}g</p>
-                              <p>Carbs: {meal.totalCarbs?.toFixed(1) ?? 'N/A'}g</p>
-                              <p>Fat: {meal.totalFat?.toFixed(1) ?? 'N/A'}g</p>
+                            <p>Calories: {meal.totalCalories?.toFixed(0) ?? 'N/A'}</p>
+                            <p>Protein: {meal.totalProtein?.toFixed(1) ?? 'N/A'}g</p>
+                            <p>Carbs: {meal.totalCarbs?.toFixed(1) ?? 'N/A'}g</p>
+                            <p>Fat: {meal.totalFat?.toFixed(1) ?? 'N/A'}g</p>
                           </div>
                         </CardContent>
                         <CardFooter className="border-t pt-4 flex-wrap gap-2">
@@ -393,17 +395,17 @@ interface EditMealDialogProps {
 }
 
 function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogProps) {
-  const [meal, setMeal] = useState<Meal>(JSON.parse(JSON.stringify(initialMeal))); 
+  const [meal, setMeal] = useState<Meal>(JSON.parse(JSON.stringify(initialMeal)));
 
   const handleIngredientChange = (index: number, field: keyof Ingredient, value: string | number) => {
     const newIngredients = [...meal.ingredients];
     const targetIngredient = { ...newIngredients[index] };
-    
+
     if (field === 'quantity' || field === 'calories' || field === 'protein' || field === 'carbs' || field === 'fat') {
-        const numValue = Number(value);
-        (targetIngredient as any)[field] = value === '' || value === undefined || Number.isNaN(numValue) ? null : numValue;
+      const numValue = Number(value);
+      (targetIngredient as any)[field] = value === '' || value === undefined || Number.isNaN(numValue) ? null : numValue;
     } else {
-        (targetIngredient as any)[field] = value;
+      (targetIngredient as any)[field] = value;
     }
     newIngredients[index] = targetIngredient;
     setMeal(prev => ({ ...prev, ingredients: newIngredients }));
@@ -415,7 +417,7 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
       ingredients: [...prev.ingredients, { name: '', quantity: null, unit: 'g', calories: null, protein: null, carbs: null, fat: null }]
     }));
   };
-  
+
   const removeIngredient = (index: number) => {
     setMeal(prev => ({
       ...prev,
@@ -430,12 +432,12 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
     let totalFat = 0;
 
     meal.ingredients.forEach(ing => {
-        totalCalories += Number(ing.calories) || 0;
-        totalProtein += Number(ing.protein) || 0;
-        totalCarbs += Number(ing.carbs) || 0;
-        totalFat += Number(ing.fat) || 0;
+      totalCalories += Number(ing.calories) || 0;
+      totalProtein += Number(ing.protein) || 0;
+      totalCarbs += Number(ing.carbs) || 0;
+      totalFat += Number(ing.fat) || 0;
     });
-    setMeal(prev => ({...prev, totalCalories, totalProtein, totalCarbs, totalFat}));
+    setMeal(prev => ({ ...prev, totalCalories, totalProtein, totalCarbs, totalFat }));
   }, [meal.ingredients]);
 
   useEffect(() => {
@@ -446,18 +448,18 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
   const handleSubmit = () => {
     let finalTotalCalories = 0, finalTotalProtein = 0, finalTotalCarbs = 0, finalTotalFat = 0;
     meal.ingredients.forEach(ing => {
-        finalTotalCalories += Number(ing.calories) || 0;
-        finalTotalProtein += Number(ing.protein) || 0;
-        finalTotalCarbs += Number(ing.carbs) || 0;
-        finalTotalFat += Number(ing.fat) || 0;
+      finalTotalCalories += Number(ing.calories) || 0;
+      finalTotalProtein += Number(ing.protein) || 0;
+      finalTotalCarbs += Number(ing.carbs) || 0;
+      finalTotalFat += Number(ing.fat) || 0;
     });
-    
-    const mealToSave: Meal = { 
-      ...meal, 
-      totalCalories: finalTotalCalories, 
-      totalProtein: finalTotalProtein, 
-      totalCarbs: finalTotalCarbs, 
-      totalFat: finalTotalFat 
+
+    const mealToSave: Meal = {
+      ...meal,
+      totalCalories: finalTotalCalories,
+      totalProtein: finalTotalProtein,
+      totalCarbs: finalTotalCarbs,
+      totalFat: finalTotalFat
     };
     onSave(mealToSave);
   };
@@ -472,9 +474,9 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
         <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-2">
           <div>
             <Label htmlFor="customMealName">Meal Name (e.g., Chicken Salad)</Label>
-            <Input 
-              id="customMealName" value={meal.customName || ''} 
-              onChange={(e) => setMeal({...meal, customName: e.target.value})}
+            <Input
+              id="customMealName" value={meal.customName || ''}
+              onChange={(e) => setMeal({ ...meal, customName: e.target.value })}
               placeholder="Optional: e.g., Greek Yogurt with Berries"
             />
           </div>
@@ -488,13 +490,13 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 <Input type="number" placeholder="Qty" value={ing.quantity ?? ''} onChange={(e) => handleIngredientChange(index, 'quantity', e.target.value)} />
                 <Input placeholder="Unit (g, ml, item)" value={ing.unit} onChange={(e) => handleIngredientChange(index, 'unit', e.target.value)} />
-                 <div className="col-span-2 md:col-span-1 text-xs text-muted-foreground pt-2"> (Total for this quantity) </div>
+                <div className="col-span-2 md:col-span-1 text-xs text-muted-foreground pt-2"> (Total for this quantity) </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                 <Input type="number" placeholder="Cals" value={ing.calories ?? ''} onChange={(e) => handleIngredientChange(index, 'calories', e.target.value)} />
-                 <Input type="number" placeholder="Protein (g)" value={ing.protein ?? ''} onChange={(e) => handleIngredientChange(index, 'protein', e.target.value)} />
-                 <Input type="number" placeholder="Carbs (g)" value={ing.carbs ?? ''} onChange={(e) => handleIngredientChange(index, 'carbs', e.target.value)} />
-                 <Input type="number" placeholder="Fat (g)" value={ing.fat ?? ''} onChange={(e) => handleIngredientChange(index, 'fat', e.target.value)} />
+                <Input type="number" placeholder="Cals" value={ing.calories ?? ''} onChange={(e) => handleIngredientChange(index, 'calories', e.target.value)} />
+                <Input type="number" placeholder="Protein (g)" value={ing.protein ?? ''} onChange={(e) => handleIngredientChange(index, 'protein', e.target.value)} />
+                <Input type="number" placeholder="Carbs (g)" value={ing.carbs ?? ''} onChange={(e) => handleIngredientChange(index, 'carbs', e.target.value)} />
+                <Input type="number" placeholder="Fat (g)" value={ing.fat ?? ''} onChange={(e) => handleIngredientChange(index, 'fat', e.target.value)} />
               </div>
             </Card>
           ))}
@@ -505,7 +507,7 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
             <p className="text-sm">Protein: {meal.totalProtein?.toFixed(1) ?? '0.0'}g</p>
             <p className="text-sm">Carbs: {meal.totalCarbs?.toFixed(1) ?? '0.0'}g</p>
             <p className="text-sm">Fat: {meal.totalFat?.toFixed(1) ?? '0.0'}g</p>
-             <Button onClick={calculateTotals} size="sm" variant="ghost" className="mt-1 text-xs">Recalculate Manually</Button>
+            <Button onClick={calculateTotals} size="sm" variant="ghost" className="mt-1 text-xs">Recalculate Manually</Button>
           </div>
         </div>
         <DialogFooter>
@@ -516,4 +518,3 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
     </Dialog>
   );
 }
-

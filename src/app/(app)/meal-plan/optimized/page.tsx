@@ -8,11 +8,11 @@ import { Loader2, Wand2, Utensils, AlertTriangle, ChefHat, BarChart3 } from 'luc
 import { generatePersonalizedMealPlan, type GeneratePersonalizedMealPlanInput, type GeneratePersonalizedMealPlanOutput } from '@/ai/flows/generate-meal-plan';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { ProfileFormValues as FullProfileType, WeeklyMealPlan, DailyMealPlan as AppDailyMealPlan, Meal as AppMeal, Ingredient as AppIngredient, CalculatedTargets, MacroResults } from '@/lib/schemas';
+import type { FullProfileType, CalculatedTargets, MacroResults } from '@/lib/schemas';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { daysOfWeek, mealNames as appMealNames } from '@/lib/constants';
+import { daysOfWeek } from '@/lib/constants';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, LabelList } from "recharts";
 import type { ChartConfig } from "@/components/ui/chart";
@@ -65,7 +65,7 @@ export default function OptimizedMealPlanPage() {
         }
       }).catch(err => {
         console.error("Failed to load profile for AI meal plan", err);
-        toast({ title: "Error", description: "Could not load your profile data.", variant: "destructive"});
+        toast({ title: "Error", description: "Could not load your profile data.", variant: "destructive" });
       }).finally(() => setIsLoadingProfile(false));
     } else {
       setIsLoadingProfile(false);
@@ -81,48 +81,47 @@ export default function OptimizedMealPlanPage() {
       toast({ title: "Profile Incomplete", description: "Please complete your onboarding profile before generating an AI meal plan.", variant: "destructive" });
       return;
     }
-    
+
     // Map FullProfileType to GeneratePersonalizedMealPlanInput
     const input: GeneratePersonalizedMealPlanInput = {
-      age: profileData.age!, // Assuming required fields from onboarding are present
+      age: profileData.age!,
       gender: profileData.gender!,
       height_cm: profileData.height_cm!,
       current_weight: profileData.current_weight!,
       goal_weight_1m: profileData.goal_weight_1m!,
       activityLevel: profileData.activityLevel!,
-      dietGoal: profileData.dietGoal!, // This should map from 'dietGoalOnboarding' if that's the source
-      
+      dietGoalOnboarding: profileData.dietGoalOnboarding!,
+
       // Optional fields
       ideal_goal_weight: profileData.ideal_goal_weight,
-      bf_current: profileData.bf_current,
-      bf_target: profileData.bf_target,
-      bf_ideal: profileData.bf_ideal,
-      mm_current: profileData.mm_current,
-      mm_target: profileData.mm_target,
-      mm_ideal: profileData.mm_ideal,
-      bw_current: profileData.bw_current,
-      bw_target: profileData.bw_target,
-      bw_ideal: profileData.bw_ideal,
-      waist_current: profileData.waist_current,
-      waist_goal_1m: profileData.waist_goal_1m,
-      waist_ideal: profileData.waist_ideal,
-      hips_current: profileData.hips_current,
-      hips_goal_1m: profileData.hips_goal_1m,
-      hips_ideal: profileData.hips_ideal,
-      right_leg_current: profileData.right_leg_current,
-      right_leg_goal_1m: profileData.right_leg_goal_1m,
-      right_leg_ideal: profileData.right_leg_ideal,
-      left_leg_current: profileData.left_leg_current,
-      left_leg_goal_1m: profileData.left_leg_goal_1m,
-      left_leg_ideal: profileData.left_leg_ideal,
-      right_arm_current: profileData.right_arm_current,
-      right_arm_goal_1m: profileData.right_arm_goal_1m,
-      right_arm_ideal: profileData.right_arm_ideal,
-      left_arm_current: profileData.left_arm_current,
-      left_arm_goal_1m: profileData.left_arm_goal_1m,
-      left_arm_ideal: profileData.left_arm_ideal,
+      bf_current: profileData.bf_current ?? undefined,
+      bf_target: profileData.bf_target ?? undefined,
+      bf_ideal: profileData.bf_ideal ?? undefined,
+      mm_current: profileData.mm_current ?? undefined,
+      mm_target: profileData.mm_target ?? undefined,
+      mm_ideal: profileData.mm_ideal ?? undefined,
+      bw_current: profileData.bw_current ?? undefined,
+      bw_target: profileData.bw_target ?? undefined,
+      bw_ideal: profileData.bw_ideal ?? undefined,
+      waist_current: profileData.waist_current ?? undefined,
+      waist_goal_1m: profileData.waist_goal_1m ?? undefined,
+      waist_ideal: profileData.waist_ideal ?? undefined,
+      hips_current: profileData.hips_current ?? undefined,
+      hips_goal_1m: profileData.hips_goal_1m ?? undefined,
+      hips_ideal: profileData.hips_ideal ?? undefined,
+      right_leg_current: profileData.right_leg_current ?? undefined,
+      right_leg_goal_1m: profileData.right_leg_goal_1m ?? undefined,
+      right_leg_ideal: profileData.right_leg_ideal ?? undefined,
+      left_leg_current: profileData.left_leg_current ?? undefined,
+      left_leg_goal_1m: profileData.left_leg_goal_1m ?? undefined,
+      left_leg_ideal: profileData.left_leg_ideal ?? undefined,
+      right_arm_current: profileData.right_arm_current ?? undefined,
+      right_arm_goal_1m: profileData.right_arm_goal_1m ?? undefined,
+      right_arm_ideal: profileData.right_arm_ideal ?? undefined,
+      left_arm_current: profileData.left_arm_current ?? undefined,
+      left_arm_goal_1m: profileData.left_arm_goal_1m ?? undefined,
+      left_arm_ideal: profileData.left_arm_ideal ?? undefined,
       preferredDiet: profileData.preferredDiet,
-      mealsPerDay: profileData.mealsPerDay,
       allergies: profileData.allergies,
       preferredCuisines: profileData.preferredCuisines,
       dispreferredCuisines: profileData.dispreferredCuisines,
@@ -144,9 +143,10 @@ export default function OptimizedMealPlanPage() {
       setMealPlan(result);
       await saveOptimizedMealPlan(user.uid, result);
       toast({ title: "Meal Plan Generated!", description: "Your AI-optimized weekly meal plan is ready." });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error generating meal plan:", err);
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+      console.error("Full AI error object:", err); // Log the full error object
+      const errorMessage = err.message || "An unknown error occurred.";
       setError(`Failed to generate meal plan: ${errorMessage}`);
       toast({ title: "Generation Failed", description: errorMessage, variant: "destructive" });
     } finally {
@@ -154,12 +154,12 @@ export default function OptimizedMealPlanPage() {
     }
   };
 
-  const chartConfig = {
+  const chartConfig: ChartConfig = {
     calories: { label: "Calories (kcal)", color: "hsl(var(--chart-1))" },
     protein: { label: "Protein (g)", color: "hsl(var(--chart-2))" },
     fat: { label: "Fat (g)", color: "hsl(var(--chart-3))" },
-    carbs: { label: "Carbs (g)", color: "hsl(var(--chart-4))" }, 
-  } satisfies ChartConfig;
+    carbs: { label: "Carbs (g)", color: "hsl(var(--chart-4))" },
+  };
 
 
   if (isLoadingProfile) {
@@ -176,12 +176,12 @@ export default function OptimizedMealPlanPage() {
           </div>
           <Button onClick={handleGeneratePlan} disabled={isLoading || isLoadingProfile} size="lg" className="mt-4 md:mt-0">
             {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Wand2 className="mr-2 h-5 w-5" />}
-            {isLoading ? "Generating..." : "Generate New Plan"}
+            {isLoading ? "Generating..." : (isLoadingProfile ? "Loading Profile..." : "Generate New Plan")}
           </Button>
         </CardHeader>
         <CardContent>
-          {error && <p className="text-destructive text-center py-4"><AlertTriangle className="inline mr-2"/> {error}</p>}
-          
+          {error && <p className="text-destructive text-center py-4"><AlertTriangle className="inline mr-2" /> {error}</p>}
+
           {!mealPlan && !isLoading && !error && (
             <div className="text-center py-10 text-muted-foreground">
               <Utensils className="mx-auto h-12 w-12 mb-4" />
@@ -195,7 +195,7 @@ export default function OptimizedMealPlanPage() {
               {mealPlan.weeklySummary && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-2xl flex items-center"><BarChart3 className="mr-2 h-6 w-6 text-primary"/>Weekly Nutritional Summary</CardTitle>
+                    <CardTitle className="text-2xl flex items-center"><BarChart3 className="mr-2 h-6 w-6 text-primary" />Weekly Nutritional Summary</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center mb-6">
@@ -204,7 +204,7 @@ export default function OptimizedMealPlanPage() {
                       <div><p className="text-sm text-muted-foreground">Total Carbs</p><p className="text-xl font-bold">{mealPlan.weeklySummary.totalCarbs.toFixed(1)} g</p></div>
                       <div><p className="text-sm text-muted-foreground">Total Fat</p><p className="text-xl font-bold">{mealPlan.weeklySummary.totalFat.toFixed(1)} g</p></div>
                     </div>
-                     <ChartContainer config={chartConfig} className="w-full h-[250px]">
+                    <ChartContainer config={chartConfig} className="w-full h-[250px]">
                       <BarChart
                         accessibilityLayer
                         data={[
@@ -219,7 +219,7 @@ export default function OptimizedMealPlanPage() {
                         <YAxis tickLine={false} axisLine={false} tickMargin={8} />
                         <ChartTooltip content={<ChartTooltipContent hideIndicator />} />
                         <Bar dataKey="value" radius={5}>
-                           <LabelList position="top" offset={8} className="fill-foreground text-xs" formatter={(value: number) => `${value.toFixed(0)}g`} />
+                          <LabelList position="top" offset={8} className="fill-foreground text-xs" formatter={(value: number) => `${value.toFixed(0)}g`} />
                         </Bar>
                       </BarChart>
                     </ChartContainer>
@@ -245,7 +245,7 @@ export default function OptimizedMealPlanPage() {
                       {dayPlan.meals.map((meal, mealIndex) => (
                         <Card key={mealIndex} className="shadow-md">
                           <CardHeader>
-                            <CardTitle className="text-xl font-semibold flex items-center"><ChefHat className="mr-2 h-5 w-5 text-accent"/>{meal.meal_name}</CardTitle>
+                            <CardTitle className="text-xl font-semibold flex items-center"><ChefHat className="mr-2 h-5 w-5 text-accent" />{meal.meal_name}</CardTitle>
                           </CardHeader>
                           <CardContent>
                             <h4 className="font-medium text-md mb-2 text-primary">Ingredients:</h4>
@@ -275,8 +275,8 @@ export default function OptimizedMealPlanPage() {
                               <ScrollBar orientation="horizontal" />
                             </ScrollArea>
                             <div className="text-sm font-semibold p-2 border-t border-muted-foreground/20 bg-muted/40 rounded-b-md">
-                              Total: {meal.total_calories.toFixed(0)} kcal | 
-                              Protein: {meal.total_protein_g.toFixed(1)}g | 
+                              Total: {meal.total_calories.toFixed(0)} kcal |
+                              Protein: {meal.total_protein_g.toFixed(1)}g |
                               Fat: {meal.total_fat_g.toFixed(1)}g
                             </div>
                           </CardContent>
