@@ -38,13 +38,13 @@ async function getMealPlanData(userId: string): Promise<WeeklyMealPlan | null> {
                 ...existingDay,
                 meals: mealNames.map(mealName => {
                   const existingMeal = existingDay.meals.find(m => m.name === mealName);
-                  return existingMeal || { name: mealName, customName: "", ingredients: [], totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0 };
+                  return existingMeal || { name: mealName, customName: "", ingredients: [], totalCalories: null, totalProtein: null, totalCarbs: null, totalFat: null };
                 })
               };
             }
             return {
               dayOfWeek: dayName,
-              meals: mealNames.map(mealName => ({ name: mealName, customName: "", ingredients: [], totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0 }))
+              meals: mealNames.map(mealName => ({ name: mealName, customName: "", ingredients: [], totalCalories: null, totalProtein: null, totalCarbs: null, totalFat: null }))
             };
           })
         };
@@ -99,14 +99,15 @@ async function getProfileDataForOptimization(userId: string): Promise<Partial<Fu
         current_weight: data.current_weight,
         height_cm: data.height_cm,
         activityLevel: data.activityLevel,
-        dietGoal: data.dietGoalOnboarding, 
+        dietGoalOnboarding: data.dietGoalOnboarding, 
         preferredDiet: data.preferredDiet,
         allergies: data.allergies || [],
         dispreferredIngredients: data.dispreferredIngredients || [],
         preferredIngredients: data.preferredIngredients || [],
       };
-      Object.keys(profile).forEach(key => {
-        if (profile[key as keyof Partial<FullProfileType>] === undefined) {
+      // Ensure undefined top-level optional fields become null for consistency
+      (Object.keys(profile) as Array<keyof typeof profile>).forEach(key => {
+        if (profile[key] === undefined) {
           (profile as any)[key] = null;
         }
       });
@@ -123,7 +124,7 @@ const generateInitialWeeklyPlan = (): WeeklyMealPlan => ({
   days: daysOfWeek.map(day => ({
     dayOfWeek: day,
     meals: mealNames.map(mealName => ({ name: mealName, customName: "", ingredients: [],
-      totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0,
+      totalCalories: null, totalProtein: null, totalCarbs: null, totalFat: null,
     })),
   })),
 });
@@ -189,23 +190,37 @@ export default function CurrentMealPlanPage() {
     const mealKey = `${weeklyPlan.days[dayIndex].dayOfWeek}-${mealToOptimize.name}-${mealIndex}`;
     setOptimizingMealKey(mealKey);
 
-    if (!profileData || Object.keys(profileData).length === 0 || isLoadingProfile) {
-      toast({ title: "Profile Data Needed", description: "User profile data is still loading or incomplete. Please ensure your profile is complete for AI optimization.", variant: "destructive" });
+    if (isLoadingProfile || !profileData) {
+      toast({ title: "Profile Data Loading", description: "User profile data is still loading. Please wait a moment and try again.", variant: "default" });
       setOptimizingMealKey(null); return;
+    }
+    
+    const requiredFields: (keyof FullProfileType)[] = ['age', 'gender', 'current_weight', 'height_cm', 'activityLevel', 'dietGoalOnboarding'];
+    const missingFields = requiredFields.filter(field => !profileData[field]);
+
+    if (missingFields.length > 0) {
+      toast({
+        title: "Profile Incomplete for Optimization",
+        description: `Please ensure the following profile details are complete: ${missingFields.join(', ')}. You can update these in the "Smart Calorie Planner" or during onboarding.`,
+        variant: "destructive",
+        duration: 7000,
+      });
+      setOptimizingMealKey(null);
+      return;
     }
 
     try {
       const dailyTotals = calculateEstimatedDailyTargets({
-        age: profileData.age,
-        gender: profileData.gender,
-        currentWeight: profileData.current_weight,
-        height: profileData.height_cm,
-        activityLevel: profileData.activityLevel,
-        dietGoal: profileData.dietGoalOnboarding,
+        age: profileData.age!,
+        gender: profileData.gender!,
+        currentWeight: profileData.current_weight!,
+        height: profileData.height_cm!,
+        activityLevel: profileData.activityLevel!,
+        dietGoal: profileData.dietGoalOnboarding!,
       });
       
       if (!dailyTotals.targetCalories || !dailyTotals.targetProtein || !dailyTotals.targetCarbs || !dailyTotals.targetFat) {
-        toast({ title: "Calculation Error", description: "Could not calculate daily targets from profile. Ensure profile is complete.", variant: "destructive" });
+        toast({ title: "Calculation Error", description: "Could not calculate daily targets from profile. Ensure profile is complete. This might happen if some values are zero or invalid.", variant: "destructive" });
         setOptimizingMealKey(null); return;
       }
 
@@ -231,7 +246,7 @@ export default function CurrentMealPlanPage() {
       const aiInput: AdjustMealIngredientsInput = {
         originalMeal: { 
             name: mealToOptimize.name,
-            customName: mealToOptimize.customName,
+            customName: mealToOptimize.customName || "",
             ingredients: preparedIngredients,
             totalCalories: Number(mealToOptimize.totalCalories) || 0, 
             totalProtein: Number(mealToOptimize.totalProtein) || 0,
@@ -255,10 +270,24 @@ export default function CurrentMealPlanPage() {
 
       if (result.adjustedMeal && user?.uid) {
         const newWeeklyPlan = JSON.parse(JSON.stringify(weeklyPlan)); 
-        newWeeklyPlan.days[dayIndex].meals[mealIndex] = {
-          ...result.adjustedMeal,
-          id: mealToOptimize.id 
+        const updatedMealData = {
+            ...result.adjustedMeal,
+            id: mealToOptimize.id, // Preserve original ID if exists
+            // Ensure all macro fields are numbers or null
+            totalCalories: Number(result.adjustedMeal.totalCalories) || null,
+            totalProtein: Number(result.adjustedMeal.totalProtein) || null,
+            totalCarbs: Number(result.adjustedMeal.totalCarbs) || null,
+            totalFat: Number(result.adjustedMeal.totalFat) || null,
+            ingredients: result.adjustedMeal.ingredients.map(ing => ({
+                ...ing,
+                quantity: Number(ing.quantity) || 0,
+                calories: Number(ing.calories) || null,
+                protein: Number(ing.protein) || null,
+                carbs: Number(ing.carbs) || null,
+                fat: Number(ing.fat) || null,
+            }))
         };
+        newWeeklyPlan.days[dayIndex].meals[mealIndex] = updatedMealData;
         setWeeklyPlan(newWeeklyPlan);
         await saveMealPlanData(user.uid, newWeeklyPlan);
         toast({ title: `Meal Optimized: ${mealToOptimize.name}`, description: result.explanation || "AI has adjusted the ingredients." });
@@ -383,7 +412,7 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
   const addIngredient = () => {
     setMeal(prev => ({
       ...prev,
-      ingredients: [...prev.ingredients, { name: '', quantity: 0, unit: 'g', calories: null, protein: null, carbs: null, fat: null }]
+      ingredients: [...prev.ingredients, { name: '', quantity: null, unit: 'g', calories: null, protein: null, carbs: null, fat: null }]
     }));
   };
   
@@ -487,3 +516,4 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
     </Dialog>
   );
 }
+
