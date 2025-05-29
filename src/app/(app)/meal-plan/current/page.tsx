@@ -131,6 +131,11 @@ export default function CurrentMealPlanPage() {
     }
   }, [user, toast]);
 
+  const handleEditMeal = (dayIndex: number, mealIndex: number) => {
+    const mealToEdit = weeklyPlan.days[dayIndex].meals[mealIndex];
+    setEditingMeal({ dayIndex, mealIndex, meal: mealToEdit });
+  };
+
   const handleSaveMeal = async (updatedMeal: Meal) => {
     if (!editingMeal || !user?.uid) return;
     const newWeeklyPlan = JSON.parse(JSON.stringify(weeklyPlan)); // Deep copy
@@ -425,3 +430,4 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
     </Dialog>
   );
 }
+
