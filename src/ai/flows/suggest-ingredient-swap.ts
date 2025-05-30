@@ -11,39 +11,32 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
 import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro
 
-const SuggestIngredientSwapInputSchema = z.object({
-  mealName: z.string().describe('The name of the meal (e.g., Breakfast, Lunch, Dinner).'),
-  ingredients: z.array(
-    z.object({
-      name: z.string().describe('The name of the ingredient.'),
-      quantity: z.number().describe('The quantity of the ingredient in grams.'),
-      caloriesPer100g: z.number().describe('The number of calories per 100g of the ingredient.'),
-      proteinPer100g: z.number().describe('The amount of protein per 100g of the ingredient.'),
-      fatPer100g: z.number().describe('The amount of fat per 100g of the ingredient.'),
-    })
-  ).describe('The list of ingredients in the meal.'),
-  dietaryPreferences: z.string().describe('The dietary preferences of the user.'),
-  dislikedIngredients: z.array(z.string()).describe('A list of ingredients the user dislikes.'),
-  allergies: z.array(z.string()).describe('A list of ingredients the user is allergic to.'),
-  nutrientTargets: z.object({
-    calories: z.number().describe('The target number of calories for the meal.'),
-    protein: z.number().describe('The target amount of protein for the meal in grams.'),
-    carbohydrates: z.number().describe('The target amount of carbohydrates for the meal in grams.'),
-    fat: z.number().describe('The target amount of fat for the meal in grams.'),
-  }).describe('The target nutrient breakdown for the meal.'),
-});
-export type SuggestIngredientSwapInput = z.infer<typeof SuggestIngredientSwapInputSchema>;
+export interface SuggestIngredientSwapInput {
+  mealName: string;
+  ingredients: Array<{
+    name: string;
+    quantity: number; // in grams
+    caloriesPer100g: number;
+    proteinPer100g: number; // in grams
+    fatPer100g: number; // in grams
+  }>;
+  dietaryPreferences: string;
+  dislikedIngredients: string[];
+  allergies: string[];
+  nutrientTargets: {
+    calories: number;
+    protein: number; // in grams
+    carbohydrates: number; // in grams
+    fat: number; // in grams
+  };
+}
 
-const SuggestIngredientSwapOutputSchema = z.array(
-  z.object({
-    ingredientName: z.string().describe('The name of the suggested ingredient.'),
-    reason: z.string().describe('The reason for suggesting this ingredient swap.'),
-  })
-).describe('A list of suggested ingredient swaps with reasons.');
-export type SuggestIngredientSwapOutput = z.infer<typeof SuggestIngredientSwapOutputSchema>;
+export type SuggestIngredientSwapOutput = Array<{
+  ingredientName: string;
+  reason: string;
+}>;
 
 export async function suggestIngredientSwap(input: SuggestIngredientSwapInput): Promise<SuggestIngredientSwapOutput> {
   return suggestIngredientSwapFlow(input);
@@ -52,8 +45,8 @@ export async function suggestIngredientSwap(input: SuggestIngredientSwapInput): 
 const prompt = ai.definePrompt({
   name: 'suggestIngredientSwapPrompt',
   model: geminiPro, // Explicitly set the model
-  input: {schema: SuggestIngredientSwapInputSchema},
-  output: {schema: SuggestIngredientSwapOutputSchema},
+  input: {}, // Schema inference from input type
+  output: {}, // Schema inference from output type
   prompt: `You are a nutritional expert. Given a meal and a user's dietary preferences and restrictions, suggest ingredient swaps that maintain the meal's nutritional balance.
 
 Meal Name: {{{mealName}}}
@@ -76,8 +69,8 @@ Output the suggestions as a JSON array of objects, where each object has 'ingred
 const suggestIngredientSwapFlow = ai.defineFlow(
   {
     name: 'suggestIngredientSwapFlow',
-    inputSchema: SuggestIngredientSwapInputSchema,
-    outputSchema: SuggestIngredientSwapOutputSchema,
+    inputSchema: {}, // Schema inference from input type
+    outputSchema: {}, // Schema inference from output type
   },
   async input => {
     const {output} = await prompt(input);

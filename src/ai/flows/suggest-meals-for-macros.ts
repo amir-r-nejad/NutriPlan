@@ -10,55 +10,52 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
 import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro directly
 
-const SuggestMealsForMacrosInputSchema = z.object({
-  mealName: z.string().describe("The name of the meal type, e.g., Breakfast, Lunch."),
-  targetCalories: z.number().describe("Target calories for the meal."),
-  targetProteinGrams: z.number().describe("Target protein in grams for the meal."),
-  targetCarbsGrams: z.number().describe("Target carbohydrates in grams for the meal."),
-  targetFatGrams: z.number().describe("Target fat in grams for the meal."),
+export interface SuggestMealsForMacrosInput {
+  mealName: string;
+  targetCalories: number;
+  targetProteinGrams: number;
+  targetCarbsGrams: number;
+  targetFatGrams: number;
   
-  age: z.number().optional().describe('The age of the user.'),
-  gender: z.string().optional().describe('The gender of the user.'),
-  activityLevel: z.string().optional().describe('The activity level of the user (e.g., sedentary, light, moderate, active).'),
-  dietGoal: z.string().optional().describe('The diet goal of the user (e.g., lose weight, maintain weight, gain weight).'),
-  preferredDiet: z.string().optional().describe('The preferred diet of the user (e.g., vegetarian, vegan, keto).'),
-  preferredCuisines: z.array(z.string()).optional().describe('The preferred cuisines of the user.'),
-  dispreferredCuisines: z.array(z.string()).optional().describe('The dispreferred cuisines of the user.'),
-  preferredIngredients: z.array(z.string()).optional().describe('The preferred ingredients of the user.'),
-  dispreferredIngredients: z.array(z.string()).optional().describe('The dispreferred ingredients of the user.'),
-  allergies: z.array(z.string()).optional().describe('The allergies of the user.'),
-});
-export type SuggestMealsForMacrosInput = z.infer<typeof SuggestMealsForMacrosInputSchema>;
+  age?: number;
+  gender?: string;
+  activityLevel?: string;
+  dietGoal?: string;
+  preferredDiet?: string;
+  preferredCuisines?: string[];
+  dispreferredCuisines?: string[];
+  preferredIngredients?: string[];
+  dispreferredIngredients?: string[];
+  allergies?: string[];
+}
 
-const IngredientDetailSchema = z.object({
-  name: z.string().describe("Name of the ingredient."),
-  amount: z.string().describe("The quantity of the ingredient, e.g., '1 scoop', '1/2 cup', '100'. Should be a common household or weight measure."),
-  unit: z.string().describe("The unit for the amount, e.g., '(30g)', 'g', 'ml', 'cup', 'piece', 'tbsp', 'tsp'. If using volume like 'cup', try to provide an approximate gram equivalent in parentheses, e.g., 'cup (approx 150g)'. For items like 'scoop', provide typical gram weight in parentheses, e.g., 'scoop (30g)'. "),
-  calories: z.number().describe("Calories for THIS SPECIFIC AMOUNT of the ingredient."),
-  protein: z.number().describe("Protein (g) for THIS SPECIFIC AMOUNT of the ingredient."),
-  carbs: z.number().describe("Carbohydrates (g) for THIS SPECIFIC AMOUNT of the ingredient."),
-  fat: z.number().describe("Fat (g) for THIS SPECIFIC AMOUNT of the ingredient."),
-  macrosString: z.string().describe("A concise string representing P/C/F grams for THIS INGREDIENT, e.g., '24g / 3g / 1g'.")
-});
+interface IngredientDetail {
+  name: string;
+  amount: string;
+  unit: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  macrosString: string;
+}
 
-const MealSuggestionSchema = z.object({
-  mealTitle: z.string().describe("Catchy title for the meal suggestion."),
-  description: z.string().describe("A brief 1-2 sentence description of the meal and why it fits the macros. Should be enticing and practical."),
-  ingredients: z.array(IngredientDetailSchema).describe("A detailed list of ingredients for the meal. Each ingredient MUST have all its fields populated: name, amount, unit, calories, protein, carbs, fat (all for the specified amount), and macrosString."),
-  totalCalories: z.number().describe("Total calories for the entire meal, accurately summed from its ingredients. This MUST be the sum of 'calories' from the 'ingredients' list."),
-  totalProtein: z.number().describe("Total protein (g) for the entire meal, accurately summed from its ingredients. This MUST be the sum of 'protein' from the 'ingredients' list."),
-  totalCarbs: z.number().describe("Total carbohydrates (g) for the entire meal, accurately summed from its ingredients. This MUST be the sum of 'carbs' from the 'ingredients' list."),
-  totalFat: z.number().describe("Total fat (g) for the entire meal, accurately summed from its ingredients. This MUST be the sum of 'fat' from the 'ingredients' list."),
-  instructions: z.string().optional().describe("Optional brief cooking/preparation instructions.")
-});
+interface MealSuggestion {
+  mealTitle: string;
+  description: string;
+  ingredients: IngredientDetail[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  instructions?: string;
+}
 
-const SuggestMealsForMacrosOutputSchema = z.object({
-  suggestions: z.array(MealSuggestionSchema).min(1).max(3).describe("A list of 1-3 detailed meal suggestions. Each suggestion MUST adhere to the MealSuggestionSchema, including a complete ingredients list where each ingredient has ALL its nutritional details (calories, protein, carbs, fat for the specified amount, and macrosString) and the meal's total macros are correctly summed."),
-});
-export type SuggestMealsForMacrosOutput = z.infer<typeof SuggestMealsForMacrosOutputSchema>;
+export interface SuggestMealsForMacrosOutput {
+  suggestions: MealSuggestion[]; // min(1), max(3) constraints are descriptive, not enforced by TS interface
+}
 
 export async function suggestMealsForMacros(input: SuggestMealsForMacrosInput): Promise<SuggestMealsForMacrosOutput> {
   return suggestMealsForMacrosFlow(input);
@@ -68,9 +65,9 @@ export async function suggestMealsForMacros(input: SuggestMealsForMacrosInput): 
 
 const suggestMealsForMacrosFlow = ai.defineFlow(
   {
-    name: 'suggestMealsForMacrosFlow',
-    inputSchema: SuggestMealsForMacrosInputSchema,
-    outputSchema: SuggestMealsForMacrosOutputSchema,
+    name: 'suggestMealsForMacrosFlow', // Assuming these names are used internally by Genkit and don't strictly require schema objects
+    inputSchema: {}, // Replace with empty object or remove if not needed by defineFlow without Zod
+    outputSchema: {}, // Replace with empty object or remove if not needed by defineFlow without Zod
   },
   async (input) => {
     // Manually construct the prompt string
@@ -121,7 +118,7 @@ The 'totalCalories', 'totalProtein', 'totalCarbs', and 'totalFat' for the meal M
     const { output } = await ai.generate({
         model: geminiPro, // Explicitly use the imported model object
         prompt: promptText,
-        output: { schema: SuggestMealsForMacrosOutputSchema, format: 'json' }, // Request structured output
+        output: { format: 'json' }, // Request structured output, Genkit will infer structure from Prompt
         // You could also add config here if needed, e.g., safetySettings
     });
 

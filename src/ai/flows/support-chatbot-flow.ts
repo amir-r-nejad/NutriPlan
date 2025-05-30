@@ -9,18 +9,15 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
 import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro
 
-const SupportChatbotInputSchema = z.object({
-  userQuery: z.string().describe("The user's question about how to use the NutriPlan website or its features."),
-});
-export type SupportChatbotInput = z.infer<typeof SupportChatbotInputSchema>;
+export interface SupportChatbotInput {
+  userQuery: string;
+}
 
-const SupportChatbotOutputSchema = z.object({
-  botResponse: z.string().describe("The chatbot's answer to the user's query."),
-});
-export type SupportChatbotOutput = z.infer<typeof SupportChatbotOutputSchema>;
+export interface SupportChatbotOutput {
+  botResponse: string;
+}
 
 export async function handleSupportQuery(input: SupportChatbotInput): Promise<SupportChatbotOutput> {
   return supportChatbotFlow(input);
@@ -29,8 +26,8 @@ export async function handleSupportQuery(input: SupportChatbotInput): Promise<Su
 const prompt = ai.definePrompt({
   name: 'supportChatbotPrompt',
   model: geminiPro, // Explicitly set the model
-  input: {schema: SupportChatbotInputSchema},
-  output: {schema: SupportChatbotOutputSchema},
+  input: { schema: SupportChatbotInput },
+  output: { schema: SupportChatbotOutput },
   prompt: `You are a friendly and helpful support chatbot for "NutriPlan", a web application designed for personalized nutrition and meal planning.
 Your role is to answer user questions about how to use the website and its features.
 Focus ONLY on website functionality, navigation, and how to use specific tools.
@@ -55,8 +52,8 @@ User's question: {{{userQuery}}}
 const supportChatbotFlow = ai.defineFlow(
   {
     name: 'supportChatbotFlow',
-    inputSchema: SupportChatbotInputSchema,
-    outputSchema: SupportChatbotOutputSchema,
+    inputSchema: SupportChatbotInput,
+    outputSchema: SupportChatbotOutput,
   },
   async (input) => {
     const { output } = await prompt(input);
