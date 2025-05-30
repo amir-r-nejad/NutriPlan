@@ -38,8 +38,8 @@ export const ProfileFormSchema = z.object({
   subscriptionStatus: z.string().optional(),
   // Medical Info & Physical Limitations
   painMobilityIssues: z.string().optional(),
-  injuries: z.array(z.string()).optional(), // Handled by renderCommaSeparatedInput
-  surgeries: z.array(z.string()).optional(), // Handled by renderCommaSeparatedInput
+  injuries: z.array(z.string()).optional(),
+  surgeries: z.array(z.string()).optional(),
   // Exercise Preferences
   exerciseGoals: z.array(z.string()).optional(),
   exercisePreferences: z.array(z.string()).optional(),
@@ -126,9 +126,6 @@ export interface BaseProfileData {
     formValues?: Partial<SmartCaloriePlannerFormValues> | null; // Storing form inputs
     results?: GlobalCalculatedTargets | null; // Storing calculated results
   } | null;
-  // manualMacroResults removed previously
-  currentWeeklyPlan?: WeeklyMealPlan | null; // Current meal plan
-  aiGeneratedMealPlan?: any | null; // For AI optimized plan storage (Adjust 'any' with specific type from AI Flow)
   mealDistributions?: MealMacroDistribution[] | null; // Saved from Macro Splitter or Onboarding
 }
 
@@ -182,13 +179,14 @@ export const WeeklyMealPlanSchema = z.object({
 });
 export type WeeklyMealPlan = z.infer<typeof WeeklyMealPlanSchema>;
 
+const customIntErrorMessage = "⚠ Invalid value. Please enter a whole number (e.g., 19 or 20, not 19.3).";
 
 export const MealMacroDistributionSchema = z.object({
   mealName: z.string(),
-  calories_pct: z.coerce.number().int("Percentages must be whole numbers (e.g., 20, not 20.5).").min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
-  protein_pct: z.coerce.number().int("Percentages must be whole numbers (e.g., 20, not 20.5).").min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
-  carbs_pct: z.coerce.number().int("Percentages must be whole numbers (e.g., 20, not 20.5).").min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
-  fat_pct: z.coerce.number().int("Percentages must be whole numbers (e.g., 20, not 20.5).").min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
+  calories_pct: z.coerce.number().int(customIntErrorMessage).min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
+  protein_pct: z.coerce.number().int(customIntErrorMessage).min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
+  carbs_pct: z.coerce.number().int(customIntErrorMessage).min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
+  fat_pct: z.coerce.number().int(customIntErrorMessage).min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
 });
 export type MealMacroDistribution = z.infer<typeof MealMacroDistributionSchema>;
 
@@ -198,7 +196,7 @@ export const MacroSplitterFormSchema = z.object({
 }).superRefine((data, ctx) => {
   const checkSum = (macroKey: keyof Omit<MealMacroDistribution, 'mealName'>, macroName: string) => {
     const sum = data.mealDistributions.reduce((acc, meal) => acc + (Number(meal[macroKey]) || 0), 0);
-    if (Math.abs(sum - 100) > 0.01) {
+    if (Math.abs(sum - 100) > 0.01) { // Allow for tiny floating point discrepancies
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: `Total ${macroName} percentages must sum to 100%. Current sum: ${sum.toFixed(0)}%`,
@@ -253,9 +251,9 @@ export const SmartCaloriePlannerFormSchema = z.object({
   left_arm_goal_1m: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
   left_arm_ideal: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0).optional()),
 
-  custom_total_calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().int("Custom calories must be a whole number (e.g., 2000, not 2000.5).").positive("Custom calories must be positive if provided.").optional()),
+  custom_total_calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().int("Custom calories must be a whole number if provided.").positive("Custom calories must be positive if provided.").optional()),
   custom_protein_per_kg: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Protein per kg must be non-negative if provided.").optional()), // Protein per kg can be decimal
-  remaining_calories_carb_pct: z.preprocess(preprocessOptionalNumber, z.coerce.number().int("Carb percentage must be a whole number (e.g., 50, not 50.5).").min(0, "Carb percentage must be between 0 and 100.").max(100, "Carb percentage must be between 0 and 100.").optional().default(50)),
+  remaining_calories_carb_pct: z.preprocess(preprocessOptionalNumber, z.coerce.number().int("Carb percentage must be a whole number.").min(0, "Carb percentage must be between 0 and 100.").max(100, "Carb percentage must be between 0 and 100.").optional().default(50)),
 });
 export type SmartCaloriePlannerFormValues = z.infer<typeof SmartCaloriePlannerFormSchema>;
 
@@ -266,16 +264,16 @@ export const MealSuggestionPreferencesSchema = z.object({
   preferredIngredients: z.array(z.string()).optional(),
   dispreferredIngredients: z.array(z.string()).optional(),
   allergies: z.array(z.string()).optional(),
-  preferredMicronutrients: z.array(z.string()).optional(),
-  medicalConditions: z.array(z.string()).optional(),
-  medications: z.array(z.string()).optional(),
+  preferredMicronutrients: z.array(z.string()).optional(), // Kept for potential future use
+  medicalConditions: z.array(z.string()).optional(), // Kept for potential future use
+  medications: z.array(z.string()).optional(), // Kept for potential future use
 });
 export type MealSuggestionPreferencesValues = z.infer<typeof MealSuggestionPreferencesSchema>;
 
 
 export const OnboardingFormSchema = z.object({
   // Step 2: Basic Profile
-  age: z.coerce.number().int("Age must be a whole number (e.g., 30, not 30.5).").min(1, "Age is required").max(120),
+  age: z.coerce.number().int("Age must be a whole number.").min(1, "Age is required").max(120),
   gender: z.enum(genders.map(g => g.value) as [string, ...string[]], { required_error: "Gender is required." }),
   height_cm: z.coerce.number().min(50, "Height must be at least 50cm").max(300),
   current_weight: z.coerce.number().min(20, "Weight must be at least 20kg").max(500),
@@ -317,27 +315,30 @@ export const OnboardingFormSchema = z.object({
 
   // Step 5: Dietary Preferences & Restrictions
   preferredDiet: z.string().optional(),
-  allergies: z.string().optional(),
+  allergies: z.string().optional(), // Stored as comma-separated string, converted to array on save by onboarding
   preferredCuisines: z.string().optional(),
   dispreferredCuisines: z.string().optional(),
   preferredIngredients: z.string().optional(),
   dispreferredIngredients: z.string().optional(),
   preferredMicronutrients: z.string().optional(),
 
+
   // Step 6: Medical Information (Optional)
   medicalConditions: z.string().optional(),
   medications: z.string().optional(),
 
-  // Step 8: Customize Your Targets (Optional)
-  custom_total_calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().int("Custom calories must be a whole number (e.g., 2000, not 2000.5).").positive("Custom calories must be positive if provided.").optional()),
+  // Step 8: Customize Your Targets (Optional) - Onboarding
+  custom_total_calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().int("Calories must be a whole number.").positive("Custom calories must be positive if provided.").optional()),
   custom_protein_per_kg: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Protein per kg must be non-negative if provided.").optional()),
-  remaining_calories_carb_pct: z.preprocess(preprocessOptionalNumber, z.coerce.number().int("Carb percentage must be a whole number (e.g., 50, not 50.5).").min(0).max(100).optional().default(50)),
+  remaining_calories_carb_pct: z.preprocess(preprocessOptionalNumber, z.coerce.number().int("Carb % must be a whole number.").min(0).max(100).optional().default(50)),
 
-  // Step 9: Meal Macro Distribution (Optional)
+  // Step 9: Meal Macro Distribution (Optional) - Onboarding (formerly step 10)
   mealDistributions: z.array(MealMacroDistributionSchema).optional(),
 
-  // Step 10: Typical Meals Input
+  // Step 10: Typical Meals Input - Onboarding (formerly step 11)
   typicalMealsDescription: z.string().optional(),
 });
 
 export type OnboardingFormValues = z.infer<typeof OnboardingFormSchema>;
+
+export type { CustomCalculatedTargets } from '@/app/(app)/tools/smart-calorie-planner/page'; // Re-export for onboarding
