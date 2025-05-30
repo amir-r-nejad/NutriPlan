@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { MacroSplitterFormSchema, type MacroSplitterFormValues, type FullProfileType, type CalculatedMealMacros, type MealMacroDistribution, type GlobalCalculatedTargets as AppGlobalCalculatedTargets } from '@/lib/schemas';
+import { MacroSplitterFormSchema, type MacroSplitterFormValues, type FullProfileType, type MealMacroDistribution, type GlobalCalculatedTargets as AppGlobalCalculatedTargets } from '@/lib/schemas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { mealNames as defaultMealNames, defaultMacroPercentages } from '@/lib/constants';
@@ -30,6 +30,14 @@ interface TotalMacros {
   source?: string;
 }
 
+interface CalculatedMealMacros {
+  mealName: string;
+  Calories: number;
+  'Protein (g)': number;
+  'Carbs (g)': number;
+  'Fat (g)': number;
+}
+
 
 function customMacroSplit(
   totalMacros: TotalMacros,
@@ -37,10 +45,10 @@ function customMacroSplit(
 ): CalculatedMealMacros[] {
   return mealMacroDistribution.map(mealPct => ({
     mealName: mealPct.mealName,
-    Calories: Math.round(totalMacros.calories * (mealPct.calories_pct / 100)),
-    'Protein (g)': Math.round(totalMacros.protein_g * (mealPct.protein_pct / 100)),
-    'Carbs (g)': Math.round(totalMacros.carbs_g * (mealPct.carbs_pct / 100)),
-    'Fat (g)': Math.round(totalMacros.fat_g * (mealPct.fat_pct / 100)),
+    Calories: Math.round(totalMacros.calories * ((mealPct.calories_pct || 0) / 100)),
+    'Protein (g)': Math.round(totalMacros.protein_g * ((mealPct.protein_pct || 0) / 100)),
+    'Carbs (g)': Math.round(totalMacros.carbs_g * ((mealPct.carbs_pct || 0) / 100)),
+    'Fat (g)': Math.round(totalMacros.fat_g * ((mealPct.fat_pct || 0) / 100)),
   }));
 }
 
@@ -91,6 +99,7 @@ export default function MacroSplitterPage() {
 
         if (profileData.mealDistributions && Array.isArray(profileData.mealDistributions) && profileData.mealDistributions.length === defaultMealNames.length) {
           form.reset({ mealDistributions: profileData.mealDistributions });
+          // Add a check to ensure toast and toast.toasts are defined before accessing them
           if (toast && toast.toasts && !toast.toasts.find(t => t.description === "Your previously saved macro split percentages have been loaded.")) {
             toast({ title: "Loaded Saved Split", description: "Your previously saved macro split percentages have been loaded.", duration: 3000 });
           }
@@ -105,9 +114,8 @@ export default function MacroSplitterPage() {
             }))
           });
         }
-
-
-        if (profileData.smartPlannerData?.results?.finalTargetCalories) { // Prioritize smart planner results if custom overrides were used there
+        
+        if (profileData.smartPlannerData?.results?.finalTargetCalories !== undefined && profileData.smartPlannerData?.results?.finalTargetCalories !== null) {
             const smartResults = profileData.smartPlannerData.results;
             targets = {
                 calories: smartResults.finalTargetCalories || 0,
@@ -121,25 +129,25 @@ export default function MacroSplitterPage() {
           const estimatedTargets = calculateEstimatedDailyTargets({
             age: profileData.age,
             gender: profileData.gender,
-            current_weight: profileData.current_weight, // Use current_weight
-            height_cm: profileData.height_cm, // Use height_cm
+            current_weight: profileData.current_weight, 
+            height_cm: profileData.height_cm, 
             activityLevel: profileData.activityLevel,
-            dietGoalOnboarding: profileData.dietGoalOnboarding, // Use dietGoalOnboarding
+            dietGoalOnboarding: profileData.dietGoalOnboarding, 
           });
-          if (estimatedTargets.targetCalories && estimatedTargets.targetProtein && estimatedTargets.targetCarbs && estimatedTargets.targetFat) {
+          if (estimatedTargets.finalTargetCalories && estimatedTargets.proteinGrams && estimatedTargets.carbGrams && estimatedTargets.fatGrams) {
             targets = {
-              calories: estimatedTargets.targetCalories,
-              protein_g: estimatedTargets.targetProtein,
-              carbs_g: estimatedTargets.targetCarbs,
-              fat_g: estimatedTargets.targetFat,
+              calories: estimatedTargets.finalTargetCalories,
+              protein_g: estimatedTargets.proteinGrams,
+              carbs_g: estimatedTargets.carbGrams,
+              fat_g: estimatedTargets.fatGrams,
               source: "Profile Estimation"
             };
             sourceMessage = "Daily totals estimated from your Profile. Complete your profile or use the Smart Calorie Planner for more precision.";
           } else {
-             toast({ title: "Profile Incomplete for Calculation", description: "Could not calculate daily totals from your profile. Ensure all basic info, activity level, and diet goal are set.", variant: "destructive", duration: 5000});
+             toast({ title: "Profile Incomplete for Calculation", description: "Could not calculate daily totals from your profile. Ensure all basic info, activity level, and diet goal are set in Onboarding or Smart Planner.", variant: "destructive", duration: 5000});
           }
         } else {
-          toast({ title: "Profile Incomplete", description: "Your user profile is incomplete. Please fill it out to calculate daily totals for the Macro Splitter.", variant: "destructive", duration: 5000 });
+          toast({ title: "Profile Incomplete", description: "Your user profile is incomplete. Please fill it out via Onboarding or the Smart Calorie Planner to calculate daily totals for the Macro Splitter.", variant: "destructive", duration: 5000 });
         }
       } else {
          toast({ title: "Profile Not Found", description: "Could not find your user profile to calculate daily totals.", variant: "destructive", duration: 5000 });
@@ -208,7 +216,7 @@ export default function MacroSplitterPage() {
      if (user?.uid) {
       try {
         const userProfileRef = doc(db, "users", user.uid);
-        await setDoc(userProfileRef, { mealDistributions: defaultValues }, { merge: true }); // Save defaults on reset
+        await setDoc(userProfileRef, { mealDistributions: null }, { merge: true }); // Save defaults on reset
         toast({ title: "Reset Complete", description: "Percentages reset to defaults and saved." });
       } catch (error) {
          toast({ title: "Reset Warning", description: "Percentages reset locally, but failed to save defaults to cloud.", variant: "destructive" });
@@ -312,7 +320,9 @@ export default function MacroSplitterPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-2xl">Meal Macro Percentage & Value Distribution</CardTitle>
-              <CardDescription>Enter percentages (whole numbers). Each percentage column must sum to 100%. Calculated values update live.</CardDescription>
+              <CardDescription>
+                Enter percentages (whole numbers only, e.g., 20 not 20.5). Each percentage column must sum to 100%. Calculated values update live.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="w-full border rounded-md">
@@ -355,7 +365,7 @@ export default function MacroSplitterPage() {
                                         value={itemField.value ?? ''}
                                         onChange={e => {
                                           const val = parseInt(e.target.value, 10);
-                                          itemField.onChange(isNaN(val) ? 0 : val);
+                                          itemField.onChange(isNaN(val) ? 0 : val); // Ensure whole number
                                         }}
                                         className="w-16 text-right tabular-nums text-sm px-1 py-0.5 h-8"
                                         min="0"
