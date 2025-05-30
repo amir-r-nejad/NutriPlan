@@ -38,7 +38,7 @@ import {
   mealNames as defaultMealNames,
   defaultMacroPercentages,
 } from "@/lib/constants";
-import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution, type GlobalCalculatedTargets as AppGlobalCalculatedTargets } from "@/lib/schemas";
+import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution, type GlobalCalculatedTargets, preprocessDataForFirestore } from "@/lib/schemas";
 import { calculateBMR, calculateTDEE, calculateEstimatedDailyTargets } from "@/lib/nutrition-calculator";
 import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
@@ -59,14 +59,14 @@ export default function OnboardingPage() {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
 
-  const [calculatedTargets, setCalculatedTargets] = useState<AppGlobalCalculatedTargets | null>(null);
-  const [customCalculatedTargets, setCustomCalculatedTargets] = useState<AppGlobalCalculatedTargets | null>(null);
+  const [calculatedTargets, setCalculatedTargets] = useState<GlobalCalculatedTargets | null>(null);
+  const [customCalculatedTargets, setCustomCalculatedTargets] = useState<GlobalCalculatedTargets | null>(null);
   const [totalsForSplitter, setTotalsForSplitter] = useState<TotalsForSplitter | null>(null);
 
 
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(OnboardingFormSchema),
-    mode: "onChange",
+    mode: "onChange", // Validate on change to give feedback sooner
     defaultValues: {
       age: undefined, gender: undefined, height_cm: undefined, current_weight: undefined,
       goal_weight_1m: undefined, ideal_goal_weight: undefined, activityLevel: undefined, dietGoalOnboarding: "fat_loss",
@@ -83,7 +83,6 @@ export default function OnboardingPage() {
       preferredIngredients: "", dispreferredIngredients: "",
       preferredMicronutrients: "", medicalConditions: "", medications: "",
       custom_total_calories: undefined, custom_protein_per_kg: undefined, remaining_calories_carb_pct: 50,
-      // manual_target_calories: undefined, manual_protein_g: undefined, manual_carbs_g: undefined, manual_fat_g: undefined, // Removed these
       mealDistributions: defaultMealNames.map(name => ({
         mealName: name,
         calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
@@ -107,38 +106,39 @@ export default function OnboardingPage() {
     if (data.age && data.gender && data.height_cm && data.current_weight && data.activityLevel && data.dietGoalOnboarding) {
       const bmrValue = calculateBMR(data.gender, data.current_weight, data.height_cm, data.age);
       const tdeeValue = calculateTDEE(bmrValue, data.activityLevel);
-      const estimatedTargets = calculateEstimatedDailyTargets({
-        age: data.age, gender: data.gender, height: data.height_cm,
-        currentWeight: data.current_weight, activityLevel: data.activityLevel,
-        dietGoal: data.dietGoalOnboarding, 
+      
+      const estimated = calculateEstimatedDailyTargets({
+        age: data.age,
+        gender: data.gender,
+        height_cm: data.height_cm,
+        current_weight: data.current_weight,
+        activityLevel: data.activityLevel,
+        dietGoalOnboarding: data.dietGoalOnboarding,
+        goal_weight_1m: data.goal_weight_1m,
+        bf_current: data.bf_current,
+        bf_target: data.bf_target,
+        waist_current: data.waist_current,
+        waist_goal_1m: data.waist_goal_1m,
       });
 
-      if (estimatedTargets.targetCalories && estimatedTargets.targetProtein && estimatedTargets.targetCarbs && estimatedTargets.targetFat) {
-        const tc = estimatedTargets.targetCalories;
-        const pg = estimatedTargets.targetProtein;
-        const cg = estimatedTargets.targetCarbs;
-        const fg = estimatedTargets.targetFat;
-
-        const proteinCals = pg * 4;
-        const carbCals = cg * 4;
-        const fatCals = fg * 9;
-
-        setCalculatedTargets({
+      if (estimated.finalTargetCalories && estimated.proteinGrams && estimated.carbGrams && estimated.fatGrams) {
+         const newTargets: GlobalCalculatedTargets = {
           bmr: Math.round(bmrValue),
           tdee: Math.round(tdeeValue),
-          finalTargetCalories: Math.round(tc),
-          proteinGrams: Math.round(pg),
-          proteinCalories: Math.round(proteinCals),
-          proteinTargetPct: tc > 0 ? Math.round((proteinCals / tc) * 100) : undefined,
-          carbGrams: Math.round(cg),
-          carbCalories: Math.round(carbCals),
-          carbTargetPct: tc > 0 ? Math.round((carbCals / tc) * 100) : undefined,
-          fatGrams: Math.round(fg),
-          fatCalories: Math.round(fatCals),
-          fatTargetPct: tc > 0 ? Math.round((fatCals / tc) * 100) : undefined,
+          finalTargetCalories: Math.round(estimated.finalTargetCalories),
+          proteinGrams: Math.round(estimated.proteinGrams),
+          proteinCalories: Math.round(estimated.proteinGrams * 4),
+          proteinTargetPct: estimated.finalTargetCalories > 0 ? Math.round((estimated.proteinGrams * 4 / estimated.finalTargetCalories) * 100) : undefined,
+          carbGrams: Math.round(estimated.carbGrams),
+          carbCalories: Math.round(estimated.carbGrams * 4),
+          carbTargetPct: estimated.finalTargetCalories > 0 ? Math.round((estimated.carbGrams * 4 / estimated.finalTargetCalories) * 100) : undefined,
+          fatGrams: Math.round(estimated.fatGrams),
+          fatCalories: Math.round(estimated.fatGrams * 9),
+          fatTargetPct: estimated.finalTargetCalories > 0 ? Math.round((estimated.fatGrams * 9 / estimated.finalTargetCalories) * 100) : undefined,
           current_weight_for_custom_calc: data.current_weight,
-          estimatedWeeklyWeightChangeKg: (tdeeValue - tc) * 7 / 7700,
-        });
+          estimatedWeeklyWeightChangeKg: (tdeeValue - estimated.finalTargetCalories) * 7 / 7700,
+        };
+        setCalculatedTargets(newTargets);
       } else {
         setCalculatedTargets(null);
       }
@@ -204,7 +204,7 @@ export default function OnboardingPage() {
 
     const finalCustomTotalCalories = calculatedProteinCalories + Math.max(0, calculatedCarbCalories) + Math.max(0, calculatedFatCalories);
 
-    const newCustomPlan: AppGlobalCalculatedTargets = {
+    const newCustomPlan: GlobalCalculatedTargets = {
       finalTargetCalories: Math.round(finalCustomTotalCalories),
       proteinGrams: Math.round(calculatedProteinGrams),
       proteinCalories: Math.round(calculatedProteinCalories),
@@ -294,11 +294,14 @@ export default function OnboardingPage() {
         return;
       }
     }
-    if (currentStep === 7) {
-      updateCalculatedTargetsForStep7();
+    if (currentStep === 7) { // After smart calculation step
+      updateCalculatedTargetsForStep7(); // Ensure targets are fresh before moving to custom step
     }
-     if (currentStep === 8 && !customCalculatedTargets && calculatedTargets) {
-      setCustomCalculatedTargets(calculatedTargets);
+     if (currentStep === 8 && !customCalculatedTargets && calculatedTargets) { // Moving from custom to meal distribution
+      setCustomCalculatedTargets(calculatedTargets); // If custom wasn't touched, propagate smart targets
+    }
+    if (currentStep === 9){ // Moving from meal distribution
+        updateTotalsForSplitter(); // Ensure totalsForSplitter is updated before rendering next step or finishing
     }
     if (currentStep < onboardingStepsData.length) {
       setCurrentStep(prev => prev + 1);
@@ -323,105 +326,89 @@ export default function OnboardingPage() {
       return;
     }
 
-    const processedFormValues: Record<string, any> = {};
-    for (const key in data) {
-      if (Object.prototype.hasOwnProperty.call(data, key)) {
-        const typedKey = key as keyof OnboardingFormValues;
-        processedFormValues[typedKey] = data[typedKey] === undefined ? null : data[typedKey];
-      }
-    }
+    let processedData: Record<string, any> = { ...data };
     
     const arrayLikeFields: (keyof OnboardingFormValues)[] = ['allergies', 'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients', 'preferredMicronutrients', 'medicalConditions', 'medications'];
     arrayLikeFields.forEach(field => {
-      if (typeof processedFormValues[field] === 'string') {
-        processedFormValues[field] = (processedFormValues[field] as string).split(',').map(s => s.trim()).filter(s => s);
-      } else if (processedFormValues[field] === null || processedFormValues[field] === undefined) {
-         processedFormValues[field] = [];
+      if (typeof processedData[field] === 'string') {
+        processedData[field] = (processedData[field] as string).split(',').map(s => s.trim()).filter(s => s);
+      } else if (processedData[field] === null || processedData[field] === undefined) {
+         processedData[field] = [];
       }
     });
-
-    let resultsToSave: AppGlobalCalculatedTargets | null = null;
     
-    if (customCalculatedTargets && customCalculatedTargets.finalTargetCalories !== undefined && (
-        data.custom_total_calories !== undefined || data.custom_protein_per_kg !== undefined
-    )) {
+    let resultsToSave: GlobalCalculatedTargets | null = null;
+    if (customCalculatedTargets && (data.custom_total_calories !== undefined || data.custom_protein_per_kg !== undefined)) {
         resultsToSave = customCalculatedTargets;
-    } else if (calculatedTargets && calculatedTargets.finalTargetCalories !== undefined) {
+    } else if (calculatedTargets) {
         resultsToSave = calculatedTargets;
     }
 
+    const smartPlannerFormValuesForStorage: Partial<SmartCaloriePlannerFormValues> = {
+        age: data.age,
+        gender: data.gender,
+        height_cm: data.height_cm,
+        current_weight: data.current_weight,
+        activity_factor_key: data.activityLevel, 
+        dietGoal: data.dietGoalOnboarding, 
+        goal_weight_1m: data.goal_weight_1m,
+        ideal_goal_weight: data.ideal_goal_weight,
+        bf_current: data.bf_current,
+        bf_target: data.bf_target,
+        bf_ideal: data.bf_ideal,
+        mm_current: data.mm_current,
+        mm_target: data.mm_target,
+        mm_ideal: data.mm_ideal,
+        bw_current: data.bw_current,
+        bw_target: data.bw_target,
+        bw_ideal: data.bw_ideal,
+        waist_current: data.waist_current,
+        waist_goal_1m: data.waist_goal_1m,
+        waist_ideal: data.waist_ideal,
+        hips_current: data.hips_current,
+        hips_goal_1m: data.hips_goal_1m,
+        hips_ideal: data.hips_ideal,
+        right_leg_current: data.right_leg_current,
+        right_leg_goal_1m: data.right_leg_goal_1m,
+        right_leg_ideal: data.right_leg_ideal,
+        left_leg_current: data.left_leg_current,
+        left_leg_goal_1m: data.left_leg_goal_1m,
+        left_leg_ideal: data.left_leg_ideal,
+        right_arm_current: data.right_arm_current,
+        right_arm_goal_1m: data.right_arm_goal_1m,
+        right_arm_ideal: data.right_arm_ideal,
+        left_arm_current: data.left_arm_current,
+        left_arm_goal_1m: data.left_arm_goal_1m,
+        left_arm_ideal: data.left_arm_ideal,
+        custom_total_calories: data.custom_total_calories,
+        custom_protein_per_kg: data.custom_protein_per_kg,
+        remaining_calories_carb_pct: data.remaining_calories_carb_pct,
+    };
 
-    const dataForFirestore: Partial<FullProfileType> = {
-      age: processedFormValues.age,
-      gender: processedFormValues.gender,
-      height_cm: processedFormValues.height_cm,
-      current_weight: processedFormValues.current_weight,
-      goal_weight_1m: processedFormValues.goal_weight_1m,
-      ideal_goal_weight: processedFormValues.ideal_goal_weight,
-      activityLevel: processedFormValues.activityLevel,
-      dietGoalOnboarding: processedFormValues.dietGoalOnboarding,
-      
-      bf_current: processedFormValues.bf_current, bf_target: processedFormValues.bf_target, bf_ideal: processedFormValues.bf_ideal,
-      mm_current: processedFormValues.mm_current, mm_target: processedFormValues.mm_target, mm_ideal: processedFormValues.mm_ideal,
-      bw_current: processedFormValues.bw_current, bw_target: processedFormValues.bw_target, bw_ideal: processedFormValues.bw_ideal,
-      
-      waist_current: processedFormValues.waist_current, waist_goal_1m: processedFormValues.waist_goal_1m, waist_ideal: processedFormValues.waist_ideal,
-      hips_current: processedFormValues.hips_current, hips_goal_1m: processedFormValues.hips_goal_1m, hips_ideal: processedFormValues.hips_ideal,
-      right_leg_current: processedFormValues.right_leg_current, right_leg_goal_1m: processedFormValues.right_leg_goal_1m, right_leg_ideal: processedFormValues.right_leg_ideal,
-      left_leg_current: processedFormValues.left_leg_current, left_leg_goal_1m: processedFormValues.left_leg_goal_1m, left_leg_ideal: processedFormValues.left_leg_ideal,
-      right_arm_current: processedFormValues.right_arm_current, right_arm_goal_1m: processedFormValues.right_arm_goal_1m, right_arm_ideal: processedFormValues.right_arm_ideal,
-      left_arm_current: processedFormValues.left_arm_current, left_arm_goal_1m: processedFormValues.left_arm_goal_1m, left_arm_ideal: processedFormValues.left_arm_ideal,
-
-      preferredDiet: processedFormValues.preferredDiet,
-      allergies: processedFormValues.allergies as string[], 
-      preferredCuisines: processedFormValues.preferredCuisines as string[],
-      dispreferredCuisines: processedFormValues.dispreferredCuisines as string[],
-      preferredIngredients: processedFormValues.preferredIngredients as string[],
-      dispreferredIngredients: processedFormValues.dispreferredIngredients as string[],
-      preferredMicronutrients: processedFormValues.preferredMicronutrients as string[],
-      medicalConditions: processedFormValues.medicalConditions as string[],
-      medications: processedFormValues.medications as string[],
-      typicalMealsDescription: processedFormValues.typicalMealsDescription,
-      
-      mealDistributions: processedFormValues.mealDistributions ?? defaultMealNames.map(name => ({ 
-        mealName: name,
-        calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
-        protein_pct: defaultMacroPercentages[name]?.protein_pct || 0,
-        carbs_pct: defaultMacroPercentages[name]?.carbs_pct || 0,
-        fat_pct: defaultMacroPercentages[name]?.fat_pct || 0,
-      })),
-
-      smartPlannerData: {
-        formValues: { 
-          age: processedFormValues.age,
-          gender: processedFormValues.gender,
-          height_cm: processedFormValues.height_cm,
-          current_weight: processedFormValues.current_weight,
-          activity_factor_key: processedFormValues.activityLevel, 
-          dietGoal: processedFormValues.dietGoalOnboarding,
-          goal_weight_1m: processedFormValues.goal_weight_1m,
-          ideal_goal_weight: processedFormValues.ideal_goal_weight,
-          bf_current: processedFormValues.bf_current,
-          bf_target: processedFormValues.bf_target,
-          custom_total_calories: data.custom_total_calories !== undefined ? data.custom_total_calories : null,
-          custom_protein_per_kg: data.custom_protein_per_kg !== undefined ? data.custom_protein_per_kg : null,
-          remaining_calories_carb_pct: data.remaining_calories_carb_pct !== undefined ? data.remaining_calories_carb_pct : null,
-        },
-        results: resultsToSave,
-      },
-      onboardingComplete: true,
-      email: user?.email || null,
+    processedData.smartPlannerData = {
+        formValues: preprocessDataForFirestore(smartPlannerFormValuesForStorage),
+        results: preprocessDataForFirestore(resultsToSave)
     };
     
-    const finalDataForFirestore: Record<string, any> = {};
-    for (const key in dataForFirestore) {
-      if (Object.prototype.hasOwnProperty.call(dataForFirestore, key)) {
-        const typedKey = key as keyof FullProfileType;
-        finalDataForFirestore[typedKey] = dataForFirestore[typedKey] === undefined ? null : dataForFirestore[typedKey];
-      }
-    }
+    // Ensure mealDistributions are saved if provided, or default if not touched.
+    processedData.mealDistributions = data.mealDistributions && data.mealDistributions.length > 0 
+        ? data.mealDistributions 
+        : defaultMealNames.map(name => ({
+            mealName: name,
+            calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
+            protein_pct: defaultMacroPercentages[name]?.protein_pct || 0,
+            carbs_pct: defaultMacroPercentages[name]?.carbs_pct || 0,
+            fat_pct: defaultMacroPercentages[name]?.fat_pct || 0,
+          }));
 
-    await completeOnboarding(finalDataForFirestore as FullProfileType); 
+
+    // Remove individual custom target fields from top level if they are now nested in smartPlannerData
+    delete processedData.custom_total_calories;
+    delete processedData.custom_protein_per_kg;
+    delete processedData.remaining_calories_carb_pct;
+
+    const finalProfileData = preprocessDataForFirestore(processedData) as FullProfileType;
+    await completeOnboarding(finalProfileData); 
     toast({ title: "Onboarding Complete!", description: "Your profile has been saved. Welcome to NutriPlan!" });
   };
 
@@ -432,7 +419,7 @@ export default function OnboardingPage() {
 
   const renderNumberField = (name: FieldPath<OnboardingFormValues>, label: string, placeholder: string, description?: string, step?: string) => (
     <FormField control={form.control} name={name}
-      render={({ field }) => ( <FormItem> <FormLabel>{label}</FormLabel> <FormControl><div><Input type="number" placeholder={placeholder} {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} step={step}/></div></FormControl> {description && <FormDescription>{description}</FormDescription>} <FormMessage /> </FormItem> )} />
+      render={({ field }) => ( <FormItem> <FormLabel>{label}</FormLabel> <FormControl><div><Input type="number" placeholder={placeholder} {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} step={step ?? "1"}/></div></FormControl> {description && <FormDescription>{description}</FormDescription>} <FormMessage /> </FormItem> )} />
   );
 
   const renderSelectField = (name: FieldPath<OnboardingFormValues>, label: string, placeholder: string, options: {value: string | number, label: string}[], description?: string) => (
@@ -450,7 +437,6 @@ export default function OnboardingPage() {
 
   const progressValue = (currentStep / onboardingStepsData.length) * 100;
 
-  const macroPctKeys: (keyof Omit<MealMacroDistribution, 'mealName'>)[] = ['calories_pct', 'protein_pct', 'carbs_pct', 'fat_pct'];
   const columnSums = {
     calories_pct: calculateColumnSum('calories_pct'),
     protein_pct: calculateColumnSum('protein_pct'),
@@ -458,16 +444,17 @@ export default function OnboardingPage() {
     fat_pct: calculateColumnSum('fat_pct'),
   };
   const tableHeaderLabels = [
-    { key: "meal", label: "Meal", className: "sticky left-0 bg-card z-10 w-[120px] text-left font-medium" },
-    { key: "cal_pct", label: "%Cal", className: "text-right min-w-[70px]" },
-    { key: "p_pct", label: "%P", className: "text-right min-w-[70px]" },
-    { key: "c_pct", label: "%C", className: "text-right min-w-[70px]" },
-    { key: "f_pct", label: "%F", className: "text-right min-w-[70px] border-r" },
-    { key: "kcal", label: "Cal", className: "text-right min-w-[60px]" },
-    { key: "p_g", label: "P(g)", className: "text-right min-w-[60px]" },
-    { key: "c_g", label: "C(g)", className: "text-right min-w-[60px]" },
-    { key: "f_g", label: "F(g)", className: "text-right min-w-[60px]" },
+    { key: "meal", label: "Meal", className: "sticky left-0 bg-card z-10 w-[120px] text-left font-medium text-xs" },
+    { key: "cal_pct", label: "%Cal", className: "text-right min-w-[70px] text-xs" },
+    { key: "p_pct", label: "%P", className: "text-right min-w-[70px] text-xs" },
+    { key: "c_pct", label: "%C", className: "text-right min-w-[70px] text-xs" },
+    { key: "f_pct", label: "%F", className: "text-right min-w-[70px] border-r text-xs" },
+    { key: "kcal", label: "Cal", className: "text-right min-w-[60px] text-xs" },
+    { key: "p_g", label: "P(g)", className: "text-right min-w-[60px] text-xs" },
+    { key: "c_g", label: "C(g)", className: "text-right min-w-[60px] text-xs" },
+    { key: "f_g", label: "F(g)", className: "text-right min-w-[60px] text-xs" },
   ];
+  const macroPctKeys: (keyof Omit<MealMacroDistribution, 'mealName'>)[] = ['calories_pct', 'protein_pct', 'carbs_pct', 'fat_pct'];
 
 
   return (
@@ -475,10 +462,7 @@ export default function OnboardingPage() {
     <Card className="w-full max-w-2xl shadow-xl">
       <CardHeader className="text-center">
         <div className="flex justify-center items-center mb-4"> <Leaf className="h-10 w-10 text-primary" /> </div>
-        <Tooltip>
-            <TooltipTrigger asChild><span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span></TooltipTrigger>
-            <TooltipContent side="top" className="max-w-xs"> <p>{activeStepData.tooltipText}</p> </TooltipContent>
-        </Tooltip>
+         <span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span>
         <CardDescription>{activeStepData.explanation}</CardDescription>
         <Progress value={progressValue} className="w-full mt-4" />
         <p className="text-sm text-muted-foreground mt-1">Step {currentStep} of {onboardingStepsData.length}</p>
@@ -487,13 +471,13 @@ export default function OnboardingPage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(processAndSaveData)} className="space-y-8">
             {currentStep === 1 && ( <div className="text-center p-4">  </div> )}
-            {currentStep === 2 && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {renderNumberField("age", "Age (Years)", "e.g., 30")} {renderSelectField("gender", "Biological Sex", "Select sex", genders)} {renderNumberField("height_cm", "Height (cm)", "e.g., 175")} {renderNumberField("current_weight", "Current Weight (kg)", "e.g., 70")} {renderNumberField("goal_weight_1m", "Target Weight After 1 Month (kg)", "e.g., 68")} {renderNumberField("ideal_goal_weight", "Long-Term Goal Weight (kg, Optional)", "e.g., 65")} {renderSelectField("activityLevel", "Physical Activity Level", "Select activity level", activityLevels)} {renderSelectField("dietGoalOnboarding", "Primary Diet Goal", "Select your diet goal", smartPlannerDietGoals)} </div> )}
-            {currentStep === 3 && ( <div className="space-y-4"> <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground"> <span className="col-span-1">Metric</span> <span className="text-center">Current (%)</span> <span className="text-center">Target (1 Mth) (%)</span> <span className="text-center">Ideal (%)</span> </div> {(['Body Fat', 'Muscle Mass', 'Body Water'] as const).map((metric) => { const keys = { 'Body Fat': ['bf_current', 'bf_target', 'bf_ideal'], 'Muscle Mass': ['mm_current', 'mm_target', 'mm_ideal'], 'Body Water': ['bw_current', 'bw_target', 'bw_ideal'], }[metric] as [FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>]; return ( <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> <FormLabel className="text-sm pt-2">{metric}</FormLabel> {keys.map(key => ( <FormField key={key} control={form.control} name={key} render={({ field }) => ( <FormItem className="text-center"> <FormControl><div><Input type="number" placeholder="e.g., 20" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" /></div></FormControl> <FormMessage className="text-xs text-center"/> </FormItem> )}/> ))} </div> ); })} </div> )}
-            {currentStep === 4 && ( <div className="space-y-4"> <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground"> <span className="col-span-1">Metric</span> <span className="text-center">Current (cm)</span> <span className="text-center">1-Mth Goal (cm)</span> <span className="text-center">Ideal (cm)</span> </div> {(['Waist', 'Hips', 'Right Leg', 'Left Leg', 'Right Arm', 'Left Arm'] as const).map((metric) => { const keys = { 'Waist': ['waist_current', 'waist_goal_1m', 'waist_ideal'], 'Hips': ['hips_current', 'hips_goal_1m', 'hips_ideal'], 'Right Leg': ['right_leg_current', 'right_leg_goal_1m', 'right_leg_ideal'], 'Left Leg': ['left_leg_current', 'left_leg_goal_1m', 'left_leg_ideal'], 'Right Arm': ['right_arm_current', 'right_arm_goal_1m', 'right_arm_ideal'], 'Left Arm': ['left_arm_current', 'left_arm_goal_1m', 'left_arm_ideal'], }[metric] as [FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>]; return ( <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> <FormLabel className="text-sm pt-2">{metric}</FormLabel> {keys.map(key => ( <FormField key={key} control={form.control} name={key} render={({ field }) => ( <FormItem className="text-center"> <FormControl><div><Input type="number" placeholder="e.g., 80" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" /></div></FormControl> <FormMessage className="text-xs text-center"/> </FormItem> )}/> ))} </div> ); })} </div> )}
+            {currentStep === 2 && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {renderNumberField("age", "Age (Years)", "e.g., 30", undefined, "1")} {renderSelectField("gender", "Biological Sex", "Select sex", genders)} {renderNumberField("height_cm", "Height (cm)", "e.g., 175", undefined, "0.1")} {renderNumberField("current_weight", "Current Weight (kg)", "e.g., 70", undefined, "0.1")} {renderNumberField("goal_weight_1m", "Target Weight After 1 Month (kg)", "e.g., 68", undefined, "0.1")} {renderNumberField("ideal_goal_weight", "Long-Term Goal Weight (kg, Optional)", "e.g., 65", undefined, "0.1")} {renderSelectField("activityLevel", "Physical Activity Level", "Select activity level", activityLevels)} {renderSelectField("dietGoalOnboarding", "Primary Diet Goal", "Select your diet goal", smartPlannerDietGoals)} </div> )}
+            {currentStep === 3 && ( <div className="space-y-4"> <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground"> <span className="col-span-1">Metric</span> <span className="text-center">Current (%)</span> <span className="text-center">Target (1 Mth) (%)</span> <span className="text-center">Ideal (%)</span> </div> {(['Body Fat', 'Muscle Mass', 'Body Water'] as const).map((metric) => { const keys = { 'Body Fat': ['bf_current', 'bf_target', 'bf_ideal'], 'Muscle Mass': ['mm_current', 'mm_target', 'mm_ideal'], 'Body Water': ['bw_current', 'bw_target', 'bw_ideal'], }[metric] as [FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>]; return ( <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> <FormLabel className="text-sm pt-2">{metric}</FormLabel> {keys.map(key => ( <FormField key={key} control={form.control} name={key} render={({ field }) => ( <FormItem className="text-center"> <FormControl><div><Input type="number" placeholder="e.g., 20" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" step="0.1" /></div></FormControl> <FormMessage className="text-xs text-center"/> </FormItem> )}/> ))} </div> ); })} </div> )}
+            {currentStep === 4 && ( <div className="space-y-4"> <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground"> <span className="col-span-1">Metric</span> <span className="text-center">Current (cm)</span> <span className="text-center">1-Mth Goal (cm)</span> <span className="text-center">Ideal (cm)</span> </div> {(['Waist', 'Hips', 'Right Leg', 'Left Leg', 'Right Arm', 'Left Arm'] as const).map((metric) => { const keys = { 'Waist': ['waist_current', 'waist_goal_1m', 'waist_ideal'], 'Hips': ['hips_current', 'hips_goal_1m', 'hips_ideal'], 'Right Leg': ['right_leg_current', 'right_leg_goal_1m', 'right_leg_ideal'], 'Left Leg': ['left_leg_current', 'left_leg_goal_1m', 'left_leg_ideal'], 'Right Arm': ['right_arm_current', 'right_arm_goal_1m', 'right_arm_ideal'], 'Left Arm': ['left_arm_current', 'left_arm_goal_1m', 'left_arm_ideal'], }[metric] as [FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>]; return ( <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> <FormLabel className="text-sm pt-2">{metric}</FormLabel> {keys.map(key => ( <FormField key={key} control={form.control} name={key} render={({ field }) => ( <FormItem className="text-center"> <FormControl><div><Input type="number" placeholder="e.g., 80" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" step="0.1"/></div></FormControl> <FormMessage className="text-xs text-center"/> </FormItem> )}/> ))} </div> ); })} </div> )}
             {currentStep === 5 && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {renderSelectField("preferredDiet", "Preferred Diet (Optional)", "e.g., Vegetarian", preferredDiets)}  {renderTextareaField("allergies", "Allergies (comma-separated, Optional)", "e.g., Peanuts, Shellfish", "List any food allergies.")} {renderTextareaField("preferredCuisines", "Preferred Cuisines (comma-separated, Optional)", "e.g., Italian, Mexican")} {renderTextareaField("dispreferredCuisines", "Dispreferred Cuisines (comma-separated, Optional)", "e.g., Thai, Indian")} {renderTextareaField("preferredIngredients", "Favorite Ingredients (comma-separated, Optional)", "e.g., Chicken, Avocado")} {renderTextareaField("dispreferredIngredients", "Disliked Ingredients (comma-separated, Optional)", "e.g., Tofu, Olives")} {renderTextareaField("preferredMicronutrients", "Targeted Micronutrients (Optional)", "e.g., Vitamin D, Iron")} </div> )}
             {currentStep === 6 && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {renderTextareaField("medicalConditions", "Medical Conditions (comma-separated, Optional)", "e.g., Diabetes, Hypertension", "Helps AI avoid conflicting foods.")} {renderTextareaField("medications", "Medications (comma-separated, Optional)", "e.g., Metformin, Lisinopril", "Helps AI avoid interactions.")} </div> )}
             {currentStep === 7 && ( <div className="space-y-4 p-4 border rounded-md bg-muted/50"> <h3 className="text-lg font-semibold text-primary">Your Estimated Daily Targets:</h3> {calculatedTargets ? ( <> <p><strong>Basal Metabolic Rate (BMR):</strong> {calculatedTargets.bmr?.toFixed(0) ?? 'N/A'} kcal</p> <p><strong>Maintenance Calories (TDEE):</strong> {calculatedTargets.tdee?.toFixed(0) ?? 'N/A'} kcal</p> <p className="font-bold text-primary mt-2">Target Daily Calories: {calculatedTargets.finalTargetCalories?.toFixed(0) ?? 'N/A'} kcal</p> <p>Target Protein: {calculatedTargets.proteinGrams?.toFixed(1) ?? 'N/A'} g ({calculatedTargets.proteinTargetPct?.toFixed(0) ?? 'N/A'}%)</p> <p>Target Carbs: {calculatedTargets.carbGrams?.toFixed(1) ?? 'N/A'} g ({calculatedTargets.carbTargetPct?.toFixed(0) ?? 'N/A'}%)</p> <p>Target Fat: {calculatedTargets.fatGrams?.toFixed(1) ?? 'N/A'} g ({calculatedTargets.fatTargetPct?.toFixed(0) ?? 'N/A'}%)</p> <p className="text-sm">Estimated Weekly Progress: {calculatedTargets.estimatedWeeklyWeightChangeKg && calculatedTargets.estimatedWeeklyWeightChangeKg <= 0 ? `${Math.abs(calculatedTargets.estimatedWeeklyWeightChangeKg ?? 0).toFixed(2)} kg deficit/week (Potential Loss)` : `${(calculatedTargets.estimatedWeeklyWeightChangeKg ?? 0)?.toFixed(2)} kg surplus/week (Potential Gain)`}</p> </> ) : ( <p className="text-destructive flex items-center"><AlertCircle className="mr-2 h-4 w-4" /> Not enough information from previous steps to calculate. Please go back and complete required fields.</p> )} <FormDescription className="text-xs mt-2">These are estimates. You can fine-tune these in the next step or later in the app's tools.</FormDescription> </div> )}
-            {currentStep === 8 && ( <div className="space-y-6 p-4 border rounded-md bg-muted/50"> <h3 className="text-lg font-semibold text-primary mb-3">Customize Your Daily Targets</h3> {renderNumberField("custom_total_calories", "Custom Total Calories (Optional)", `e.g., ${calculatedTargets?.finalTargetCalories?.toFixed(0) || '2000'}`)} {renderNumberField("custom_protein_per_kg", "Custom Protein (g/kg body weight) (Optional)", `e.g., ${(calculatedTargets?.proteinGrams && calculatedTargets?.current_weight_for_custom_calc ? (calculatedTargets.proteinGrams / calculatedTargets.current_weight_for_custom_calc).toFixed(1) : '1.6')}`, undefined, "0.1")} <FormField control={form.control} name="remaining_calories_carb_pct" render={({ field }) => { const carbPct = field.value ?? 50; const fatPct = 100 - carbPct; return ( <FormItem> <FormLabel>Remaining Calories Split (Carbs %)</FormLabel> <FormControl><div><Slider value={[carbPct]} onValueChange={(value) => field.onChange(value[0])} min={0} max={100} step={1} /></div></FormControl> <div className="flex justify-between text-xs text-muted-foreground"> <span>Carbs: {carbPct.toFixed(0)}%</span> <span>Fat: {fatPct.toFixed(0)}%</span> </div> <FormMessage /> </FormItem> ); }} /> {customCalculatedTargets && ( <div className="mt-4 space-y-1"> <h4 className="font-medium text-primary">Your Custom Plan:</h4> <p className="text-sm">Total Calories: {customCalculatedTargets.finalTargetCalories?.toFixed(0) ?? 'N/A'} kcal</p> <p className="text-sm">Protein: {customCalculatedTargets.proteinGrams?.toFixed(1) ?? 'N/A'}g ({customCalculatedTargets.proteinTargetPct?.toFixed(0) ?? 'N/A'}%)</p> <p className="text-sm">Carbs: {customCalculatedTargets.carbGrams?.toFixed(1) ?? 'N/A'}g ({customCalculatedTargets.carbTargetPct?.toFixed(0) ?? 'N/A'}%)</p> <p className="text-sm">Fat: {customCalculatedTargets.fatGrams?.toFixed(1) ?? 'N/A'}g ({customCalculatedTargets.fatTargetPct?.toFixed(0) ?? 'N/A'}%)</p> <p className="text-sm">Estimated Weekly Progress: {customCalculatedTargets.estimatedWeeklyWeightChangeKg && customCalculatedTargets.estimatedWeeklyWeightChangeKg <= 0 ? `${Math.abs(customCalculatedTargets.estimatedWeeklyWeightChangeKg ?? 0).toFixed(2)} kg deficit/week (Potential Loss)` : `${(customCalculatedTargets.estimatedWeeklyWeightChangeKg ?? 0)?.toFixed(2)} kg surplus/week (Potential Gain)`}</p></div> )} </div> )}
+            {currentStep === 8 && ( <div className="space-y-6 p-4 border rounded-md bg-muted/50"> <h3 className="text-lg font-semibold text-primary mb-3">Customize Your Daily Targets</h3> {renderNumberField("custom_total_calories", "Custom Total Calories (Optional)", `e.g., ${calculatedTargets?.finalTargetCalories?.toFixed(0) || '2000'}`, undefined, "1")} {renderNumberField("custom_protein_per_kg", "Custom Protein (g/kg body weight) (Optional)", `e.g., ${(calculatedTargets?.proteinGrams && calculatedTargets?.current_weight_for_custom_calc ? (calculatedTargets.proteinGrams / calculatedTargets.current_weight_for_custom_calc).toFixed(1) : '1.6')}`, undefined, "0.1")} <FormField control={form.control} name="remaining_calories_carb_pct" render={({ field }) => { const carbPct = field.value ?? 50; const fatPct = 100 - carbPct; return ( <FormItem> <FormLabel>Remaining Calories Split (Carbs %)</FormLabel> <FormControl><div><Slider value={[carbPct]} onValueChange={(value) => field.onChange(value[0])} min={0} max={100} step={1} /></div></FormControl> <div className="flex justify-between text-xs text-muted-foreground"> <span>Carbs: {carbPct.toFixed(0)}%</span> <span>Fat: {fatPct.toFixed(0)}%</span> </div> <FormMessage /> </FormItem> ); }} /> {customCalculatedTargets && ( <div className="mt-4 space-y-1"> <h4 className="font-medium text-primary">Your Custom Plan:</h4> <p className="text-sm">Total Calories: {customCalculatedTargets.finalTargetCalories?.toFixed(0) ?? 'N/A'} kcal</p> <p className="text-sm">Protein: {customCalculatedTargets.proteinGrams?.toFixed(1) ?? 'N/A'}g ({customCalculatedTargets.proteinTargetPct?.toFixed(0) ?? 'N/A'}%)</p> <p className="text-sm">Carbs: {customCalculatedTargets.carbGrams?.toFixed(1) ?? 'N/A'}g ({customCalculatedTargets.carbTargetPct?.toFixed(0) ?? 'N/A'}%)</p> <p className="text-sm">Fat: {customCalculatedTargets.fatGrams?.toFixed(1) ?? 'N/A'}g ({customCalculatedTargets.fatTargetPct?.toFixed(0) ?? 'N/A'}%)</p> <p className="text-sm">Estimated Weekly Progress: {customCalculatedTargets.estimatedWeeklyWeightChangeKg && customCalculatedTargets.estimatedWeeklyWeightChangeKg <= 0 ? `${Math.abs(customCalculatedTargets.estimatedWeeklyWeightChangeKg ?? 0).toFixed(2)} kg deficit/week (Potential Loss)` : `${(customCalculatedTargets.estimatedWeeklyWeightChangeKg ?? 0)?.toFixed(2)} kg surplus/week (Potential Gain)`}</p></div> )} </div> )}
             {currentStep === 9 && ( 
               <div className="space-y-4 p-4 border rounded-md bg-muted/50">
                 <h3 className="text-lg font-semibold text-primary mb-1">Distribute Macros Across Meals</h3>
@@ -511,7 +495,7 @@ export default function OnboardingPage() {
                         <TableHeader>{/* JSX comment to prevent whitespace */}
                           <TableRow>{/* JSX comment to prevent whitespace */}
                             {tableHeaderLabels.map(header => (
-                              <TableHead key={header.key} className={cn("px-2 py-1 text-xs font-medium h-9", header.className)}>
+                              <TableHead key={header.key} className={cn("px-2 py-1 h-9", header.className)}>
                                 {header.label}
                               </TableHead>
                             ))}{/* JSX comment to prevent whitespace */}
@@ -537,7 +521,7 @@ export default function OnboardingPage() {
                                       name={`mealDistributions.${index}.${macroKey}`}
                                       render={({ field }) => (
                                         <FormItem>
-                                        <FormControl><div><Input type="number" step="0.1" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} className="w-16 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl>
+                                        <FormControl><div><Input type="number" {...field} value={field.value ?? ''} onChange={e => { const val = parseInt(e.target.value, 10); field.onChange(isNaN(val) ? 0 : val); }} className="w-16 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl>
                                         <FormMessage className="text-xs"/>
                                         </FormItem>
                                       )}/>{/* JSX comment to prevent whitespace */}
@@ -556,10 +540,10 @@ export default function OnboardingPage() {
                             <TableCell className="sticky left-0 bg-card z-10 px-2 py-1">Input % Totals:</TableCell>{/* JSX comment to prevent whitespace */}
                             {macroPctKeys.map(key => {
                               const sum = columnSums[key];
-                              const isSum100 = Math.abs(sum - 100) < 0.1; // Allow for small floating point discrepancies
+                              const isSum100 = Math.abs(sum - 100) < 0.1;
                               return (
                                 <TableCell key={`sum-${key}`} className={cn("text-right py-1 tabular-nums", isSum100 ? 'text-green-600' : 'text-destructive', key === 'fat_pct' ? 'border-r' : '')}>
-                                  {sum.toFixed(1)}%
+                                  {sum.toFixed(0)}%
                                   {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
                                 </TableCell>
                               );
