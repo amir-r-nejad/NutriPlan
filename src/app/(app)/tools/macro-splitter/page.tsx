@@ -14,7 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { mealNames as defaultMealNames, defaultMacroPercentages } from '@/lib/constants';
 import { Loader2, RefreshCw, SplitSquareHorizontal, Lightbulb, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'; // Added ScrollBar
 import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -102,7 +102,8 @@ export default function MacroSplitterPage() {
         // Load meal distributions if saved
         if (profileData.mealDistributions && Array.isArray(profileData.mealDistributions) && profileData.mealDistributions.length === defaultMealNames.length) {
           form.reset({ mealDistributions: profileData.mealDistributions });
-           if (toast && Array.isArray(toast.toasts) && !toast.toasts.find(t => t.description === "Your previously saved macro split percentages have been loaded.")) {
+           const savedSplitToastExists = toast && Array.isArray(toast.toasts) && toast.toasts.find(t => t.description === "Your previously saved macro split percentages have been loaded.");
+           if (!savedSplitToastExists) {
             toast({ title: "Loaded Saved Split", description: "Your previously saved macro split percentages have been loaded.", duration: 3000 });
           }
         } else {
@@ -117,7 +118,7 @@ export default function MacroSplitterPage() {
           });
         }
         
-        // Prioritize manual macro results from Smart Planner
+        // Priority: Manual Macro Breakdown results, then Smart Planner results, then Profile estimation
         if (profileData.manualMacroResults && profileData.manualMacroResults.totalCalories !== undefined && profileData.manualMacroResults.totalCalories !== null) {
             const manualResults = profileData.manualMacroResults;
             targets = {
@@ -129,7 +130,6 @@ export default function MacroSplitterPage() {
             };
             sourceMessage = "Daily totals from 'Manual Macro Breakdown' in Smart Planner. Adjust there for changes.";
         } 
-        // Then try smart planner results
         else if (profileData.smartPlannerData?.results?.finalTargetCalories !== undefined && profileData.smartPlannerData?.results?.finalTargetCalories !== null) {
             const smartResults = profileData.smartPlannerData.results;
             targets = {
@@ -141,7 +141,6 @@ export default function MacroSplitterPage() {
             };
             sourceMessage = "Daily totals from 'Smart Calorie Planner'. Adjust there for changes.";
         } 
-        // Fallback to profile estimation
         else if (profileData.age && profileData.gender && profileData.current_weight && profileData.height_cm && profileData.activityLevel && profileData.dietGoalOnboarding) {
           const estimatedTargets = calculateEstimatedDailyTargets({
             age: profileData.age,
@@ -217,8 +216,9 @@ export default function MacroSplitterPage() {
     
     try {
       const userProfileRef = doc(db, "users", user.uid);
-      const dataToSave = { mealDistributions: preprocessDataForFirestore(data.mealDistributions) };
-      await setDoc(userProfileRef, dataToSave, { merge: true });
+      // Ensure data.mealDistributions is preprocessed to convert undefined to null
+      const distributionsToSave = preprocessDataForFirestore(data.mealDistributions);
+      await setDoc(userProfileRef, { mealDistributions: distributionsToSave }, { merge: true });
       toast({ title: "Split Calculated & Saved", description: "Macro split calculated and your percentages have been saved." });
     } catch (error) {
       toast({ title: "Calculation Complete (Save Failed)", description: "Macro split calculated, but failed to save percentages.", variant: "destructive" });
@@ -275,7 +275,7 @@ export default function MacroSplitterPage() {
   };
   
   const headerLabels = [
-    { key: "meal", label: "Meal", className: "sticky left-0 bg-background z-10 w-[120px] text-left font-medium" },
+    { key: "meal", label: "Meal", className: "sticky left-0 bg-card z-10 w-[120px] text-left font-medium" },
     { key: "cal_pct", label: "%Cal", className: "text-right min-w-[70px]" },
     { key: "p_pct", label: "%P", className: "text-right min-w-[70px]" },
     { key: "c_pct", label: "%C", className: "text-right min-w-[70px]" },
@@ -308,6 +308,7 @@ export default function MacroSplitterPage() {
           </CardTitle>
           <CardDescription>
             Distribute your total daily macros across your meals by percentage.
+             Percentages must be whole numbers (e.g., 20, not 20.5).
           </CardDescription>
         </CardHeader>
         {dailyTargets ? (
@@ -345,7 +346,7 @@ export default function MacroSplitterPage() {
               <CardTitle className="text-2xl">Meal Macro Percentage & Value Distribution</CardTitle>
               <CardDescription>
                 Enter percentages. Each percentage column must sum to 100%. Calculated values update live.
-                Please use whole numbers for percentages (e.g., 20, not 20.5).
+                Percentages must be whole numbers (e.g., 20, not 20.5).
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -389,8 +390,14 @@ export default function MacroSplitterPage() {
                                         {...itemField}
                                         value={itemField.value ?? ''}
                                         onChange={e => {
-                                          const val = e.target.value;
-                                          itemField.onChange(val === '' ? undefined : Number(val));
+                                            const val = e.target.value;
+                                            // Allow empty string for temporary state, Zod will validate on blur/submit
+                                            if (val === '') {
+                                                itemField.onChange(undefined); // Or null, depending on how Zod handles empty string for numbers
+                                            } else {
+                                                const numVal = parseFloat(val);
+                                                itemField.onChange(isNaN(numVal) ? undefined : numVal);
+                                            }
                                         }}
                                         onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                                         className="w-16 text-right tabular-nums text-sm px-1 py-0.5 h-8"
@@ -398,6 +405,7 @@ export default function MacroSplitterPage() {
                                         max="100"
                                       /></div>
                                     </FormControl>
+                                    {/* FormMessage removed from here to prevent layout shift, shown below table */}
                                   </FormItem>
                                 )}
                               />
@@ -463,7 +471,7 @@ export default function MacroSplitterPage() {
                             return Object.entries(errorObj).map(([key, error]) => (
                                 error && typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && (
                                     <p key={`${index}-${key}`} className="text-sm font-medium text-destructive mt-1">
-                                        Error in {defaultMealNames[index]} {key.replace('_pct', ' %')}: {error.message}
+                                        Error in {defaultMealNames[index]} {key.replace('_pct', ' %')}: {error.message.replace(/"/g, '')}
                                     </p>
                                 )
                             ));
@@ -498,7 +506,7 @@ export default function MacroSplitterPage() {
             <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 bg-background z-10 w-[150px] px-2 py-2 text-left text-xs font-medium">Meal</TableHead>
+                  <TableHead className="sticky left-0 bg-card z-10 w-[150px] px-2 py-2 text-left text-xs font-medium">Meal</TableHead>
                   <TableHead className="px-2 py-2 text-right text-xs font-medium">Calories (kcal)</TableHead>
                   <TableHead className="px-2 py-2 text-right text-xs font-medium">Protein (g)</TableHead>
                   <TableHead className="px-2 py-2 text-right text-xs font-medium">Carbs (g)</TableHead>
@@ -509,7 +517,7 @@ export default function MacroSplitterPage() {
               <TableBody>
                 {calculatedSplit.map((mealData) => (
                   <TableRow key={mealData.mealName}>
-                    <TableCell className="font-medium sticky left-0 bg-background z-10 px-2 py-1 text-sm">{mealData.mealName}</TableCell>
+                    <TableCell className="font-medium sticky left-0 bg-card z-10 px-2 py-1 text-sm">{mealData.mealName}</TableCell>
                     <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{mealData.Calories}</TableCell>
                     <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{mealData['Protein (g)']}</TableCell>
                     <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{mealData['Carbs (g)']}</TableCell>
@@ -543,3 +551,4 @@ export default function MacroSplitterPage() {
     </div>
   );
 }
+
