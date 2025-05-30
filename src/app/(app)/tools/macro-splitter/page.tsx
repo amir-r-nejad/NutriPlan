@@ -9,18 +9,20 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { MacroSplitterFormSchema, type MacroSplitterFormValues, type FullProfileType, type MealMacroDistribution, type GlobalCalculatedTargets as AppGlobalCalculatedTargets } from '@/lib/schemas';
+import { MacroSplitterFormSchema, type MacroSplitterFormValues, type FullProfileType, type MealMacroDistribution, type GlobalCalculatedTargets as AppGlobalCalculatedTargets, type CustomCalculatedTargets } from '@/lib/schemas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { mealNames as defaultMealNames, defaultMacroPercentages } from '@/lib/constants';
 import { Loader2, RefreshCw, SplitSquareHorizontal, Lightbulb, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { cn } from "@/lib/utils";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/clientApp';
+import { preprocessDataForFirestore } from '@/lib/schemas';
+
 
 interface TotalMacros {
   calories: number;
@@ -89,8 +91,7 @@ export default function MacroSplitterPage() {
     setIsLoading(true);
     let targets: TotalMacros | null = null;
     let sourceMessage = "";
-    let loadedMealDistributions: MealMacroDistribution[] | undefined = undefined;
-
+    
     try {
       const userProfileRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(userProfileRef);
@@ -98,14 +99,14 @@ export default function MacroSplitterPage() {
       if (docSnap.exists()) {
         const profileData = docSnap.data() as FullProfileType;
 
+        // Load meal distributions if saved
         if (profileData.mealDistributions && Array.isArray(profileData.mealDistributions) && profileData.mealDistributions.length === defaultMealNames.length) {
-          loadedMealDistributions = profileData.mealDistributions;
           form.reset({ mealDistributions: profileData.mealDistributions });
            if (toast && Array.isArray(toast.toasts) && !toast.toasts.find(t => t.description === "Your previously saved macro split percentages have been loaded.")) {
             toast({ title: "Loaded Saved Split", description: "Your previously saved macro split percentages have been loaded.", duration: 3000 });
           }
         } else {
-           form.reset({
+           form.reset({ // Reset to default percentages if none saved or invalid
             mealDistributions: defaultMealNames.map(name => ({
               mealName: name,
               calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
@@ -116,16 +117,20 @@ export default function MacroSplitterPage() {
           });
         }
         
-        if (profileData.manualMacroResults && profileData.manualMacroResults.Total_cals !== undefined) {
+        // Prioritize manual macro results from Smart Planner
+        if (profileData.manualMacroResults && profileData.manualMacroResults.totalCalories !== undefined && profileData.manualMacroResults.totalCalories !== null) {
+            const manualResults = profileData.manualMacroResults;
             targets = {
-                calories: profileData.manualMacroResults.Total_cals || 0,
-                protein_g: profileData.manualMacroResults.Protein_g || 0,
-                carbs_g: profileData.manualMacroResults.Carbs_g || 0,
-                fat_g: profileData.manualMacroResults.Fat_g || 0,
-                source: "Manually Set in Smart Planner"
+                calories: manualResults.totalCalories || 0,
+                protein_g: manualResults.proteinGrams || 0,
+                carbs_g: manualResults.carbGrams || 0,
+                fat_g: manualResults.fatGrams || 0,
+                source: "Manual Macro Breakdown (Smart Planner)"
             };
-            sourceMessage = "Daily totals sourced from 'Manual Macro Breakdown' in Smart Planner. Adjust there for changes.";
-        } else if (profileData.smartPlannerData?.results?.finalTargetCalories !== undefined && profileData.smartPlannerData?.results?.finalTargetCalories !== null) {
+            sourceMessage = "Daily totals from 'Manual Macro Breakdown' in Smart Planner. Adjust there for changes.";
+        } 
+        // Then try smart planner results
+        else if (profileData.smartPlannerData?.results?.finalTargetCalories !== undefined && profileData.smartPlannerData?.results?.finalTargetCalories !== null) {
             const smartResults = profileData.smartPlannerData.results;
             targets = {
                 calories: smartResults.finalTargetCalories || 0,
@@ -134,8 +139,10 @@ export default function MacroSplitterPage() {
                 fat_g: smartResults.fatGrams || 0,
                 source: "Smart Calorie Planner Targets"
             };
-            sourceMessage = "Daily totals sourced from 'Smart Calorie Planner'. Adjust there for changes.";
-        } else if (profileData.age && profileData.gender && profileData.current_weight && profileData.height_cm && profileData.activityLevel && profileData.dietGoalOnboarding) {
+            sourceMessage = "Daily totals from 'Smart Calorie Planner'. Adjust there for changes.";
+        } 
+        // Fallback to profile estimation
+        else if (profileData.age && profileData.gender && profileData.current_weight && profileData.height_cm && profileData.activityLevel && profileData.dietGoalOnboarding) {
           const estimatedTargets = calculateEstimatedDailyTargets({
             age: profileData.age,
             gender: profileData.gender,
@@ -157,15 +164,15 @@ export default function MacroSplitterPage() {
               fat_g: estimatedTargets.fatGrams,
               source: "Profile Estimation"
             };
-            sourceMessage = "Daily totals estimated from your Profile. Complete your profile or use the Smart Calorie Planner for more precision.";
+            sourceMessage = "Daily totals estimated from Profile. Use Smart Calorie Planner for more precision or manual input.";
           } else {
-             toast({ title: "Profile Incomplete for Calculation", description: "Could not calculate daily totals from your profile. Ensure all basic info, activity level, and diet goal are set in Onboarding or Smart Planner.", variant: "destructive", duration: 5000});
+             toast({ title: "Profile Incomplete for Calculation", description: "Could not calculate daily totals from profile. Ensure all basic info, activity, and diet goal are set in Onboarding or Smart Planner.", variant: "destructive", duration: 5000});
           }
         } else {
-          toast({ title: "Profile Incomplete", description: "Your user profile is incomplete. Please fill it out via Onboarding or the Smart Calorie Planner to calculate daily totals for the Macro Splitter.", variant: "destructive", duration: 5000 });
+          toast({ title: "Profile Incomplete", description: "Profile is incomplete. Please fill it via Onboarding or Smart Calorie Planner for daily totals.", variant: "destructive", duration: 5000 });
         }
       } else {
-         toast({ title: "Profile Not Found", description: "Could not find your user profile to calculate daily totals.", variant: "destructive", duration: 5000 });
+         toast({ title: "Profile Not Found", description: "Could not find user profile for daily totals.", variant: "destructive", duration: 5000 });
       }
     } catch (error) {
       toast({ title: "Error Loading Data", description: "Failed to load data for macro estimation.", variant: "destructive" });
@@ -210,7 +217,8 @@ export default function MacroSplitterPage() {
     
     try {
       const userProfileRef = doc(db, "users", user.uid);
-      await setDoc(userProfileRef, { mealDistributions: data.mealDistributions }, { merge: true });
+      const dataToSave = { mealDistributions: preprocessDataForFirestore(data.mealDistributions) };
+      await setDoc(userProfileRef, dataToSave, { merge: true });
       toast({ title: "Split Calculated & Saved", description: "Macro split calculated and your percentages have been saved." });
     } catch (error) {
       toast({ title: "Calculation Complete (Save Failed)", description: "Macro split calculated, but failed to save percentages.", variant: "destructive" });
@@ -366,7 +374,7 @@ export default function MacroSplitterPage() {
                       
                       return (
                         <TableRow key={field.id}>
-                          <TableCell className="font-medium sticky left-0 bg-background z-10 px-2 py-1 text-sm h-10">{field.mealName}</TableCell>
+                          <TableCell className={cn("font-medium px-2 py-1 text-sm h-10", headerLabels[0].className)}>{field.mealName}</TableCell>
                           {macroPctKeys.map(macroKey => (
                             <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums h-10", macroKey === 'fat_pct' ? 'border-r' : '')}>
                               <FormField
@@ -382,15 +390,14 @@ export default function MacroSplitterPage() {
                                         value={itemField.value ?? ''}
                                         onChange={e => {
                                           const val = e.target.value;
-                                          // Allow empty string for intermediate input, Zod will validate
                                           itemField.onChange(val === '' ? undefined : Number(val));
                                         }}
+                                        onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                                         className="w-16 text-right tabular-nums text-sm px-1 py-0.5 h-8"
                                         min="0"
                                         max="100"
                                       /></div>
                                     </FormControl>
-                                    {/* <FormMessage /> Error messages handled by root validation */}
                                   </FormItem>
                                 )}
                               />
@@ -406,7 +413,7 @@ export default function MacroSplitterPage() {
                   </TableBody>
                   <TableFooter>
                     <TableRow className="font-semibold text-xs h-10 bg-muted/70">
-                      <TableCell className="sticky left-0 bg-muted/70 z-10 px-2 py-1">Input % Totals:</TableCell>
+                      <TableCell className={cn("px-2 py-1", headerLabels[0].className)}>Input % Totals:</TableCell>
                       {macroPctKeys.map(key => {
                           const sum = columnSums[key];
                           const isSum100 = Math.abs(sum - 100) < 0.1; 
@@ -420,7 +427,7 @@ export default function MacroSplitterPage() {
                       <TableCell colSpan={4} className="px-2 py-1"></TableCell> 
                     </TableRow>
                     <TableRow className="font-semibold text-sm bg-muted/70 h-10">
-                       <TableCell className="sticky left-0 bg-muted/70 z-10 px-2 py-1">Calc. Value Totals:</TableCell>
+                       <TableCell className={cn("px-2 py-1", headerLabels[0].className)}>Calc. Value Totals:</TableCell>
                        <TableCell colSpan={4} className="px-2 py-1 border-r"></TableCell>
                        {dailyTargets ? (
                         <>
@@ -452,7 +459,7 @@ export default function MacroSplitterPage() {
               )}
                {form.formState.errors.mealDistributions && !form.formState.errors.mealDistributions.root && (
                     Object.values(form.formState.errors.mealDistributions).map((errorObj, index) => {
-                        if (errorObj && typeof errorObj === 'object' && errorObj !== null && !Array.isArray(errorObj) /* Check it's not an array of errors for a field */) {
+                        if (errorObj && typeof errorObj === 'object' && errorObj !== null && !Array.isArray(errorObj)) {
                             return Object.entries(errorObj).map(([key, error]) => (
                                 error && typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && (
                                     <p key={`${index}-${key}`} className="text-sm font-medium text-destructive mt-1">

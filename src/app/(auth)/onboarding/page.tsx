@@ -39,12 +39,11 @@ import {
   defaultMacroPercentages,
 } from "@/lib/constants";
 import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution, type GlobalCalculatedTargets, preprocessDataForFirestore } from "@/lib/schemas";
-import { calculateBMR, calculateTDEE, calculateEstimatedDailyTargets } from "@/lib/nutrition-calculator";
+import { calculateEstimatedDailyTargets } from "@/lib/nutrition-calculator";
 import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-
+import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea import
 
 interface TotalsForSplitter {
   calories: number;
@@ -332,16 +331,18 @@ export default function OnboardingPage() {
     arrayLikeFields.forEach(field => {
       if (typeof processedData[field] === 'string' && (processedData[field] as string).trim() !== '') {
         processedData[field] = (processedData[field] as string).split(',').map(s => s.trim()).filter(s => s);
-      } else {
-         processedData[field] = [];
+      } else if (typeof processedData[field] === 'string' && (processedData[field] as string).trim() === '') {
+         processedData[field] = []; // Convert empty string to empty array
+      } else if (processedData[field] === undefined || processedData[field] === null) {
+         processedData[field] = []; // Convert undefined/null to empty array
       }
     });
     
-    let resultsToSave: GlobalCalculatedTargets | null = null;
-    if (customCalculatedTargets && (data.custom_total_calories !== undefined || data.custom_protein_per_kg !== undefined)) {
-      resultsToSave = customCalculatedTargets;
+    let finalResultsToSave: GlobalCalculatedTargets | null = null;
+    if (customCalculatedTargets && (data.custom_total_calories !== undefined && data.custom_total_calories !== null || data.custom_protein_per_kg !== undefined && data.custom_protein_per_kg !== null)) {
+        finalResultsToSave = customCalculatedTargets;
     } else if (calculatedTargets) {
-      resultsToSave = calculatedTargets;
+        finalResultsToSave = calculatedTargets;
     }
 
     const smartPlannerFormValuesForStorage = {
@@ -384,16 +385,17 @@ export default function OnboardingPage() {
         custom_protein_per_kg: processedData.custom_protein_per_kg,
         remaining_calories_carb_pct: processedData.remaining_calories_carb_pct,
     };
-
-    const dataToSaveToFirestore: Partial<FullProfileType> = {
-      ...processedData,
+    
+    // Create a data structure for Firestore, ensuring all optional fields default to null if undefined
+    const firestoreReadyData: Partial<FullProfileType> = {
+      ...preprocessDataForFirestore(processedData), // Preprocess all top-level fields
       smartPlannerData: {
           formValues: preprocessDataForFirestore(smartPlannerFormValuesForStorage),
-          results: preprocessDataForFirestore(resultsToSave)
+          results: preprocessDataForFirestore(finalResultsToSave)
       },
       mealDistributions: processedData.mealDistributions && processedData.mealDistributions.length > 0 
-        ? processedData.mealDistributions 
-        : defaultMealNames.map(name => ({
+        ? preprocessDataForFirestore(processedData.mealDistributions)
+        : defaultMealNames.map(name => ({ // Ensure this also gets preprocessed if necessary
             mealName: name,
             calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
             protein_pct: defaultMacroPercentages[name]?.protein_pct || 0,
@@ -402,12 +404,12 @@ export default function OnboardingPage() {
           })),
     };
     
-    delete dataToSaveToFirestore.custom_total_calories;
-    delete dataToSaveToFirestore.custom_protein_per_kg;
-    delete dataToSaveToFirestore.remaining_calories_carb_pct;
+    // Remove fields that are now nested under smartPlannerData.formValues from the top level
+    delete firestoreReadyData.custom_total_calories;
+    delete firestoreReadyData.custom_protein_per_kg;
+    delete firestoreReadyData.remaining_calories_carb_pct;
     
-    const finalProfileData = preprocessDataForFirestore(dataToSaveToFirestore) as FullProfileType;
-    await completeOnboarding(finalProfileData); 
+    await completeOnboarding(firestoreReadyData as FullProfileType); 
     toast({ title: "Onboarding Complete!", description: "Your profile has been saved. Welcome to NutriPlan!" });
   };
 
@@ -418,7 +420,7 @@ export default function OnboardingPage() {
 
   const renderNumberField = (name: FieldPath<OnboardingFormValues>, label: string, placeholder: string, description?: string, step: string = "1") => (
     <FormField control={form.control} name={name}
-      render={({ field }) => ( <FormItem> <FormLabel>{label}</FormLabel> <FormControl><div><Input type="number" placeholder={placeholder} {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} step={step}/></div></FormControl> {description && <FormDescription>{description}</FormDescription>} <FormMessage /> </FormItem> )} />
+      render={({ field }) => ( <FormItem> <FormLabel>{label}</FormLabel> <FormControl><div><Input type="number" placeholder={placeholder} {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} step={step} onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}/></div></FormControl> {description && <FormDescription>{description}</FormDescription>} <FormMessage /> </FormItem> )} />
   );
 
   const renderSelectField = (name: FieldPath<OnboardingFormValues>, label: string, placeholder: string, options: {value: string | number, label: string}[], description?: string) => (
@@ -461,7 +463,7 @@ export default function OnboardingPage() {
     <Card className="w-full max-w-2xl shadow-xl">
       <CardHeader className="text-center">
         <div className="flex justify-center items-center mb-4"> <Leaf className="h-10 w-10 text-primary" /> </div>
-        <Tooltip> <TooltipTrigger asChild><span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span></TooltipTrigger> <TooltipContent side="top" className="max-w-xs"> <p>{activeStepData.tooltipText}</p> </TooltipContent> </Tooltip>
+         <Tooltip> <TooltipTrigger asChild><span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span></TooltipTrigger> <TooltipContent side="top" className="max-w-xs"> <p>{activeStepData.tooltipText}</p> </TooltipContent> </Tooltip>
         <CardDescription>{activeStepData.explanation}</CardDescription>
         <Progress value={progressValue} className="w-full mt-4" />
         <p className="text-sm text-muted-foreground mt-1">Step {currentStep} of {onboardingStepsData.length}</p>
@@ -471,8 +473,8 @@ export default function OnboardingPage() {
           <form onSubmit={form.handleSubmit(processAndSaveData)} className="space-y-8">
             {currentStep === 1 && ( <div className="text-center p-4">  </div> )}
             {currentStep === 2 && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {renderNumberField("age", "Age (Years)", "e.g., 30", undefined, "1")} {renderSelectField("gender", "Biological Sex", "Select sex", genders)} {renderNumberField("height_cm", "Height (cm)", "e.g., 175", undefined, "0.1")} {renderNumberField("current_weight", "Current Weight (kg)", "e.g., 70", undefined, "0.1")} {renderNumberField("goal_weight_1m", "Target Weight After 1 Month (kg)", "e.g., 68", undefined, "0.1")} {renderNumberField("ideal_goal_weight", "Long-Term Goal Weight (kg, Optional)", "e.g., 65", undefined, "0.1")} {renderSelectField("activityLevel", "Physical Activity Level", "Select activity level", activityLevels)} {renderSelectField("dietGoalOnboarding", "Primary Diet Goal", "Select your diet goal", smartPlannerDietGoals)} </div> )}
-            {currentStep === 3 && ( <div className="space-y-4"> <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground"> <span className="col-span-1">Metric</span> <span className="text-center">Current (%)</span> <span className="text-center">Target (1 Mth) (%)</span> <span className="text-center">Ideal (%)</span> </div> {(['Body Fat', 'Muscle Mass', 'Body Water'] as const).map((metric) => { const keys = { 'Body Fat': ['bf_current', 'bf_target', 'bf_ideal'], 'Muscle Mass': ['mm_current', 'mm_target', 'mm_ideal'], 'Body Water': ['bw_current', 'bw_target', 'bw_ideal'], }[metric] as [FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>]; return ( <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> <FormLabel className="text-sm pt-2">{metric}</FormLabel> {keys.map(key => ( <FormField key={key} control={form.control} name={key} render={({ field }) => ( <FormItem className="text-center"> <FormControl><div><Input type="number" placeholder="e.g., 20" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" step="0.1" /></div></FormControl> <FormMessage className="text-xs text-center"/> </FormItem> )}/> ))} </div> ); })} </div> )}
-            {currentStep === 4 && ( <div className="space-y-4"> <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground"> <span className="col-span-1">Metric</span> <span className="text-center">Current (cm)</span> <span className="text-center">1-Mth Goal (cm)</span> <span className="text-center">Ideal (cm)</span> </div> {(['Waist', 'Hips', 'Right Leg', 'Left Leg', 'Right Arm', 'Left Arm'] as const).map((metric) => { const keys = { 'Waist': ['waist_current', 'waist_goal_1m', 'waist_ideal'], 'Hips': ['hips_current', 'hips_goal_1m', 'hips_ideal'], 'Right Leg': ['right_leg_current', 'right_leg_goal_1m', 'right_leg_ideal'], 'Left Leg': ['left_leg_current', 'left_leg_goal_1m', 'left_leg_ideal'], 'Right Arm': ['right_arm_current', 'right_arm_goal_1m', 'right_arm_ideal'], 'Left Arm': ['left_arm_current', 'left_arm_goal_1m', 'left_arm_ideal'], }[metric] as [FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>]; return ( <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> <FormLabel className="text-sm pt-2">{metric}</FormLabel> {keys.map(key => ( <FormField key={key} control={form.control} name={key} render={({ field }) => ( <FormItem className="text-center"> <FormControl><div><Input type="number" placeholder="e.g., 80" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" step="0.1"/></div></FormControl> <FormMessage className="text-xs text-center"/> </FormItem> )}/> ))} </div> ); })} </div> )}
+            {currentStep === 3 && ( <div className="space-y-4"> <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground"> <span className="col-span-1">Metric</span> <span className="text-center">Current (%)</span> <span className="text-center">Target (1 Mth) (%)</span> <span className="text-center">Ideal (%)</span> </div> {(['Body Fat', 'Muscle Mass', 'Body Water'] as const).map((metric) => { const keys = { 'Body Fat': ['bf_current', 'bf_target', 'bf_ideal'], 'Muscle Mass': ['mm_current', 'mm_target', 'mm_ideal'], 'Body Water': ['bw_current', 'bw_target', 'bw_ideal'], }[metric] as [FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>]; return ( <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> <FormLabel className="text-sm pt-2">{metric}</FormLabel> {keys.map(key => ( <FormField key={key} control={form.control} name={key} render={({ field }) => ( <FormItem className="text-center"> <FormControl><div><Input type="number" placeholder="e.g., 20" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" step="0.1" onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}/></div></FormControl> <FormMessage className="text-xs text-center"/> </FormItem> )}/> ))} </div> ); })} </div> )}
+            {currentStep === 4 && ( <div className="space-y-4"> <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground"> <span className="col-span-1">Metric</span> <span className="text-center">Current (cm)</span> <span className="text-center">1-Mth Goal (cm)</span> <span className="text-center">Ideal (cm)</span> </div> {(['Waist', 'Hips', 'Right Leg', 'Left Leg', 'Right Arm', 'Left Arm'] as const).map((metric) => { const keys = { 'Waist': ['waist_current', 'waist_goal_1m', 'waist_ideal'], 'Hips': ['hips_current', 'hips_goal_1m', 'hips_ideal'], 'Right Leg': ['right_leg_current', 'right_leg_goal_1m', 'right_leg_ideal'], 'Left Leg': ['left_leg_current', 'left_leg_goal_1m', 'left_leg_ideal'], 'Right Arm': ['right_arm_current', 'right_arm_goal_1m', 'right_arm_ideal'], 'Left Arm': ['left_arm_current', 'left_arm_goal_1m', 'left_arm_ideal'], }[metric] as [FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>]; return ( <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> <FormLabel className="text-sm pt-2">{metric}</FormLabel> {keys.map(key => ( <FormField key={key} control={form.control} name={key} render={({ field }) => ( <FormItem className="text-center"> <FormControl><div><Input type="number" placeholder="e.g., 80" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" step="0.1" onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}/></div></FormControl> <FormMessage className="text-xs text-center"/> </FormItem> )}/> ))} </div> ); })} </div> )}
             {currentStep === 5 && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {renderSelectField("preferredDiet", "Preferred Diet (Optional)", "e.g., Vegetarian", preferredDiets)}  {renderTextareaField("allergies", "Allergies (comma-separated, Optional)", "e.g., Peanuts, Shellfish", "List any food allergies.")} {renderTextareaField("preferredCuisines", "Preferred Cuisines (comma-separated, Optional)", "e.g., Italian, Mexican")} {renderTextareaField("dispreferredCuisines", "Dispreferred Cuisines (comma-separated, Optional)", "e.g., Thai, Indian")} {renderTextareaField("preferredIngredients", "Favorite Ingredients (comma-separated, Optional)", "e.g., Chicken, Avocado")} {renderTextareaField("dispreferredIngredients", "Disliked Ingredients (comma-separated, Optional)", "e.g., Tofu, Olives")} {renderTextareaField("preferredMicronutrients", "Targeted Micronutrients (Optional)", "e.g., Vitamin D, Iron")} </div> )}
             {currentStep === 6 && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {renderTextareaField("medicalConditions", "Medical Conditions (comma-separated, Optional)", "e.g., Diabetes, Hypertension", "Helps AI avoid conflicting foods.")} {renderTextareaField("medications", "Medications (comma-separated, Optional)", "e.g., Metformin, Lisinopril", "Helps AI avoid interactions.")} </div> )}
             {currentStep === 7 && ( <div className="space-y-4 p-4 border rounded-md bg-muted/50"> <h3 className="text-lg font-semibold text-primary">Your Estimated Daily Targets:</h3> {calculatedTargets ? ( <> <p><strong>Basal Metabolic Rate (BMR):</strong> {calculatedTargets.bmr?.toFixed(0) ?? 'N/A'} kcal</p> <p><strong>Maintenance Calories (TDEE):</strong> {calculatedTargets.tdee?.toFixed(0) ?? 'N/A'} kcal</p> <p className="font-bold text-primary mt-2">Target Daily Calories: {calculatedTargets.finalTargetCalories?.toFixed(0) ?? 'N/A'} kcal</p> <p>Target Protein: {calculatedTargets.proteinGrams?.toFixed(1) ?? 'N/A'} g ({calculatedTargets.proteinTargetPct?.toFixed(0) ?? 'N/A'}%)</p> <p>Target Carbs: {calculatedTargets.carbGrams?.toFixed(1) ?? 'N/A'} g ({calculatedTargets.carbTargetPct?.toFixed(0) ?? 'N/A'}%)</p> <p>Target Fat: {calculatedTargets.fatGrams?.toFixed(1) ?? 'N/A'} g ({calculatedTargets.fatTargetPct?.toFixed(0) ?? 'N/A'}%)</p> <p className="text-sm">Estimated Weekly Progress: {calculatedTargets.estimatedWeeklyWeightChangeKg && calculatedTargets.estimatedWeeklyWeightChangeKg <= 0 ? `${Math.abs(calculatedTargets.estimatedWeeklyWeightChangeKg ?? 0).toFixed(2)} kg deficit/week (Potential Loss)` : `${(calculatedTargets.estimatedWeeklyWeightChangeKg ?? 0)?.toFixed(2)} kg surplus/week (Potential Gain)`}</p> </> ) : ( <p className="text-destructive flex items-center"><AlertCircle className="mr-2 h-4 w-4" /> Not enough information from previous steps to calculate. Please go back and complete required fields.</p> )} <FormDescription className="text-xs mt-2">These are estimates. You can fine-tune these in the next step or later in the app's tools.</FormDescription> </div> )}
@@ -480,7 +482,7 @@ export default function OnboardingPage() {
             {currentStep === 9 && ( 
               <div className="space-y-4 p-4 border rounded-md bg-muted/50">
                 <h3 className="text-lg font-semibold text-primary mb-1">Distribute Macros Across Meals</h3>
-                <p className="text-sm text-muted-foreground mb-2">
+                 <p className="text-sm text-muted-foreground mb-2">
                   Please use whole numbers for percentages (e.g., 20, not 20.5). Each percentage column (for %Cal, %P, %C, %F) should sum to 100%.
                 </p>
                 {totalsForSplitter ? (
@@ -492,14 +494,19 @@ export default function OnboardingPage() {
                         Carbs: {totalsForSplitter.carbs_g.toFixed(1)}g, Fat: {totalsForSplitter.fat_g.toFixed(1)}g
                       </p>
                     </div>
-                    <ScrollArea className="w-full border rounded-md">
-                      <Table className="min-w-[700px]">{/* */}<TableHeader>{/* */}<TableRow>{/* */}
+                    <ScrollArea className="w-full border rounded-md"> {/* Added ScrollArea */}
+                      <Table className="min-w-[700px]"> {/* Added min-width */}
+                        <TableHeader>
+                          <TableRow>
                             {tableHeaderLabels.map(header => (
-                              <TableHead key={header.key} className={cn("px-2 py-1 h-9", header.className)}>
+                              <TableHead key={header.key} className={cn("px-2 py-1 h-9 text-xs font-medium", header.className)}>
                                 {header.label}
                               </TableHead>
-                            ))}{/* */}</TableRow>{/* */}</TableHeader>{/* */}
-                        <TableBody>{/* */}{mealDistributionFields.map((item, index) => {
+                            ))}
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {mealDistributionFields.map((item, index) => {
                             const currentPercentages = watchedMealDistributions?.[index];
                             let mealCal = NaN, mealP = NaN, mealC = NaN, mealF = NaN;
                             if (totalsForSplitter && currentPercentages) {
@@ -509,28 +516,43 @@ export default function OnboardingPage() {
                               mealF = totalsForSplitter.fat_g * ((currentPercentages.fat_pct || 0) / 100);
                             }
                             return (
-                              <TableRow key={item.id}>{/* */}<TableCell className="font-medium sticky left-0 bg-card z-10 px-2 py-1 text-sm h-10">{item.mealName}</TableCell>{/* */}
+                              <TableRow key={item.id}>
+                                <TableCell className={cn("font-medium px-2 py-1 text-sm h-10", tableHeaderLabels[0].className)}>{item.mealName}</TableCell>
                                 {macroPctKeys.map(macroKey => (
-                                  <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums h-10", macroKey === 'fat_pct' ? 'border-r' : '')}>{/* */}
+                                  <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums h-10", macroKey === 'fat_pct' ? 'border-r' : '')}>
                                     <FormField
                                       control={form.control}
                                       name={`mealDistributions.${index}.${macroKey}`}
                                       render={({ field }) => (
                                         <FormItem>
-                                        <FormControl><div><Input type="number" step="1" {...field} value={field.value ?? ''} onChange={e => { const val = e.target.value; field.onChange(val === '' ? undefined : Number(val));}} className="w-16 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl>
+                                          <FormControl>
+                                            <div>
+                                              <Input type="number" step="1" {...field} 
+                                                value={field.value ?? ''} 
+                                                onChange={e => {
+                                                  const val = e.target.value;
+                                                  field.onChange(val === '' ? undefined : Number(val));
+                                                }} 
+                                                onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                                                className="w-16 h-8 text-xs text-right tabular-nums px-1 py-0.5" 
+                                              />
+                                            </div>
+                                          </FormControl>
                                         </FormItem>
-                                      )}/>{/* */}
+                                      )}/>
                                   </TableCell>
-                                ))}{/* */}
-                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>{/* */}
-                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>{/* */}
-                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>{/* */}
-                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>{/* */}
+                                ))}
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>
                               </TableRow>
                             );
-                          })}{/* */}</TableBody>{/* */}
-                        <TableFooter>{/* */}<TableRow className="font-semibold text-xs h-10 bg-muted/70">{/* */}
-                            <TableCell className="sticky left-0 bg-muted/70 z-10 px-2 py-1">Input % Totals:</TableCell>{/* */}
+                          })}
+                        </TableBody>
+                        <TableFooter>
+                          <TableRow className="font-semibold text-xs h-10 bg-muted/70">
+                            <TableCell className={cn("px-2 py-1", tableHeaderLabels[0].className)}>Input % Totals:</TableCell>
                             {macroPctKeys.map(key => {
                               const sum = columnSums[key];
                               const isSum100 = Math.abs(sum - 100) < 0.1;
@@ -540,10 +562,11 @@ export default function OnboardingPage() {
                                   {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
                                 </TableCell>
                               );
-                            })}{/* */}
-                            <TableCell colSpan={4} className="py-1"></TableCell>{/* */}
-                          </TableRow>{/* */}</TableFooter>{/* */}</Table>
-                      <ScrollBar orientation="horizontal" />
+                            })}
+                            <TableCell colSpan={4} className="py-1"></TableCell>
+                          </TableRow>
+                        </TableFooter>
+                      </Table>
                     </ScrollArea>
                      {form.formState.errors.mealDistributions?.root?.message && (
                         <p className="text-sm font-medium text-destructive mt-2">
@@ -581,3 +604,4 @@ export default function OnboardingPage() {
     </TooltipProvider>
   );
 }
+
