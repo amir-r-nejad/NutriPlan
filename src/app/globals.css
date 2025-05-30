@@ -86,4 +86,16 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Hide spinners from number inputs */
+  /* For WebKit browsers like Chrome, Safari, Edge */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  /* For Firefox */
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
 }
