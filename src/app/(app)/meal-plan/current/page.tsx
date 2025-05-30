@@ -19,6 +19,7 @@ import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
 import { adjustMealIngredients, type AdjustMealIngredientsInput } from '@/ai/flows/adjust-meal-ingredients';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/clientApp';
+import { preprocessDataForFirestore } from '@/lib/schemas';
 
 
 async function getMealPlanData(userId: string): Promise<WeeklyMealPlan | null> {
@@ -29,7 +30,6 @@ async function getMealPlanData(userId: string): Promise<WeeklyMealPlan | null> {
     if (docSnap.exists()) {
       const profileData = docSnap.data() as FullProfileType;
       if (profileData.currentWeeklyPlan) {
-        // Ensure all meals and days are present, filling with defaults if not
         const fullPlan: WeeklyMealPlan = {
           days: daysOfWeek.map(dayName => {
             const existingDay = profileData.currentWeeklyPlan?.days?.find(d => d.dayOfWeek === dayName);
@@ -54,31 +54,15 @@ async function getMealPlanData(userId: string): Promise<WeeklyMealPlan | null> {
   } catch (error) {
     console.error("Error fetching meal plan data from Firestore:", error);
   }
-  return null; // Return null if not found or error
+  return null; 
 }
 
-// Helper function to sanitize data for Firestore (convert undefined to null)
-function sanitizeForFirestore(data: any): any {
-  if (Array.isArray(data)) {
-    return data.map(item => sanitizeForFirestore(item));
-  } else if (typeof data === 'object' && data !== null) {
-    const sanitizedObject: { [key: string]: any } = {};
-    for (const key in data) {
-      if (Object.prototype.hasOwnProperty.call(data, key)) {
-        const value = data[key];
-        sanitizedObject[key] = value === undefined ? null : sanitizeForFirestore(value);
-      }
-    }
-    return sanitizedObject;
-  }
-  return data;
-}
 
 async function saveMealPlanData(userId: string, planData: WeeklyMealPlan) {
   if (!userId) throw new Error("User ID required to save meal plan.");
   try {
     const userProfileRef = doc(db, "users", userId);
-    const sanitizedPlanData = sanitizeForFirestore(planData);
+    const sanitizedPlanData = preprocessDataForFirestore(planData);
     await setDoc(userProfileRef, { currentWeeklyPlan: sanitizedPlanData }, { merge: true });
   } catch (error) {
     console.error("Error saving meal plan data to Firestore:", error);
@@ -93,6 +77,7 @@ async function getProfileDataForOptimization(userId: string): Promise<Partial<Fu
     const docSnap = await getDoc(userProfileRef);
     if (docSnap.exists()) {
       const data = docSnap.data() as FullProfileType;
+      // Return only the fields relevant for optimization to keep it lean
       const profile: Partial<FullProfileType> = {
         age: data.age,
         gender: data.gender,
@@ -202,7 +187,7 @@ export default function CurrentMealPlanPage() {
     if (missingFields.length > 0) {
       toast({
         title: "Profile Incomplete for Optimization",
-        description: `Please ensure the following profile details are complete: ${missingFields.join(', ')}. You can update these in the "Smart Calorie Planner" or during onboarding.`,
+        description: `Please ensure the following profile details are complete in the Smart Calorie Planner: ${missingFields.join(', ')}.`,
         variant: "destructive",
         duration: 7000,
       });
@@ -211,16 +196,16 @@ export default function CurrentMealPlanPage() {
     }
 
     try {
-      const dailyTotals = calculateEstimatedDailyTargets({
+      const dailyTargets = calculateEstimatedDailyTargets({
         age: profileData.age!,
         gender: profileData.gender!,
-        currentWeight: profileData.current_weight!,
-        height: profileData.height_cm!,
+        current_weight: profileData.current_weight!,
+        height_cm: profileData.height_cm!,
         activityLevel: profileData.activityLevel!,
-        dietGoal: profileData.dietGoalOnboarding!,
+        dietGoalOnboarding: profileData.dietGoalOnboarding!,
       });
 
-      if (!dailyTotals.targetCalories || !dailyTotals.targetProtein || !dailyTotals.targetCarbs || !dailyTotals.targetFat) {
+      if (!dailyTargets.finalTargetCalories || !dailyTargets.proteinGrams || !dailyTargets.carbGrams || !dailyTargets.fatGrams) {
         toast({ title: "Calculation Error", description: "Could not calculate daily targets from profile. Ensure profile is complete. This might happen if some values are zero or invalid.", variant: "destructive" });
         setOptimizingMealKey(null); return;
       }
@@ -228,10 +213,10 @@ export default function CurrentMealPlanPage() {
       const mealDistribution = defaultMacroPercentages[mealToOptimize.name] || { calories_pct: 0, protein_pct: 0, carbs_pct: 0, fat_pct: 0 };
 
       const targetMacrosForMeal = {
-        calories: Math.round(dailyTotals.targetCalories * (mealDistribution.calories_pct / 100)),
-        protein: Math.round(dailyTotals.targetProtein * (mealDistribution.protein_pct / 100)),
-        carbs: Math.round(dailyTotals.targetCarbs * (mealDistribution.carbs_pct / 100)),
-        fat: Math.round(dailyTotals.targetFat * (mealDistribution.fat_pct / 100)),
+        calories: Math.round(dailyTargets.finalTargetCalories * (mealDistribution.calories_pct / 100)),
+        protein: Math.round(dailyTargets.proteinGrams * (mealDistribution.protein_pct / 100)),
+        carbs: Math.round(dailyTargets.carbGrams * (mealDistribution.carbs_pct / 100)),
+        fat: Math.round(dailyTargets.fatGrams * (mealDistribution.fat_pct / 100)),
       };
 
       const preparedIngredients = mealToOptimize.ingredients.map(ing => ({
@@ -273,8 +258,7 @@ export default function CurrentMealPlanPage() {
         const newWeeklyPlan = JSON.parse(JSON.stringify(weeklyPlan));
         const updatedMealData = {
           ...result.adjustedMeal,
-          id: mealToOptimize.id, // Preserve original ID if exists
-          // Ensure all macro fields are numbers or null
+          id: mealToOptimize.id, 
           totalCalories: Number(result.adjustedMeal.totalCalories) || null,
           totalProtein: Number(result.adjustedMeal.totalProtein) || null,
           totalCarbs: Number(result.adjustedMeal.totalCarbs) || null,
@@ -298,7 +282,7 @@ export default function CurrentMealPlanPage() {
 
     } catch (error: any) {
       console.error("Error optimizing meal:", error);
-      console.error("Full AI error object:", error); // Log the full error object
+      console.error("Full AI error object:", error); 
       const errorMessage = error.message || "Unknown error during optimization.";
       toast({ title: "Optimization Failed", description: `Could not optimize meal: ${errorMessage}`, variant: "destructive" });
     } finally {
@@ -478,25 +462,26 @@ function EditMealDialog({ meal: initialMeal, onSave, onClose }: EditMealDialogPr
               id="customMealName" value={meal.customName || ''}
               onChange={(e) => setMeal({ ...meal, customName: e.target.value })}
               placeholder="Optional: e.g., Greek Yogurt with Berries"
+              onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
             />
           </div>
           <Label>Ingredients</Label>
           {meal.ingredients.map((ing, index) => (
             <Card key={index} className="p-3 space-y-2">
               <div className="flex justify-between items-center gap-2">
-                <Input placeholder="Ingredient Name" value={ing.name} onChange={(e) => handleIngredientChange(index, 'name', e.target.value)} className="flex-grow" />
+                <Input placeholder="Ingredient Name" value={ing.name} onChange={(e) => handleIngredientChange(index, 'name', e.target.value)} className="flex-grow" onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()} />
                 <Button variant="ghost" size="icon" onClick={() => removeIngredient(index)} className="shrink-0"> <Trash2 className="h-4 w-4 text-destructive" /> </Button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                <Input type="number" placeholder="Qty" value={ing.quantity ?? ''} onChange={(e) => handleIngredientChange(index, 'quantity', e.target.value)} />
-                <Input placeholder="Unit (g, ml, item)" value={ing.unit} onChange={(e) => handleIngredientChange(index, 'unit', e.target.value)} />
+                <Input type="number" placeholder="Qty" value={ing.quantity ?? ''} onChange={(e) => handleIngredientChange(index, 'quantity', e.target.value)} onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()} />
+                <Input placeholder="Unit (g, ml, item)" value={ing.unit} onChange={(e) => handleIngredientChange(index, 'unit', e.target.value)} onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()} />
                 <div className="col-span-2 md:col-span-1 text-xs text-muted-foreground pt-2"> (Total for this quantity) </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <Input type="number" placeholder="Cals" value={ing.calories ?? ''} onChange={(e) => handleIngredientChange(index, 'calories', e.target.value)} />
-                <Input type="number" placeholder="Protein (g)" value={ing.protein ?? ''} onChange={(e) => handleIngredientChange(index, 'protein', e.target.value)} />
-                <Input type="number" placeholder="Carbs (g)" value={ing.carbs ?? ''} onChange={(e) => handleIngredientChange(index, 'carbs', e.target.value)} />
-                <Input type="number" placeholder="Fat (g)" value={ing.fat ?? ''} onChange={(e) => handleIngredientChange(index, 'fat', e.target.value)} />
+                <Input type="number" placeholder="Cals" value={ing.calories ?? ''} onChange={(e) => handleIngredientChange(index, 'calories', e.target.value)} onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()} />
+                <Input type="number" placeholder="Protein (g)" value={ing.protein ?? ''} onChange={(e) => handleIngredientChange(index, 'protein', e.target.value)} onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()} />
+                <Input type="number" placeholder="Carbs (g)" value={ing.carbs ?? ''} onChange={(e) => handleIngredientChange(index, 'carbs', e.target.value)} onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()} />
+                <Input type="number" placeholder="Fat (g)" value={ing.fat ?? ''} onChange={(e) => handleIngredientChange(index, 'fat', e.target.value)} onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()} />
               </div>
             </Card>
           ))}
