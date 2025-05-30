@@ -147,7 +147,7 @@ export default function MacroSplitterPage() {
             };
             sourceMessage = "Daily totals estimated from your Profile. Complete your profile or use calculation tools for more precision.";
           } else {
-             toast({ title: "Profile Incomplete for Calculation", description: "Could not calculate daily totals from your profile. Please ensure all basic info, activity level, and diet goal are set.", variant: "destructive", duration: 5000});
+             toast({ title: "Profile Incomplete for Calculation", description: "Could not calculate daily totals from your profile. Ensure all basic info, activity level, and diet goal are set.", variant: "destructive", duration: 5000});
           }
         } else {
           toast({ title: "Profile Incomplete", description: "Your user profile is incomplete. Please fill it out to calculate daily totals for the Macro Splitter.", variant: "destructive", duration: 5000 });
@@ -163,7 +163,6 @@ export default function MacroSplitterPage() {
     setDailyTargets(targets);
 
     if (targets && sourceMessage) {
-      // Check if toast and toast.toasts are available before calling find
       const shouldShowToast = (toast && Array.isArray(toast.toasts)) ? !toast.toasts.find(t => t.description === sourceMessage) : true;
       if (shouldShowToast) {
          toast({ 
@@ -325,7 +324,7 @@ export default function MacroSplitterPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-2xl">Meal Macro Percentage & Value Distribution</CardTitle>
-              <CardDescription>Enter percentages. Each percentage column must sum to 100%. Calculated values update live.</CardDescription>
+              <CardDescription>Enter percentages (decimals allowed, e.g., 22.5). Each percentage column must sum to 100%. Calculated values update live.</CardDescription>
             </CardHeader>
             <CardContent>
               <ScrollArea className="w-full border rounded-md">
@@ -364,6 +363,7 @@ export default function MacroSplitterPage() {
                                     <FormControl><div>
                                       <Input
                                         type="number"
+                                        step="0.1"
                                         {...itemField}
                                         value={itemField.value ?? ''}
                                         onChange={e => itemField.onChange(parseFloat(e.target.value) || 0)}
@@ -390,10 +390,10 @@ export default function MacroSplitterPage() {
                       <TableCell className="sticky left-0 bg-background z-10 px-2 py-1">Input % Totals:</TableCell>
                       {macroPctKeys.map(key => {
                           const sum = columnSums[key];
-                          const isSum100 = Math.round(sum) === 100;
+                          const isSum100 = Math.abs(sum - 100) < 0.1; // Allow for small floating point discrepancies
                           return (
                               <TableCell key={`sum-${key}`} className={cn("px-2 py-1 text-right tabular-nums", isSum100 ? 'text-green-600' : 'text-destructive', key === 'fat_pct' ? 'border-r' : '')}>
-                                  {sum.toFixed(0)}% {/* Changed to toFixed(0) for consistency with UI */}
+                                  {sum.toFixed(1)}%
                                   {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
                               </TableCell>
                           );
@@ -503,5 +503,3 @@ export default function MacroSplitterPage() {
     </div>
   );
 }
-
-    

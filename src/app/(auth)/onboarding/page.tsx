@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { AlertCircle, CheckCircle, Leaf, Info, AlertTriangle, CheckCircle2, Edit3 } from "lucide-react";
+import { AlertCircle, CheckCircle, Leaf, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -38,7 +38,7 @@ import {
   mealNames as defaultMealNames,
   defaultMacroPercentages,
 } from "@/lib/constants";
-import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution, type CustomCalculatedTargets, type GlobalCalculatedTargets as AppGlobalCalculatedTargets, type FullProfileType } from "@/lib/schemas";
+import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution, type GlobalCalculatedTargets as AppGlobalCalculatedTargets } from "@/lib/schemas";
 import { calculateBMR, calculateTDEE, calculateEstimatedDailyTargets } from "@/lib/nutrition-calculator";
 import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
@@ -83,6 +83,7 @@ export default function OnboardingPage() {
       preferredIngredients: "", dispreferredIngredients: "",
       preferredMicronutrients: "", medicalConditions: "", medications: "",
       custom_total_calories: undefined, custom_protein_per_kg: undefined, remaining_calories_carb_pct: 50,
+      // manual_target_calories: undefined, manual_protein_g: undefined, manual_carbs_g: undefined, manual_fat_g: undefined, // Removed these
       mealDistributions: defaultMealNames.map(name => ({
         mealName: name,
         calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
@@ -164,11 +165,10 @@ export default function OnboardingPage() {
 
     const [customTotalCaloriesInput, customProteinPerKgInput, remainingCarbPctInput, formCurrentWeight] = watchedCustomInputs;
     
-    // Use current_weight from Step 2, which should be in calculatedTargets or form itself
     const baseWeight = formCurrentWeight || calculatedTargets?.current_weight_for_custom_calc;
 
     if (!baseWeight || baseWeight <= 0) {
-      if (customCalculatedTargets !== null) setCustomCalculatedTargets(null); // Clear if no valid base weight
+      if (customCalculatedTargets !== null) setCustomCalculatedTargets(null);
       return;
     }
     
@@ -278,7 +278,6 @@ export default function OnboardingPage() {
     if (activeStepData?.fieldsToValidate && activeStepData.fieldsToValidate.length > 0) {
       const result = await form.trigger(activeStepData.fieldsToValidate as FieldPath<OnboardingFormValues>[]);
       if (!result) {
-        // Find the first field with an error to display in the toast
         let firstErrorField: FieldPath<OnboardingFormValues> | undefined = undefined;
         for (const field of activeStepData.fieldsToValidate) {
             if (form.formState.errors[field as keyof OnboardingFormValues]) {
@@ -299,8 +298,6 @@ export default function OnboardingPage() {
       updateCalculatedTargetsForStep7();
     }
      if (currentStep === 8 && !customCalculatedTargets && calculatedTargets) {
-      // If user skips step 8 without interaction but we have step 7 data,
-      // ensure customCalculatedTargets gets populated based on step 7 for saving.
       setCustomCalculatedTargets(calculatedTargets);
     }
     if (currentStep < onboardingStepsData.length) {
@@ -345,7 +342,6 @@ export default function OnboardingPage() {
 
     let resultsToSave: AppGlobalCalculatedTargets | null = null;
     
-    // Prioritize Step 8 (Custom) results if user interacted with its fields
     if (customCalculatedTargets && customCalculatedTargets.finalTargetCalories !== undefined && (
         data.custom_total_calories !== undefined || data.custom_protein_per_kg !== undefined
     )) {
@@ -377,7 +373,7 @@ export default function OnboardingPage() {
       left_arm_current: processedFormValues.left_arm_current, left_arm_goal_1m: processedFormValues.left_arm_goal_1m, left_arm_ideal: processedFormValues.left_arm_ideal,
 
       preferredDiet: processedFormValues.preferredDiet,
-      allergies: processedFormValues.allergies as string[], // Cast after processing
+      allergies: processedFormValues.allergies as string[], 
       preferredCuisines: processedFormValues.preferredCuisines as string[],
       dispreferredCuisines: processedFormValues.dispreferredCuisines as string[],
       preferredIngredients: processedFormValues.preferredIngredients as string[],
@@ -386,12 +382,8 @@ export default function OnboardingPage() {
       medicalConditions: processedFormValues.medicalConditions as string[],
       medications: processedFormValues.medications as string[],
       typicalMealsDescription: processedFormValues.typicalMealsDescription,
-
-      custom_total_calories: processedFormValues.custom_total_calories,
-      custom_protein_per_kg: processedFormValues.custom_protein_per_kg,
-      remaining_calories_carb_pct: processedFormValues.remaining_calories_carb_pct,
       
-      mealDistributions: processedFormValues.mealDistributions ?? defaultMealNames.map(name => ({ // Ensure default if skipped
+      mealDistributions: processedFormValues.mealDistributions ?? defaultMealNames.map(name => ({ 
         mealName: name,
         calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
         protein_pct: defaultMacroPercentages[name]?.protein_pct || 0,
@@ -411,7 +403,6 @@ export default function OnboardingPage() {
           ideal_goal_weight: processedFormValues.ideal_goal_weight,
           bf_current: processedFormValues.bf_current,
           bf_target: processedFormValues.bf_target,
-          // Add other relevant formValues from smart planner section if needed
           custom_total_calories: data.custom_total_calories !== undefined ? data.custom_total_calories : null,
           custom_protein_per_kg: data.custom_protein_per_kg !== undefined ? data.custom_protein_per_kg : null,
           remaining_calories_carb_pct: data.remaining_calories_carb_pct !== undefined ? data.remaining_calories_carb_pct : null,
@@ -422,7 +413,6 @@ export default function OnboardingPage() {
       email: user?.email || null,
     };
     
-    // Final check to convert any top-level undefined to null before calling completeOnboarding
     const finalDataForFirestore: Record<string, any> = {};
     for (const key in dataForFirestore) {
       if (Object.prototype.hasOwnProperty.call(dataForFirestore, key)) {
@@ -430,7 +420,6 @@ export default function OnboardingPage() {
         finalDataForFirestore[typedKey] = dataForFirestore[typedKey] === undefined ? null : dataForFirestore[typedKey];
       }
     }
-
 
     await completeOnboarding(finalDataForFirestore as FullProfileType); 
     toast({ title: "Onboarding Complete!", description: "Your profile has been saved. Welcome to NutriPlan!" });
@@ -519,16 +508,16 @@ export default function OnboardingPage() {
                     </div>
                     <ScrollArea className="w-full border rounded-md">
                       <Table className="min-w-[700px]">
-                        <TableHeader>
-                          <TableRow>
+                        <TableHeader>{/* JSX comment to prevent whitespace */}
+                          <TableRow>{/* JSX comment to prevent whitespace */}
                             {tableHeaderLabels.map(header => (
                               <TableHead key={header.key} className={cn("px-2 py-1 text-xs font-medium h-9", header.className)}>
                                 {header.label}
                               </TableHead>
-                            ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                            ))}{/* JSX comment to prevent whitespace */}
+                          </TableRow>{/* JSX comment to prevent whitespace */}
+                        </TableHeader>{/* JSX comment to prevent whitespace */}
+                        <TableBody>{/* JSX comment to prevent whitespace */}
                           {mealDistributionFields.map((item, index) => {
                             const currentPercentages = watchedMealDistributions?.[index];
                             let mealCal = NaN, mealP = NaN, mealC = NaN, mealF = NaN;
@@ -539,46 +528,46 @@ export default function OnboardingPage() {
                               mealF = totalsForSplitter.fat_g * ((currentPercentages.fat_pct || 0) / 100);
                             }
                             return (
-                              <TableRow key={item.id}>
-                                <TableCell className="font-medium sticky left-0 bg-card z-10 px-2 py-1 text-sm h-10">{item.mealName}</TableCell>
+                              <TableRow key={item.id}>{/* JSX comment to prevent whitespace */}
+                                <TableCell className="font-medium sticky left-0 bg-card z-10 px-2 py-1 text-sm h-10">{item.mealName}</TableCell>{/* JSX comment to prevent whitespace */}
                                 {macroPctKeys.map(macroKey => (
-                                  <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums h-10", macroKey === 'fat_pct' ? 'border-r' : '')}>
+                                  <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums h-10", macroKey === 'fat_pct' ? 'border-r' : '')}>{/* JSX comment to prevent whitespace */}
                                     <FormField
                                       control={form.control}
                                       name={`mealDistributions.${index}.${macroKey}`}
                                       render={({ field }) => (
                                         <FormItem>
-                                        <FormControl><div><Input type="number" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} className="w-16 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl>
+                                        <FormControl><div><Input type="number" step="0.1" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseFloat(e.target.value) || 0)} className="w-16 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl>
                                         <FormMessage className="text-xs"/>
                                         </FormItem>
-                                      )}/>
+                                      )}/>{/* JSX comment to prevent whitespace */}
                                   </TableCell>
-                                ))}
-                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>
-                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>
-                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>
-                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>
+                                ))}{/* JSX comment to prevent whitespace */}
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>{/* JSX comment to prevent whitespace */}
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>{/* JSX comment to prevent whitespace */}
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>{/* JSX comment to prevent whitespace */}
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>{/* JSX comment to prevent whitespace */}
                               </TableRow>
                             );
-                          })}
-                        </TableBody>
-                        <TableFooter>
-                          <TableRow className="font-semibold text-xs h-10">
-                            <TableCell className="sticky left-0 bg-card z-10 px-2 py-1">Input % Totals:</TableCell>
+                          })}{/* JSX comment to prevent whitespace */}
+                        </TableBody>{/* JSX comment to prevent whitespace */}
+                        <TableFooter>{/* JSX comment to prevent whitespace */}
+                          <TableRow className="font-semibold text-xs h-10">{/* JSX comment to prevent whitespace */}
+                            <TableCell className="sticky left-0 bg-card z-10 px-2 py-1">Input % Totals:</TableCell>{/* JSX comment to prevent whitespace */}
                             {macroPctKeys.map(key => {
                               const sum = columnSums[key];
-                              const isSum100 = Math.round(sum) === 100;
+                              const isSum100 = Math.abs(sum - 100) < 0.1; // Allow for small floating point discrepancies
                               return (
                                 <TableCell key={`sum-${key}`} className={cn("text-right py-1 tabular-nums", isSum100 ? 'text-green-600' : 'text-destructive', key === 'fat_pct' ? 'border-r' : '')}>
-                                  {sum.toFixed(0)}%
+                                  {sum.toFixed(1)}%
                                   {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
                                 </TableCell>
                               );
-                            })}
-                            <TableCell colSpan={4} className="py-1"></TableCell>
-                          </TableRow>
-                        </TableFooter>
-                      </Table>
+                            })}{/* JSX comment to prevent whitespace */}
+                            <TableCell colSpan={4} className="py-1"></TableCell>{/* JSX comment to prevent whitespace */}
+                          </TableRow>{/* JSX comment to prevent whitespace */}
+                        </TableFooter>{/* JSX comment to prevent whitespace */}
+                      </Table>{/* JSX comment to prevent whitespace */}
                       <ScrollBar orientation="horizontal" />
                     </ScrollArea>
                      {form.formState.errors.mealDistributions?.root?.message && (
@@ -603,6 +592,3 @@ export default function OnboardingPage() {
     </TooltipProvider>
   );
 }
-
-
-    
