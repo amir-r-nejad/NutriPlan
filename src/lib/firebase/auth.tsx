@@ -7,17 +7,14 @@ import {
   User,
   signInWithRedirect,
   signInWithEmailAndPassword,
-  sendPasswordResetEmail as firebaseSendPasswordResetEmail,
-  verifyPasswordResetCode as firebaseVerifyPasswordResetCode,
-  confirmPasswordReset as firebaseConfirmPasswordReset,
-  sendEmailVerification as firebaseSendEmailVerification, // Added
-  applyActionCode as firebaseApplyActionCode, // Added
+    sendPasswordResetEmail as firebaseSendPasswordResetEmail,
+  confirmPasswordReset,
+  verifyPasswordResetCode,
 } from "firebase/auth";
+import { auth } from "./firebase"
 
-import { auth } from "./clientApp";
 
 export function onAuthStateChanged(cb:NextOrObserver<User>) {
-    console.log(cb)
   return _onAuthStateChanged(auth, cb);
 }
 
@@ -44,11 +41,12 @@ export async function signOut() {
 }
 export async function login(email: string, password: string) {
     try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password)
+        const userCredential = await signInWithEmailAndPassword(auth, email, password) //to do  add cred to database 
     }
     catch (error: any) {
         const errorCode = error.code;
-        const errorMessage = error.message;
+        const errorMessage = error.message; // TODO probebly log them 
+        throw error
     }
 };
 
@@ -61,39 +59,35 @@ export async function sendPasswordResetEmail(email: string) {
   }
 }
 
-export async function verifyPasswordResetCode(actionCode: string) {
+
+export async function sendForgetPassword(email:string) {
+    sendPasswordResetEmail(email)
+}
+export async function verifyOob(code:string) {
   try {
-    const email = await firebaseVerifyPasswordResetCode(auth, actionCode);
-    return email; // Returns the user's email if the code is valid
+      return await verifyPasswordResetCode(auth, code);
   } catch (error) {
-    console.error("Error verifying password reset code", error);
-    throw error;
+    console.error("Error signing in with Email", error);
+    throw error
   }
 }
+export async function confirmPassword(oob:string,reset:string) {
 
-export async function confirmPasswordReset(actionCode: string, newPassword: string) {
   try {
-    await firebaseConfirmPasswordReset(auth, actionCode, newPassword);
+      return await confirmPasswordReset(auth,oob,reset);
   } catch (error) {
-    console.error("Error confirming password reset", error);
-    throw error;
+    console.error("Error signing in with Email", error);
+    throw error
   }
+    
 }
 
-export async function sendEmailVerificationToUser(user: User) {
-  try {
-    await firebaseSendEmailVerification(user);
-  } catch (error) {
-    console.error("Error sending email verification", error);
-    throw error; // Propagate so UI can potentially show a message
-  }
-}
 
-export async function applyActionCodeForVerification(actionCode: string) {
+export async function signIn(email:string,password:string) {
   try {
-    await firebaseApplyActionCode(auth, actionCode);
+      const creds = await signInWithEmailAndPassword(auth, email, password);
   } catch (error) {
-    console.error("Error applying action code for email verification", error);
-    throw error;
+    console.error("Error signing in with Email", error);
+    throw error
   }
 }

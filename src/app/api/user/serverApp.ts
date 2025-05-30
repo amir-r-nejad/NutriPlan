@@ -1,11 +1,11 @@
-import "server-only";
 
 import { initializeApp, initializeServerApp } from "firebase/app";
 import { cookies } from "next/headers";
 import { getAuth } from "firebase/auth";
-import { firebaseConfig } from "../constants";
+import { firebaseConfig } from "../../../lib/constants";
 
 export async function getAuthenticatedAppForUser() {
+  "use server";
   const authIdToken = (await cookies()).get("__session")?.value;
 
   // Firebase Server App is a new feature in the JS SDK that allows you to

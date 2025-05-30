@@ -14,6 +14,7 @@ import Image from "next/image";
 import Google from  "../../../public/google.svg"
 import { useAuth } from '@/contexts/AuthContext'; // Updated import
 import { signInWithGoogle } from '@/lib/firebase/auth'; // Kept for Google sign-in
+import { useRouter } from 'next/navigation';
 
 
 export default  function LoginPage() {
@@ -22,6 +23,7 @@ export default  function LoginPage() {
   const { toast } = useToast();
   const { login, isLoading: authIsLoading } = useAuth(); // Use login from AuthContext
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const router = useRouter()
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,6 +39,7 @@ export default  function LoginPage() {
     setIsSubmitting(true);
     await login(email,password); // AuthContext handles success/error toasts and navigation
     setIsSubmitting(false);
+    router.push("/dashboard")
   };
 
   const disabled = authIsLoading || isSubmitting;
@@ -92,7 +95,6 @@ export default  function LoginPage() {
             <Image src={Google} alt='google' /> Login with Google
           </Button>
 
-          <div id="firebaseui-auth-container" className='w-full h-full' />
         </form>
       </CardContent>
       <CardFooter className="flex flex-col items-center space-y-2">

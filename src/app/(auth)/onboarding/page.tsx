@@ -279,8 +279,8 @@ export default function OnboardingPage() {
   };
 
   const processAndSaveData = (data: OnboardingFormValues) => {
-    const fullProfileData: any = { ...data };
-    const stringToArray = (str: string | undefined) => str ? str.split(',').map(s => s.trim()).filter(s => s) : [];
+    const fullProfileData: OnboardingFormValues = { ...data };
+    const stringToArray = (str: string[]| string | undefined) => str ? typeof(str)=="string"?str.split(',').map(s => s.trim()).filter(s => s) : []:str;
     
     fullProfileData.allergies = stringToArray(data.allergies);
     fullProfileData.preferredCuisines = stringToArray(data.preferredCuisines);
@@ -291,8 +291,7 @@ export default function OnboardingPage() {
     fullProfileData.medicalConditions = stringToArray(data.medicalConditions);
     fullProfileData.medications = stringToArray(data.medications);
     
-    fullProfileData.dietGoal = data.dietGoalOnboarding; 
-    delete fullProfileData.dietGoalOnboarding;
+    fullProfileData.dietGoalOnboarding = data.dietGoalOnboarding; 
 
     if (calculatedTargets) fullProfileData.systemCalculatedTargets = calculatedTargets;
     if (customCalculatedTargets) fullProfileData.userCustomizedTargets = customCalculatedTargets;
@@ -317,6 +316,7 @@ export default function OnboardingPage() {
     }
 
     if (user?.uid) { 
+        
         localStorage.setItem(`nutriplan_profile_${user.uid}`, JSON.stringify(fullProfileData));
         if (Object.keys(finalTargetsForStorage).length > 0 && finalTargetsForStorage.targetCalories) {
              localStorage.setItem(`nutriplan_smart_planner_results_${user.uid}`, JSON.stringify({

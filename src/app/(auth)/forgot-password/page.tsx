@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Leaf, Mail, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { sendPasswordResetEmail } from '@/lib/firebase/auth';
+import { sendForgetPassword } from '@/lib/firebase/auth';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -30,7 +30,7 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
     setMessage('');
     try {
-      await sendPasswordResetEmail(email);
+      await sendForgetPassword(email);
       setMessage("If an account exists for this email, a password reset link has been sent. Please check your inbox (and spam folder).");
       toast({
         title: "Reset Link Sent",

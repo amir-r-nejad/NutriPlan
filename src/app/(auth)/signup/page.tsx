@@ -10,6 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useAuth } from '@/contexts/AuthContext';
 import { Leaf, UserPlus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { signInWithGoogle } from '@/lib/firebase/auth';
+import Image from "next/image"
+import Google from  "../../../public/google.svg"
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
@@ -107,6 +110,10 @@ export default function SignupPage() {
           <Button type="submit" className="w-full" disabled={disabled}>
             {disabled ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
             {disabled ? 'Signing up...' : 'Sign Up'}
+          </Button>
+
+          <Button onClick={(e) => signInWithGoogle()} type="button" className="w-full" disabled={disabled}>
+            <Image src={Google} alt='google' /> Login with Google
           </Button>
         </form>
       </CardContent>

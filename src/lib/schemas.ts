@@ -26,6 +26,15 @@ export const ProfileFormSchema = z.object({
   exerciseFrequency: z.string().optional(),
   exerciseIntensity: z.string().optional(),
   equipmentAccess: z.array(z.string()).optional(),
+  // Added fields
+  gender: z.enum(genders.map(g => g.value) as [string, ...string[]]).optional(),
+  currentWeight: z.coerce.number().min(20, "Weight must be at least 20kg").max(500).optional(),
+  height: z.coerce.number().min(50, "Height must be at least 50cm").max(300).optional(),
+  age: z.coerce.number().min(1, "Age is required").max(120).optional(),
+  activityLevel: z.enum(allActivityLevels.map(al => al.value) as [string, ...string[]]).optional(),
+  dietGoal: z.enum(smartPlannerDietGoals.map(g => g.value) as [string, ...string[]]).optional(),
+
+
 });
 export type ProfileFormValues = z.infer<typeof ProfileFormSchema>;
 
@@ -266,6 +275,33 @@ export interface MacroResults {
   Fat_pct: number;
 }
 
+const CalculatedTargetsSchema = z.object({
+  bmr: z.number().optional(),
+  tdee: z.number().optional(),
+  targetCalories: z.number().optional(),
+  targetProtein: z.number().optional(),
+  targetCarbs: z.number().optional(),
+  targetFat: z.number().optional(),
+  current_weight_for_calc: z.number().optional(),
+});
+
+// If you need the inferred TypeScript type:
+type CalculatedTargets = z.infer<typeof CalculatedTargetsSchema>;
+const CustomCalculatedTargetsSchema = z.object({
+  totalCalories: z.number().optional(),
+  proteinGrams: z.number().optional(),
+  proteinCalories: z.number().optional(),
+  proteinPct: z.number().optional(),
+  carbGrams: z.number().optional(),
+  carbCalories: z.number().optional(),
+  carbPct: z.number().optional(),
+  fatGrams: z.number().optional(),
+  fatCalories: z.number().optional(),
+  fatPct: z.number().optional(),
+});
+
+// TypeScript type from schema
+type CustomCalculatedTargets = z.infer<typeof CustomCalculatedTargetsSchema>;
 // Onboarding Schema
 export const OnboardingFormSchema = z.object({
   // Step 2: Basic Profile
@@ -310,18 +346,20 @@ export const OnboardingFormSchema = z.object({
 
   // Step 5: Dietary Preferences & Restrictions
   preferredDiet: z.string().optional(),
-  allergies: z.string().optional(),
-  preferredCuisines: z.string().optional(),
-  dispreferredCuisines: z.string().optional(),
-  preferredIngredients: z.string().optional(),
-  dispreferredIngredients: z.string().optional(),
+  allergies: z.string().or(z.array(z.string())).optional(),
+  preferredCuisines: z.string().or(z.array(z.string())).optional(),
+  dispreferredCuisines: z.string().or(z.array(z.string())).optional(),
+  preferredIngredients: z.string().or(z.array(z.string())).optional(),
+  dispreferredIngredients: z.string().or(z.array(z.string())).optional(),
   mealsPerDay: z.coerce.number().min(2).max(7).default(3), 
-  preferredMicronutrients: z.string().optional(),
+  preferredMicronutrients: z.string().or(z.array(z.string())).optional(),
 
   // Step 6: Medical Information (Optional)
-  medicalConditions: z.string().optional(),
-  medications: z.string().optional(),
-
+  medicalConditions: z.string().or(z.array(z.string())).optional(),
+  medications: z.string().or(z.array(z.string())).optional(),
+  //step 7: calculated by  function 
+  systemCalculatedTargets: CalculatedTargetsSchema,
+  userCustomizedTargets: CustomCalculatedTargetsSchema,
   // Step 8: Customize Your Targets (Optional)
   custom_total_calories: z.preprocess(preprocessOptionalNumber, z.coerce.number().positive("Custom calories must be positive if provided.").optional()),
   custom_protein_per_kg: z.preprocess(preprocessOptionalNumber, z.coerce.number().min(0, "Protein per kg must be non-negative if provided.").optional()),

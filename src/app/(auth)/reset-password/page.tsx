@@ -9,8 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Leaf, KeyRound, Loader2, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { verifyPasswordResetCode, confirmPasswordReset } from '@/lib/firebase/auth';
 import Link from 'next/link';
+import { confirmPassword, verifyOob } from "@/lib/firebase/auth"
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -36,7 +36,7 @@ function ResetPasswordContent() {
     const verifyCode = async () => {
       setIsVerifying(true);
       try {
-        await verifyPasswordResetCode(oobCode);
+        await verifyOob(oobCode)
         setIsValidCode(true);
       } catch (error: any) {
         console.error("Error verifying reset code:", error);
@@ -70,7 +70,7 @@ function ResetPasswordContent() {
 
     setIsLoading(true);
     try {
-      await confirmPasswordReset(oobCode, newPassword);
+      await confirmPassword(oobCode, newPassword);
       toast({
         title: "Password Reset Successful",
         description: "Your password has been changed. Please log in with your new password.",
