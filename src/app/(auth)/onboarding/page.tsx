@@ -254,7 +254,7 @@ export default function OnboardingPage() {
 
 
   useEffect(() => {
-    if (currentStep === 9) { // This is the new "Distribute Macros" step
+    if (currentStep === 9) { 
       updateTotalsForSplitter();
       const currentMealDist = form.getValues("mealDistributions");
       if (!currentMealDist || currentMealDist.length === 0) {
@@ -278,7 +278,6 @@ export default function OnboardingPage() {
     if (activeStepData?.fieldsToValidate && activeStepData.fieldsToValidate.length > 0) {
       const result = await form.trigger(activeStepData.fieldsToValidate as FieldPath<OnboardingFormValues>[]);
       if (!result) {
-        // Find the first field with an error to make the message more specific
         let firstErrorField: FieldPath<OnboardingFormValues> | undefined = undefined;
         for (const field of activeStepData.fieldsToValidate) {
             if (form.formState.errors[field as keyof OnboardingFormValues]) {
@@ -327,74 +326,73 @@ export default function OnboardingPage() {
       return;
     }
 
-    let processedFormValues: Record<string, any> = { ...data };
+    let processedData: Record<string, any> = { ...data };
     
     const arrayLikeFields: (keyof OnboardingFormValues)[] = ['allergies', 'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients', 'preferredMicronutrients', 'medicalConditions', 'medications'];
     arrayLikeFields.forEach(field => {
-      if (typeof processedFormValues[field] === 'string') {
-        processedFormValues[field] = (processedFormValues[field] as string).split(',').map(s => s.trim()).filter(s => s);
-      } else if (processedFormValues[field] === null || processedFormValues[field] === undefined) {
-         processedFormValues[field] = [];
+      if (typeof processedData[field] === 'string' && (processedData[field] as string).trim() !== '') {
+        processedData[field] = (processedData[field] as string).split(',').map(s => s.trim()).filter(s => s);
+      } else {
+         processedData[field] = [];
       }
     });
     
-    let finalResultsToSave: GlobalCalculatedTargets | null = null;
-
+    let resultsToSave: GlobalCalculatedTargets | null = null;
     if (customCalculatedTargets && (data.custom_total_calories !== undefined || data.custom_protein_per_kg !== undefined)) {
-        finalResultsToSave = customCalculatedTargets;
+      resultsToSave = customCalculatedTargets;
     } else if (calculatedTargets) {
-        finalResultsToSave = calculatedTargets;
+      resultsToSave = calculatedTargets;
     }
 
     const smartPlannerFormValuesForStorage = {
-        age: processedFormValues.age,
-        gender: processedFormValues.gender,
-        height_cm: processedFormValues.height_cm,
-        current_weight: processedFormValues.current_weight,
-        goal_weight_1m: processedFormValues.goal_weight_1m,
-        ideal_goal_weight: processedFormValues.ideal_goal_weight,
-        activity_factor_key: processedFormValues.activityLevel, 
-        dietGoal: processedFormValues.dietGoalOnboarding, 
-        bf_current: processedFormValues.bf_current,
-        bf_target: processedFormValues.bf_target,
-        bf_ideal: processedFormValues.bf_ideal,
-        mm_current: processedFormValues.mm_current,
-        mm_target: processedFormValues.mm_target,
-        mm_ideal: processedFormValues.mm_ideal,
-        bw_current: processedFormValues.bw_current,
-        bw_target: processedFormValues.bw_target,
-        bw_ideal: processedFormValues.bw_ideal,
-        waist_current: processedFormValues.waist_current,
-        waist_goal_1m: processedFormValues.waist_goal_1m,
-        waist_ideal: processedFormValues.waist_ideal,
-        hips_current: processedFormValues.hips_current,
-        hips_goal_1m: processedFormValues.hips_goal_1m,
-        hips_ideal: processedFormValues.hips_ideal,
-        right_leg_current: processedFormValues.right_leg_current,
-        right_leg_goal_1m: processedFormValues.right_leg_goal_1m,
-        right_leg_ideal: processedFormValues.right_leg_ideal,
-        left_leg_current: processedFormValues.left_leg_current,
-        left_leg_goal_1m: processedFormValues.left_leg_goal_1m,
-        left_leg_ideal: processedFormValues.left_leg_ideal,
-        right_arm_current: processedFormValues.right_arm_current,
-        right_arm_goal_1m: processedFormValues.right_arm_goal_1m,
-        right_arm_ideal: processedFormValues.right_arm_ideal,
-        left_arm_current: processedFormValues.left_arm_current,
-        left_arm_goal_1m: processedFormValues.left_arm_goal_1m,
-        left_arm_ideal: processedFormValues.left_arm_ideal,
-        custom_total_calories: processedFormValues.custom_total_calories,
-        custom_protein_per_kg: processedFormValues.custom_protein_per_kg,
-        remaining_calories_carb_pct: processedFormValues.remaining_calories_carb_pct,
+        age: processedData.age,
+        gender: processedData.gender,
+        height_cm: processedData.height_cm,
+        current_weight: processedData.current_weight,
+        goal_weight_1m: processedData.goal_weight_1m,
+        ideal_goal_weight: processedData.ideal_goal_weight,
+        activity_factor_key: processedData.activityLevel, 
+        dietGoal: processedData.dietGoalOnboarding, 
+        bf_current: processedData.bf_current,
+        bf_target: processedData.bf_target,
+        bf_ideal: processedData.bf_ideal,
+        mm_current: processedData.mm_current,
+        mm_target: processedData.mm_target,
+        mm_ideal: processedData.mm_ideal,
+        bw_current: processedData.bw_current,
+        bw_target: processedData.bw_target,
+        bw_ideal: processedData.bw_ideal,
+        waist_current: processedData.waist_current,
+        waist_goal_1m: processedData.waist_goal_1m,
+        waist_ideal: processedData.waist_ideal,
+        hips_current: processedData.hips_current,
+        hips_goal_1m: processedData.hips_goal_1m,
+        hips_ideal: processedData.hips_ideal,
+        right_leg_current: processedData.right_leg_current,
+        right_leg_goal_1m: processedData.right_leg_goal_1m,
+        right_leg_ideal: processedData.right_leg_ideal,
+        left_leg_current: processedData.left_leg_current,
+        left_leg_goal_1m: processedData.left_leg_goal_1m,
+        left_leg_ideal: processedData.left_leg_ideal,
+        right_arm_current: processedData.right_arm_current,
+        right_arm_goal_1m: processedData.right_arm_goal_1m,
+        right_arm_ideal: processedData.right_arm_ideal,
+        left_arm_current: processedData.left_arm_current,
+        left_arm_goal_1m: processedData.left_arm_goal_1m,
+        left_arm_ideal: processedData.left_arm_ideal,
+        custom_total_calories: processedData.custom_total_calories,
+        custom_protein_per_kg: processedData.custom_protein_per_kg,
+        remaining_calories_carb_pct: processedData.remaining_calories_carb_pct,
     };
 
     const dataToSaveToFirestore: Partial<FullProfileType> = {
-      ...processedFormValues, // Includes all direct fields from onboarding form
+      ...processedData,
       smartPlannerData: {
           formValues: preprocessDataForFirestore(smartPlannerFormValuesForStorage),
-          results: preprocessDataForFirestore(finalResultsToSave)
+          results: preprocessDataForFirestore(resultsToSave)
       },
-      mealDistributions: processedFormValues.mealDistributions && processedFormValues.mealDistributions.length > 0 
-        ? processedFormValues.mealDistributions 
+      mealDistributions: processedData.mealDistributions && processedData.mealDistributions.length > 0 
+        ? processedData.mealDistributions 
         : defaultMealNames.map(name => ({
             mealName: name,
             calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
@@ -404,7 +402,6 @@ export default function OnboardingPage() {
           })),
     };
     
-    // Remove individual custom target fields from top level as they are now nested in smartPlannerData.formValues
     delete dataToSaveToFirestore.custom_total_calories;
     delete dataToSaveToFirestore.custom_protein_per_kg;
     delete dataToSaveToFirestore.remaining_calories_carb_pct;
@@ -464,7 +461,7 @@ export default function OnboardingPage() {
     <Card className="w-full max-w-2xl shadow-xl">
       <CardHeader className="text-center">
         <div className="flex justify-center items-center mb-4"> <Leaf className="h-10 w-10 text-primary" /> </div>
-         <Tooltip> <TooltipTrigger asChild><span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span></TooltipTrigger> <TooltipContent side="top" className="max-w-xs"> <p>{activeStepData.tooltipText}</p> </TooltipContent> </Tooltip>
+        <Tooltip> <TooltipTrigger asChild><span><CardTitle className="text-2xl font-bold cursor-help">{activeStepData.title}</CardTitle></span></TooltipTrigger> <TooltipContent side="top" className="max-w-xs"> <p>{activeStepData.tooltipText}</p> </TooltipContent> </Tooltip>
         <CardDescription>{activeStepData.explanation}</CardDescription>
         <Progress value={progressValue} className="w-full mt-4" />
         <p className="text-sm text-muted-foreground mt-1">Step {currentStep} of {onboardingStepsData.length}</p>
@@ -496,18 +493,13 @@ export default function OnboardingPage() {
                       </p>
                     </div>
                     <ScrollArea className="w-full border rounded-md">
-                      <Table className="min-w-[700px]">{/* JSX comment to prevent whitespace */}
-                        <TableHeader>{/* JSX comment to prevent whitespace */}
-                          <TableRow>{/* JSX comment to prevent whitespace */}
+                      <Table className="min-w-[700px]">{/* */}<TableHeader>{/* */}<TableRow>{/* */}
                             {tableHeaderLabels.map(header => (
                               <TableHead key={header.key} className={cn("px-2 py-1 h-9", header.className)}>
                                 {header.label}
                               </TableHead>
-                            ))}{/* JSX comment to prevent whitespace */}
-                          </TableRow>{/* JSX comment to prevent whitespace */}
-                        </TableHeader>{/* JSX comment to prevent whitespace */}
-                        <TableBody>{/* JSX comment to prevent whitespace */}
-                          {mealDistributionFields.map((item, index) => {
+                            ))}{/* */}</TableRow>{/* */}</TableHeader>{/* */}
+                        <TableBody>{/* */}{mealDistributionFields.map((item, index) => {
                             const currentPercentages = watchedMealDistributions?.[index];
                             let mealCal = NaN, mealP = NaN, mealC = NaN, mealF = NaN;
                             if (totalsForSplitter && currentPercentages) {
@@ -517,32 +509,28 @@ export default function OnboardingPage() {
                               mealF = totalsForSplitter.fat_g * ((currentPercentages.fat_pct || 0) / 100);
                             }
                             return (
-                              <TableRow key={item.id}>{/* JSX comment to prevent whitespace */}
-                                <TableCell className="font-medium sticky left-0 bg-card z-10 px-2 py-1 text-sm h-10">{item.mealName}</TableCell>{/* JSX comment to prevent whitespace */}
+                              <TableRow key={item.id}>{/* */}<TableCell className="font-medium sticky left-0 bg-card z-10 px-2 py-1 text-sm h-10">{item.mealName}</TableCell>{/* */}
                                 {macroPctKeys.map(macroKey => (
-                                  <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums h-10", macroKey === 'fat_pct' ? 'border-r' : '')}>{/* JSX comment to prevent whitespace */}
+                                  <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums h-10", macroKey === 'fat_pct' ? 'border-r' : '')}>{/* */}
                                     <FormField
                                       control={form.control}
                                       name={`mealDistributions.${index}.${macroKey}`}
                                       render={({ field }) => (
                                         <FormItem>
-                                        <FormControl><div><Input type="number" {...field} value={field.value ?? ''} onChange={e => { const val = parseInt(e.target.value, 10); field.onChange(isNaN(val) ? 0 : val); }} className="w-16 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl>
-                                        {/* <FormMessage className="text-xs"/> FormMessage removed for compactness in table cell */}
+                                        <FormControl><div><Input type="number" step="1" {...field} value={field.value ?? ''} onChange={e => { const val = e.target.value; field.onChange(val === '' ? undefined : Number(val));}} className="w-16 h-8 text-xs text-right tabular-nums px-1 py-0.5" /></div></FormControl>
                                         </FormItem>
-                                      )}/>{/* JSX comment to prevent whitespace */}
+                                      )}/>{/* */}
                                   </TableCell>
-                                ))}{/* JSX comment to prevent whitespace */}
-                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>{/* JSX comment to prevent whitespace */}
-                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>{/* JSX comment to prevent whitespace */}
-                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>{/* JSX comment to prevent whitespace */}
-                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>{/* JSX comment to prevent whitespace */}
+                                ))}{/* */}
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealCal) ? '-' : mealCal.toFixed(0)}</TableCell>{/* */}
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealP) ? '-' : mealP.toFixed(1)}</TableCell>{/* */}
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealC) ? '-' : mealC.toFixed(1)}</TableCell>{/* */}
+                                <TableCell className="text-right text-xs py-1 tabular-nums h-10">{isNaN(mealF) ? '-' : mealF.toFixed(1)}</TableCell>{/* */}
                               </TableRow>
                             );
-                          })}{/* JSX comment to prevent whitespace */}
-                        </TableBody>{/* JSX comment to prevent whitespace */}
-                        <TableFooter>{/* JSX comment to prevent whitespace */}
-                          <TableRow className="font-semibold text-xs h-10 bg-muted/70">{/* JSX comment to prevent whitespace */}
-                            <TableCell className="sticky left-0 bg-muted/70 z-10 px-2 py-1">Input % Totals:</TableCell>{/* JSX comment to prevent whitespace */}
+                          })}{/* */}</TableBody>{/* */}
+                        <TableFooter>{/* */}<TableRow className="font-semibold text-xs h-10 bg-muted/70">{/* */}
+                            <TableCell className="sticky left-0 bg-muted/70 z-10 px-2 py-1">Input % Totals:</TableCell>{/* */}
                             {macroPctKeys.map(key => {
                               const sum = columnSums[key];
                               const isSum100 = Math.abs(sum - 100) < 0.1;
@@ -552,17 +540,29 @@ export default function OnboardingPage() {
                                   {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
                                 </TableCell>
                               );
-                            })}{/* JSX comment to prevent whitespace */}
-                            <TableCell colSpan={4} className="py-1"></TableCell>{/* JSX comment to prevent whitespace */}
-                          </TableRow>{/* JSX comment to prevent whitespace */}
-                        </TableFooter>{/* JSX comment to prevent whitespace */}
-                      </Table>{/* JSX comment to prevent whitespace */}
+                            })}{/* */}
+                            <TableCell colSpan={4} className="py-1"></TableCell>{/* */}
+                          </TableRow>{/* */}</TableFooter>{/* */}</Table>
                       <ScrollBar orientation="horizontal" />
                     </ScrollArea>
                      {form.formState.errors.mealDistributions?.root?.message && (
                         <p className="text-sm font-medium text-destructive mt-2">
                             {form.formState.errors.mealDistributions.root.message}
                         </p>
+                    )}
+                     {form.formState.errors.mealDistributions && !form.formState.errors.mealDistributions.root && (
+                        Object.values(form.formState.errors.mealDistributions).map((errorObj, index) => {
+                            if (errorObj && typeof errorObj === 'object' && errorObj !== null && !Array.isArray(errorObj)) {
+                                return Object.entries(errorObj).map(([key, error]) => (
+                                    error && typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && (
+                                        <p key={`${index}-${key}`} className="text-sm font-medium text-destructive mt-1">
+                                            Error in {defaultMealNames[index]} {key.replace('_pct', ' %')}: {error.message}
+                                        </p>
+                                    )
+                                ));
+                            }
+                            return null;
+                        })
                     )}
                   </>
                 ) : (

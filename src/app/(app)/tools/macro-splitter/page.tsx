@@ -89,6 +89,7 @@ export default function MacroSplitterPage() {
     setIsLoading(true);
     let targets: TotalMacros | null = null;
     let sourceMessage = "";
+    let loadedMealDistributions: MealMacroDistribution[] | undefined = undefined;
 
     try {
       const userProfileRef = doc(db, "users", user.uid);
@@ -98,9 +99,9 @@ export default function MacroSplitterPage() {
         const profileData = docSnap.data() as FullProfileType;
 
         if (profileData.mealDistributions && Array.isArray(profileData.mealDistributions) && profileData.mealDistributions.length === defaultMealNames.length) {
+          loadedMealDistributions = profileData.mealDistributions;
           form.reset({ mealDistributions: profileData.mealDistributions });
-          // Add a check to ensure toast and toast.toasts are defined before accessing them
-          if (toast && toast.toasts && !toast.toasts.find(t => t.description === "Your previously saved macro split percentages have been loaded.")) {
+           if (toast && Array.isArray(toast.toasts) && !toast.toasts.find(t => t.description === "Your previously saved macro split percentages have been loaded.")) {
             toast({ title: "Loaded Saved Split", description: "Your previously saved macro split percentages have been loaded.", duration: 3000 });
           }
         } else {
@@ -115,7 +116,16 @@ export default function MacroSplitterPage() {
           });
         }
         
-        if (profileData.smartPlannerData?.results?.finalTargetCalories !== undefined && profileData.smartPlannerData?.results?.finalTargetCalories !== null) {
+        if (profileData.manualMacroResults && profileData.manualMacroResults.Total_cals !== undefined) {
+            targets = {
+                calories: profileData.manualMacroResults.Total_cals || 0,
+                protein_g: profileData.manualMacroResults.Protein_g || 0,
+                carbs_g: profileData.manualMacroResults.Carbs_g || 0,
+                fat_g: profileData.manualMacroResults.Fat_g || 0,
+                source: "Manually Set in Smart Planner"
+            };
+            sourceMessage = "Daily totals sourced from 'Manual Macro Breakdown' in Smart Planner. Adjust there for changes.";
+        } else if (profileData.smartPlannerData?.results?.finalTargetCalories !== undefined && profileData.smartPlannerData?.results?.finalTargetCalories !== null) {
             const smartResults = profileData.smartPlannerData.results;
             targets = {
                 calories: smartResults.finalTargetCalories || 0,
@@ -133,6 +143,11 @@ export default function MacroSplitterPage() {
             height_cm: profileData.height_cm, 
             activityLevel: profileData.activityLevel,
             dietGoalOnboarding: profileData.dietGoalOnboarding, 
+            goal_weight_1m: profileData.goal_weight_1m,
+            bf_current: profileData.bf_current,
+            bf_target: profileData.bf_target,
+            waist_current: profileData.waist_current,
+            waist_goal_1m: profileData.waist_goal_1m
           });
           if (estimatedTargets.finalTargetCalories && estimatedTargets.proteinGrams && estimatedTargets.carbGrams && estimatedTargets.fatGrams) {
             targets = {
@@ -216,7 +231,7 @@ export default function MacroSplitterPage() {
      if (user?.uid) {
       try {
         const userProfileRef = doc(db, "users", user.uid);
-        await setDoc(userProfileRef, { mealDistributions: null }, { merge: true }); // Save defaults on reset
+        await setDoc(userProfileRef, { mealDistributions: null }, { merge: true });
         toast({ title: "Reset Complete", description: "Percentages reset to defaults and saved." });
       } catch (error) {
          toast({ title: "Reset Warning", description: "Percentages reset locally, but failed to save defaults to cloud.", variant: "destructive" });
@@ -321,7 +336,8 @@ export default function MacroSplitterPage() {
             <CardHeader>
               <CardTitle className="text-2xl">Meal Macro Percentage & Value Distribution</CardTitle>
               <CardDescription>
-                Enter percentages (whole numbers only, e.g., 20 not 20.5). Each percentage column must sum to 100%. Calculated values update live.
+                Enter percentages. Each percentage column must sum to 100%. Calculated values update live.
+                Please use whole numbers for percentages (e.g., 20, not 20.5).
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -361,17 +377,20 @@ export default function MacroSplitterPage() {
                                     <FormControl><div>
                                       <Input
                                         type="number"
+                                        step="1"
                                         {...itemField}
                                         value={itemField.value ?? ''}
                                         onChange={e => {
-                                          const val = parseInt(e.target.value, 10);
-                                          itemField.onChange(isNaN(val) ? 0 : val); // Ensure whole number
+                                          const val = e.target.value;
+                                          // Allow empty string for intermediate input, Zod will validate
+                                          itemField.onChange(val === '' ? undefined : Number(val));
                                         }}
                                         className="w-16 text-right tabular-nums text-sm px-1 py-0.5 h-8"
                                         min="0"
                                         max="100"
                                       /></div>
                                     </FormControl>
+                                    {/* <FormMessage /> Error messages handled by root validation */}
                                   </FormItem>
                                 )}
                               />
@@ -386,7 +405,7 @@ export default function MacroSplitterPage() {
                     })}
                   </TableBody>
                   <TableFooter>
-                    <TableRow className="font-semibold text-xs h-10">
+                    <TableRow className="font-semibold text-xs h-10 bg-muted/70">
                       <TableCell className="sticky left-0 bg-muted/70 z-10 px-2 py-1">Input % Totals:</TableCell>
                       {macroPctKeys.map(key => {
                           const sum = columnSums[key];
@@ -433,9 +452,9 @@ export default function MacroSplitterPage() {
               )}
                {form.formState.errors.mealDistributions && !form.formState.errors.mealDistributions.root && (
                     Object.values(form.formState.errors.mealDistributions).map((errorObj, index) => {
-                        if (errorObj && typeof errorObj === 'object' && errorObj !== null) {
+                        if (errorObj && typeof errorObj === 'object' && errorObj !== null && !Array.isArray(errorObj) /* Check it's not an array of errors for a field */) {
                             return Object.entries(errorObj).map(([key, error]) => (
-                                error && 'message' in error && typeof error.message === 'string' && (
+                                error && typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && (
                                     <p key={`${index}-${key}`} className="text-sm font-medium text-destructive mt-1">
                                         Error in {defaultMealNames[index]} {key.replace('_pct', ' %')}: {error.message}
                                     </p>
