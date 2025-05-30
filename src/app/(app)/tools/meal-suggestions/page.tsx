@@ -107,12 +107,13 @@ function MealSuggestionsContent() {
       return;
     }
     setIsLoadingTargets(true);
+    setError(null); // Clear previous errors
+    setSuggestions([]); // Clear previous suggestions
 
     const profileToUse = fullProfileData;
     let demoModeTriggered = false;
     const exampleTargets = { mealName: selectedMealName, calories: 500, protein: 30, carbs: 60, fat: 20 };
     
-    // Check for required profile fields for calculation
     const requiredProfileFields: (keyof FullProfileType)[] = ['age', 'gender', 'current_weight', 'height_cm', 'activityLevel', 'dietGoalOnboarding'];
     const missingFields = requiredProfileFields.filter(field => !profileToUse?.[field]);
 
@@ -139,16 +140,14 @@ function MealSuggestionsContent() {
       } else {
         setTargetMacros(exampleTargets);
         demoModeTriggered = true;
-        toast({ title: "Using Example Targets", description: `Could not calculate specific targets for ${selectedMealName} from profile. Ensure profile basics are complete via Onboarding or Smart Planner.`, duration: 5000, variant: "default" });
+        toast({ title: "Using Example Targets", description: `Could not calculate specific targets for ${selectedMealName} from profile. Ensure profile basics (age, weight, height, gender, activity, goal) are complete.`, duration: 6000, variant: "default" });
       }
     } else {
       setTargetMacros(exampleTargets);
       demoModeTriggered = true;
-      toast({ title: "Profile Incomplete or Demo", description: `Showing example targets for ${selectedMealName}. Please complete your profile via Onboarding or Smart Calorie Planner for personalized calculations.`, duration: 6000, variant: "default" });
+      toast({ title: "Profile Incomplete or Demo", description: `Showing example targets for ${selectedMealName}. Please complete your profile via Onboarding or Smart Calorie Planner for personalized calculations.`, duration: 7000, variant: "default" });
     }
     setIsDemoMode(demoModeTriggered);
-    setSuggestions([]);
-    setError(null);
     setIsLoadingTargets(false);
 
   }, [selectedMealName, fullProfileData, toast]);
@@ -163,7 +162,7 @@ function MealSuggestionsContent() {
 
     if (mealNameParam && mealNames.includes(mealNameParam)) {
       if (!selectedMealName || selectedMealName !== mealNameParam) {
-        setSelectedMealName(mealNameParam);
+        setSelectedMealName(mealNameParam); // This will trigger the other useEffect via selectedMealName change
       }
 
       if (caloriesParam && proteinParam && carbsParam && fatParam) {
@@ -174,23 +173,29 @@ function MealSuggestionsContent() {
           carbs: parseFloat(carbsParam),
           fat: parseFloat(fatParam),
         };
+        // Only update if different from current targetMacros to avoid loops
         if (JSON.stringify(targetMacros) !== JSON.stringify(newTargets)) {
           setTargetMacros(newTargets);
-          setIsDemoMode(false);
+          setIsDemoMode(false); // Assume non-demo if direct params are provided
           setSuggestions([]);
           setError(null);
         }
-      } else if (selectedMealName === mealNameParam && !isLoadingProfile) { // If mealName from URL matches current selected, and profile is loaded
+      } else if (selectedMealName === mealNameParam && !isLoadingProfile && !isLoadingTargets) { // Trigger calc if mealName already set by URL
         calculateTargetsForSelectedMeal();
       }
-    } else if (selectedMealName && !isLoadingProfile) { // If no mealName in URL but one is selected (e.g. from dropdown)
-        calculateTargetsForSelectedMeal();
     }
-  }, [searchParams, selectedMealName, calculateTargetsForSelectedMeal, isLoadingProfile, targetMacros]);
+  }, [searchParams, isLoadingProfile, isLoadingTargets, selectedMealName, targetMacros, calculateTargetsForSelectedMeal]);
+  
+  useEffect(() => {
+    if (selectedMealName && !searchParams.get('calories') && !isLoadingProfile && !isLoadingTargets) { // If meal selected by user (not URL params with macros)
+      calculateTargetsForSelectedMeal();
+    }
+  }, [selectedMealName, searchParams, isLoadingProfile, isLoadingTargets, calculateTargetsForSelectedMeal]);
 
 
   const handleMealSelectionChange = (mealValue: string) => {
-    setSelectedMealName(mealValue); // This will trigger the useEffect above
+    setSelectedMealName(mealValue); 
+    // The useEffect watching selectedMealName will now trigger calculateTargetsForSelectedMeal
     setSuggestions([]);
     setError(null);
   };
@@ -217,7 +222,6 @@ function MealSuggestionsContent() {
       targetProteinGrams: targetMacros.protein,
       targetCarbsGrams: targetMacros.carbs,
       targetFatGrams: targetMacros.fat,
-      // Use profileData if available and not in demo mode, otherwise these will be undefined and AI will use defaults
       age: !isDemoMode ? fullProfileData?.age : undefined,
       gender: !isDemoMode ? fullProfileData?.gender : undefined,
       activityLevel: !isDemoMode ? fullProfileData?.activityLevel : undefined,
@@ -230,9 +234,7 @@ function MealSuggestionsContent() {
       allergies: currentPreferences.allergies,
     };
 
-    // Clean up undefined fields from aiInput before sending
     Object.keys(aiInput).forEach(key => aiInput[key as keyof SuggestMealsForMacrosInput] === undefined && delete aiInput[key as keyof SuggestMealsForMacrosInput]);
-
 
     try {
       const result = await suggestMealsForMacros(aiInput);
@@ -272,6 +274,7 @@ function MealSuggestionsContent() {
                 value={displayValue}
                 onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(s => s))}
                 className="h-10 resize-none"
+                onWheel={(e) => (e.currentTarget as HTMLTextAreaElement).blur()}
               /></div>
             </FormControl>
             <FormMessage />
@@ -293,53 +296,9 @@ function MealSuggestionsContent() {
             Select a meal, adjust preferences if needed, and get AI-powered ideas tailored to your macronutrient targets.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Accordion type="single" collapsible className="w-full mb-6" defaultValue="preferences">
-            <AccordionItem value="preferences">
-              <AccordionTrigger>
-                <div className="flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-primary" />
-                  <span className="text-lg font-semibold">Adjust Preferences for this Suggestion</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <Form {...preferenceForm}>
-                  <form className="space-y-6 pt-4">
-                    <Card>
-                      <CardHeader><CardTitle className="text-xl">Dietary Preferences & Restrictions</CardTitle></CardHeader>
-                      <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
-                        <FormField
-                          control={preferenceForm.control}
-                          name="preferredDiet"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Preferred Diet</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value ?? undefined}>
-                                <FormControl><div><SelectTrigger><SelectValue placeholder="Select preferred diet" /></SelectTrigger></div></FormControl>
-                                <SelectContent>{preferredDiets.map(pd => <SelectItem key={pd.value} value={pd.value}>{pd.label}</SelectItem>)}</SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        {renderPreferenceTextarea("allergies", "Allergies (comma-separated)", "e.g., Peanuts, Shellfish")}
-                        {renderPreferenceTextarea("preferredCuisines", "Preferred Cuisines", "e.g., Italian, Mexican")}
-                        {renderPreferenceTextarea("dispreferredCuisines", "Dispreferred Cuisines", "e.g., Thai, French")}
-                        {renderPreferenceTextarea("preferredIngredients", "Preferred Ingredients", "e.g., Chicken, Broccoli")}
-                        {renderPreferenceTextarea("dispreferredIngredients", "Dispreferred Ingredients", "e.g., Tofu, Mushrooms")}
-                        {renderPreferenceTextarea("preferredMicronutrients", "Targeted Micronutrients (Optional)", "e.g., Vitamin D, Iron")}
-                        {renderPreferenceTextarea("medicalConditions", "Medical Conditions (Optional)", "e.g., Diabetes, Hypertension")}
-                        {renderPreferenceTextarea("medications", "Medications (Optional)", "e.g., Metformin, Lisinopril")}
-                      </CardContent>
-                    </Card>
-                  </form>
-                </Form>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-
-          <div className="mb-6 space-y-2">
-            <Label htmlFor="meal-select" className="text-lg font-semibold text-primary">Choose a Meal:</Label>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="meal-select" className="text-lg font-semibold text-primary">1. Choose a Meal:</Label>
             <Select onValueChange={handleMealSelectionChange} value={selectedMealName || ""}>
               <SelectTrigger id="meal-select" className="w-full md:w-1/2 lg:w-1/3">
                 <SelectValue placeholder="Select a meal..." />
@@ -352,7 +311,7 @@ function MealSuggestionsContent() {
             </Select>
           </div>
 
-          {isLoadingProfile && (
+          {isLoadingProfile && !selectedMealName && ( // Only show profile loading if no meal is selected yet
             <div className="flex justify-center items-center py-4">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <p className="ml-2">Loading profile data...</p>
@@ -368,7 +327,7 @@ function MealSuggestionsContent() {
 
           {selectedMealName && !isLoadingTargets && targetMacros && (
             <>
-              <div className="mb-6 p-4 border rounded-md bg-muted/50">
+              <div className="p-4 border rounded-md bg-muted/50">
                 <h3 className="text-lg font-semibold mb-2 text-primary">Target Macros for {targetMacros.mealName}:</h3>
                 {isDemoMode && <p className="text-sm text-amber-600 dark:text-amber-400 mb-2">(Displaying example targets. Complete your profile via Onboarding or Smart Calorie Planner for personalized calculations.)</p>}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -379,21 +338,71 @@ function MealSuggestionsContent() {
                 </div>
               </div>
 
+              <Accordion type="single" collapsible className="w-full" defaultValue="preferences">
+                <AccordionItem value="preferences">
+                  <AccordionTrigger>
+                    <div className="flex items-center gap-2">
+                      <Settings className="h-5 w-5 text-primary" />
+                      <span className="text-lg font-semibold">2. Adjust Preferences (Optional)</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <Form {...preferenceForm}>
+                      <form className="space-y-6 pt-4">
+                        <Card>
+                          <CardHeader><CardTitle className="text-xl">Dietary Preferences & Restrictions</CardTitle></CardHeader>
+                          <CardContent className="grid md:grid-cols-2 gap-x-6 gap-y-4">
+                            <FormField
+                              control={preferenceForm.control}
+                              name="preferredDiet"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Preferred Diet</FormLabel>
+                                  <Select onValueChange={field.onChange} value={field.value ?? undefined}>
+                                    <FormControl><div><SelectTrigger><SelectValue placeholder="Select preferred diet" /></SelectTrigger></div></FormControl>
+                                    <SelectContent>{preferredDiets.map(pd => <SelectItem key={pd.value} value={pd.value}>{pd.label}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            {renderPreferenceTextarea("allergies", "Allergies (comma-separated)", "e.g., Peanuts, Shellfish")}
+                            {renderPreferenceTextarea("preferredCuisines", "Preferred Cuisines", "e.g., Italian, Mexican")}
+                            {renderPreferenceTextarea("dispreferredCuisines", "Dispreferred Cuisines", "e.g., Thai, French")}
+                            {renderPreferenceTextarea("preferredIngredients", "Preferred Ingredients", "e.g., Chicken, Broccoli")}
+                            {renderPreferenceTextarea("dispreferredIngredients", "Dispreferred Ingredients", "e.g., Tofu, Mushrooms")}
+                            {renderPreferenceTextarea("preferredMicronutrients", "Targeted Micronutrients (Optional)", "e.g., Vitamin D, Iron")}
+                            {renderPreferenceTextarea("medicalConditions", "Medical Conditions (Optional)", "e.g., Diabetes, Hypertension")}
+                            {renderPreferenceTextarea("medications", "Medications (Optional)", "e.g., Metformin, Lisinopril")}
+                          </CardContent>
+                        </Card>
+                      </form>
+                    </Form>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
               <Button onClick={handleGetSuggestions} disabled={isLoadingAiSuggestions || isLoadingProfile || isLoadingTargets} size="lg" className="w-full md:w-auto">
                 {isLoadingAiSuggestions ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
-                { (isLoadingProfile || isLoadingTargets) && !isDemoMode && !isLoadingAiSuggestions ? "Loading Profile/Targets..." : (isLoadingAiSuggestions ? "Getting Suggestions..." : "Get AI Meal Suggestions")}
+                { (isLoadingProfile && !isDemoMode && !isLoadingAiSuggestions) ? "Loading Profile..." : (isLoadingTargets ? "Calculating Targets..." : (isLoadingAiSuggestions ? "Getting Suggestions..." : "3. Get AI Meal Suggestions"))}
               </Button>
 
               {error && (<p className="text-destructive mt-4"><AlertTriangle className="inline mr-1 h-4 w-4" />{error}</p>)}
             </>
           )}
+          
+          {!selectedMealName && !isLoadingProfile && (
+             <div className="text-center py-6 text-muted-foreground">
+                <p>Please select a meal type above to get started.</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {isLoadingAiSuggestions && (
-        <div className="flex justify-center items-center py-8">
+        <div className="flex flex-col items-center justify-center py-8 space-y-2">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="ml-3 text-lg">Fetching creative meal ideas...</p>
+          <p className="text-lg text-muted-foreground">Fetching creative meal ideas for your {targetMacros?.mealName || 'meal'}...</p>
         </div>
       )}
 
