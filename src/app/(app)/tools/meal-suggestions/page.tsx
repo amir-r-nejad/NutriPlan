@@ -57,10 +57,13 @@ function MealSuggestionsContent() {
   const [fullProfileData, setFullProfileData] = useState<Partial<FullProfileType> | null>(null);
   const [isLoadingAiSuggestions, setIsLoadingAiSuggestions] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  const [isLoadingTargets, setIsLoadingTargets] = useState(false);
+  // Removed isLoadingTargets as its logic is now incorporated into other loading states / effects
+
   const [suggestions, setSuggestions] = useState<SuggestMealsForMacrosOutput['suggestions']>([]);
   const [error, setError] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [urlParamsProcessed, setUrlParamsProcessed] = useState(false);
+
 
   const preferenceForm = useForm<MealSuggestionPreferencesValues>({
     resolver: zodResolver(MealSuggestionPreferencesSchema),
@@ -92,7 +95,7 @@ function MealSuggestionsContent() {
         .catch(() => toast({ title: "Error", description: "Could not load profile data.", variant: "destructive" }))
         .finally(() => setIsLoadingProfile(false));
     } else {
-      setIsLoadingProfile(false);
+      setIsLoadingProfile(false); // No user, so profile loading isn't happening
       preferenceForm.reset({
         preferredDiet: undefined, preferredCuisines: [], dispreferredCuisines: [],
         preferredIngredients: [], dispreferredIngredients: [], allergies: [],
@@ -101,17 +104,17 @@ function MealSuggestionsContent() {
     }
   }, [user, toast, preferenceForm]);
 
+
   const calculateTargetsForSelectedMeal = useCallback(() => {
     if (!selectedMealName) {
       setTargetMacros(null);
+      setIsDemoMode(false); // Reset demo mode if no meal is selected
       return;
     }
-    setIsLoadingTargets(true);
-    setError(null); // Clear previous errors
-    setSuggestions([]); // Clear previous suggestions
+    setError(null); 
+    setSuggestions([]);
 
     const profileToUse = fullProfileData;
-    let demoModeTriggered = false;
     const exampleTargets = { mealName: selectedMealName, calories: 500, protein: 30, carbs: 60, fat: 20 };
     
     const requiredProfileFields: (keyof FullProfileType)[] = ['age', 'gender', 'current_weight', 'height_cm', 'activityLevel', 'dietGoalOnboarding'];
@@ -139,65 +142,66 @@ function MealSuggestionsContent() {
         setIsDemoMode(false);
       } else {
         setTargetMacros(exampleTargets);
-        demoModeTriggered = true;
+        setIsDemoMode(true);
         toast({ title: "Using Example Targets", description: `Could not calculate specific targets for ${selectedMealName} from profile. Ensure profile basics (age, weight, height, gender, activity, goal) are complete.`, duration: 6000, variant: "default" });
       }
     } else {
       setTargetMacros(exampleTargets);
-      demoModeTriggered = true;
+      setIsDemoMode(true);
       toast({ title: "Profile Incomplete or Demo", description: `Showing example targets for ${selectedMealName}. Please complete your profile via Onboarding or Smart Calorie Planner for personalized calculations.`, duration: 7000, variant: "default" });
     }
-    setIsDemoMode(demoModeTriggered);
-    setIsLoadingTargets(false);
-
   }, [selectedMealName, fullProfileData, toast]);
 
 
+  // Effect to process URL parameters ONCE after searchParams is available
   useEffect(() => {
+    if (!searchParams || urlParamsProcessed) return; // Only run once or if searchParams change
+
     const mealNameParam = searchParams.get('mealName');
     const caloriesParam = searchParams.get('calories');
     const proteinParam = searchParams.get('protein');
     const carbsParam = searchParams.get('carbs');
     const fatParam = searchParams.get('fat');
 
-    if (mealNameParam && mealNames.includes(mealNameParam)) {
-      if (!selectedMealName || selectedMealName !== mealNameParam) {
-        setSelectedMealName(mealNameParam); // This will trigger the other useEffect via selectedMealName change
-      }
-
-      if (caloriesParam && proteinParam && carbsParam && fatParam) {
-        const newTargets = {
-          mealName: mealNameParam,
-          calories: parseFloat(caloriesParam),
-          protein: parseFloat(proteinParam),
-          carbs: parseFloat(carbsParam),
-          fat: parseFloat(fatParam),
-        };
-        // Only update if different from current targetMacros to avoid loops
-        if (JSON.stringify(targetMacros) !== JSON.stringify(newTargets)) {
-          setTargetMacros(newTargets);
-          setIsDemoMode(false); // Assume non-demo if direct params are provided
-          setSuggestions([]);
-          setError(null);
-        }
-      } else if (selectedMealName === mealNameParam && !isLoadingProfile && !isLoadingTargets) { // Trigger calc if mealName already set by URL
-        calculateTargetsForSelectedMeal();
-      }
+    if (mealNameParam && mealNames.includes(mealNameParam) &&
+        caloriesParam && proteinParam && carbsParam && fatParam) {
+      
+      const newTargets = {
+        mealName: mealNameParam,
+        calories: parseFloat(caloriesParam),
+        protein: parseFloat(proteinParam),
+        carbs: parseFloat(carbsParam),
+        fat: parseFloat(fatParam),
+      };
+      
+      setSelectedMealName(mealNameParam);
+      setTargetMacros(newTargets);
+      setIsDemoMode(false);
+      setSuggestions([]);
+      setError(null);
+    } else if (mealNameParam && mealNames.includes(mealNameParam)) {
+      // Only mealNameParam is present, set it and allow subsequent effect to calculate
+      setSelectedMealName(mealNameParam);
+      // TargetMacros remains null here, letting the next effect trigger calculation
     }
-  }, [searchParams, isLoadingProfile, isLoadingTargets, selectedMealName, targetMacros, calculateTargetsForSelectedMeal]);
-  
+    setUrlParamsProcessed(true); // Mark as processed
+  }, [searchParams, urlParamsProcessed, setSelectedMealName, setTargetMacros, setIsDemoMode, setSuggestions, setError]);
+
+  // Effect to calculate targets if a meal is selected AND targets aren't already set (e.g., by URL)
   useEffect(() => {
-    if (selectedMealName && !searchParams.get('calories') && !isLoadingProfile && !isLoadingTargets) { // If meal selected by user (not URL params with macros)
+    if (selectedMealName && !targetMacros && !isLoadingProfile && urlParamsProcessed) {
       calculateTargetsForSelectedMeal();
     }
-  }, [selectedMealName, searchParams, isLoadingProfile, isLoadingTargets, calculateTargetsForSelectedMeal]);
+  }, [selectedMealName, targetMacros, isLoadingProfile, urlParamsProcessed, calculateTargetsForSelectedMeal]);
 
 
   const handleMealSelectionChange = (mealValue: string) => {
     setSelectedMealName(mealValue); 
-    // The useEffect watching selectedMealName will now trigger calculateTargetsForSelectedMeal
+    setTargetMacros(null); // Reset targetMacros to trigger recalculation by the useEffect above
     setSuggestions([]);
     setError(null);
+    setIsDemoMode(false); // Reset demo mode, calculation will determine its new state
+    setUrlParamsProcessed(true); // Consider params processed if user manually selects
   };
 
   const handleGetSuggestions = async () => {
@@ -284,6 +288,8 @@ function MealSuggestionsContent() {
     />
   );
 
+  const showContent = selectedMealName && targetMacros && !isLoadingProfile;
+
   return (
     <div className="space-y-6">
       <Card className="shadow-xl">
@@ -311,21 +317,22 @@ function MealSuggestionsContent() {
             </Select>
           </div>
 
-          {isLoadingProfile && !selectedMealName && ( // Only show profile loading if no meal is selected yet
+          {(isLoadingProfile && !urlParamsProcessed) && (
             <div className="flex justify-center items-center py-4">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
               <p className="ml-2">Loading profile data...</p>
             </div>
           )}
-
-          {isLoadingTargets && selectedMealName && (
-            <div className="flex justify-center items-center py-4">
+          
+          {selectedMealName && !targetMacros && isLoadingProfile && (
+             <div className="flex justify-center items-center py-4">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <p className="ml-2">Calculating targets for {selectedMealName}...</p>
+              <p className="ml-2">Loading profile and calculating targets for {selectedMealName}...</p>
             </div>
           )}
 
-          {selectedMealName && !isLoadingTargets && targetMacros && (
+
+          {showContent && (
             <>
               <div className="p-4 border rounded-md bg-muted/50">
                 <h3 className="text-lg font-semibold mb-2 text-primary">Target Macros for {targetMacros.mealName}:</h3>
@@ -382,16 +389,16 @@ function MealSuggestionsContent() {
                 </AccordionItem>
               </Accordion>
 
-              <Button onClick={handleGetSuggestions} disabled={isLoadingAiSuggestions || isLoadingProfile || isLoadingTargets} size="lg" className="w-full md:w-auto">
+              <Button onClick={handleGetSuggestions} disabled={isLoadingAiSuggestions || (isLoadingProfile && !isDemoMode)} size="lg" className="w-full md:w-auto">
                 {isLoadingAiSuggestions ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
-                { (isLoadingProfile && !isDemoMode && !isLoadingAiSuggestions) ? "Loading Profile..." : (isLoadingTargets ? "Calculating Targets..." : (isLoadingAiSuggestions ? "Getting Suggestions..." : "3. Get AI Meal Suggestions"))}
+                { (isLoadingProfile && !isDemoMode && !isLoadingAiSuggestions) ? "Loading Profile..." : (isLoadingAiSuggestions ? "Getting Suggestions..." : "3. Get AI Meal Suggestions")}
               </Button>
 
               {error && (<p className="text-destructive mt-4"><AlertTriangle className="inline mr-1 h-4 w-4" />{error}</p>)}
             </>
           )}
           
-          {!selectedMealName && !isLoadingProfile && (
+          {!selectedMealName && !isLoadingProfile && !urlParamsProcessed && (
              <div className="text-center py-6 text-muted-foreground">
                 <p>Please select a meal type above to get started.</p>
             </div>
