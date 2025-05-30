@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { MacroSplitterFormSchema, type MacroSplitterFormValues, type FullProfileType, type CalculatedMealMacros, type MealMacroDistribution } from '@/lib/schemas';
+import { MacroSplitterFormSchema, type MacroSplitterFormValues, type FullProfileType, type CalculatedMealMacros, type MealMacroDistribution, type GlobalCalculatedTargets, type MacroResults } from '@/lib/schemas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { mealNames as defaultMealNames, defaultMacroPercentages } from '@/lib/constants';
@@ -88,12 +88,12 @@ export default function MacroSplitterPage() {
       if (docSnap.exists()) {
         const profileData = docSnap.data() as FullProfileType;
 
-        // Load meal distributions if available
         if (profileData.mealDistributions && Array.isArray(profileData.mealDistributions) && profileData.mealDistributions.length === defaultMealNames.length) {
           form.reset({ mealDistributions: profileData.mealDistributions });
-          toast({ title: "Loaded Saved Split", description: "Your previously saved macro split percentages have been loaded.", duration: 3000 });
+           if (toast && toast.toasts && !toast.toasts.find(t => t.description === "Your previously saved macro split percentages have been loaded.")) {
+            toast({ title: "Loaded Saved Split", description: "Your previously saved macro split percentages have been loaded.", duration: 3000 });
+          }
         } else {
-          // If no saved distributions, ensure form is reset to defaults (it already is by useForm, but this is explicit)
            form.reset({
             mealDistributions: defaultMealNames.map(name => ({
               mealName: name,
@@ -106,7 +106,7 @@ export default function MacroSplitterPage() {
         }
 
 
-        // Determine daily targets
+        // Determine daily targets priority: Manual Results -> Smart Planner Results -> Profile Estimation
         if (profileData.manualMacroResults && profileData.manualMacroResults.Total_cals) {
           targets = {
             calories: profileData.manualMacroResults.Total_cals,
@@ -161,12 +161,17 @@ export default function MacroSplitterPage() {
     }
     
     setDailyTargets(targets);
-    if (targets && sourceMessage && !toast.toasts.find(t => t.description === sourceMessage)) { // Avoid duplicate source toasts on fast re-renders
-       toast({ 
-        title: "Daily Totals Loaded", 
-        description: sourceMessage, 
-        duration: 6000 
-      });
+
+    if (targets && sourceMessage) {
+      // Check if toast and toast.toasts are available before calling find
+      const shouldShowToast = (toast && Array.isArray(toast.toasts)) ? !toast.toasts.find(t => t.description === sourceMessage) : true;
+      if (shouldShowToast) {
+         toast({ 
+          title: "Daily Totals Loaded", 
+          description: sourceMessage, 
+          duration: 6000 
+        });
+      }
     } else if (!targets) {
         toast({ title: "No Daily Totals", description: "Could not find or calculate daily macro totals. Please use calculation tools or complete your profile.", variant: "destructive", duration: 6000 });
     }
@@ -201,7 +206,7 @@ export default function MacroSplitterPage() {
     }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     form.reset({
       mealDistributions: defaultMealNames.map(name => ({
         mealName: name,
@@ -213,10 +218,14 @@ export default function MacroSplitterPage() {
     });
     setCalculatedSplit(null);
      if (user?.uid) {
-      const userProfileRef = doc(db, "users", user.uid);
-      setDoc(userProfileRef, { mealDistributions: null }, { merge: true })
-        .then(() => toast({ title: "Reset Complete", description: "Percentages reset to defaults and saved state cleared." }))
-        .catch(() => toast({ title: "Reset Warning", description: "Percentages reset locally, but failed to clear saved state.", variant: "destructive" }));
+      try {
+        const userProfileRef = doc(db, "users", user.uid);
+        await setDoc(userProfileRef, { mealDistributions: null }, { merge: true });
+        toast({ title: "Reset Complete", description: "Percentages reset to defaults and saved state cleared." });
+      } catch (error) {
+         toast({ title: "Reset Warning", description: "Percentages reset locally, but failed to clear saved state.", variant: "destructive" });
+         console.error("Error clearing meal distributions from Firestore:", error);
+      }
     } else {
       toast({ title: "Reset Complete", description: "Percentages reset to defaults." });
     }
@@ -247,15 +256,15 @@ export default function MacroSplitterPage() {
   };
   
   const headerLabels = [
-    { key: "meal", label: "Meal", className: "sticky left-0 bg-background z-10 w-[150px] text-left font-medium" },
+    { key: "meal", label: "Meal", className: "sticky left-0 bg-background z-10 w-[120px] text-left font-medium" },
     { key: "cal_pct", label: "%Cal", className: "text-right min-w-[70px]" },
     { key: "p_pct", label: "%P", className: "text-right min-w-[70px]" },
     { key: "c_pct", label: "%C", className: "text-right min-w-[70px]" },
     { key: "f_pct", label: "%F", className: "text-right min-w-[70px] border-r" },
-    { key: "kcal", label: "kcal", className: "text-right min-w-[70px]" },
-    { key: "p_g", label: "P(g)", className: "text-right min-w-[70px]" },
-    { key: "c_g", label: "C(g)", className: "text-right min-w-[70px]" },
-    { key: "f_g", label: "F(g)", className: "text-right min-w-[70px]" },
+    { key: "kcal", label: "kcal", className: "text-right min-w-[60px]" },
+    { key: "p_g", label: "P(g)", className: "text-right min-w-[60px]" },
+    { key: "c_g", label: "C(g)", className: "text-right min-w-[60px]" },
+    { key: "f_g", label: "F(g)", className: "text-right min-w-[60px]" },
   ];
   
   const macroPctKeys: (keyof Omit<MealMacroDistribution, 'mealName'>)[] = ['calories_pct', 'protein_pct', 'carbs_pct', 'fat_pct'];
@@ -319,12 +328,12 @@ export default function MacroSplitterPage() {
               <CardDescription>Enter percentages. Each percentage column must sum to 100%. Calculated values update live.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="w-full">
+              <ScrollArea className="w-full border rounded-md">
                 <Table className="min-w-[800px]"> 
                   <TableHeader>
                     <TableRow>
                       {headerLabels.map(header => (
-                        <TableHead key={header.key} className={cn("px-2 py-2 text-xs font-medium", header.className)}>
+                        <TableHead key={header.key} className={cn("px-2 py-2 text-xs font-medium h-9", header.className)}>
                           {header.label}
                         </TableHead>
                       ))}
@@ -344,9 +353,9 @@ export default function MacroSplitterPage() {
                       
                       return (
                         <TableRow key={field.id}>
-                          <TableCell className="font-medium sticky left-0 bg-background z-10 px-2 py-1 text-sm">{field.mealName}</TableCell>
+                          <TableCell className="font-medium sticky left-0 bg-background z-10 px-2 py-1 text-sm h-10">{field.mealName}</TableCell>
                           {macroPctKeys.map(macroKey => (
-                            <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums", macroKey === 'fat_pct' ? 'border-r' : '')}>
+                            <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums h-10", macroKey === 'fat_pct' ? 'border-r' : '')}>
                               <FormField
                                 control={form.control}
                                 name={`mealDistributions.${index}.${macroKey}`}
@@ -356,7 +365,7 @@ export default function MacroSplitterPage() {
                                       <Input
                                         type="number"
                                         {...itemField}
-                                        value={itemField.value ?? 0}
+                                        value={itemField.value ?? ''}
                                         onChange={e => itemField.onChange(parseFloat(e.target.value) || 0)}
                                         className="w-16 text-right tabular-nums text-sm px-1 py-0.5 h-8"
                                         min="0"
@@ -368,30 +377,30 @@ export default function MacroSplitterPage() {
                               />
                             </TableCell>
                           ))}
-                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{isNaN(mealCalories) ? 'N/A' : mealCalories.toFixed(0)}</TableCell>
-                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{isNaN(mealProteinGrams) ? 'N/A' : mealProteinGrams.toFixed(1)}</TableCell>
-                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{isNaN(mealCarbsGrams) ? 'N/A' : mealCarbsGrams.toFixed(1)}</TableCell>
-                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{isNaN(mealFatGrams) ? 'N/A' : mealFatGrams.toFixed(1)}</TableCell>
+                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums h-10">{isNaN(mealCalories) ? 'N/A' : mealCalories.toFixed(0)}</TableCell>
+                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums h-10">{isNaN(mealProteinGrams) ? 'N/A' : mealProteinGrams.toFixed(1)}</TableCell>
+                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums h-10">{isNaN(mealCarbsGrams) ? 'N/A' : mealCarbsGrams.toFixed(1)}</TableCell>
+                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums h-10">{isNaN(mealFatGrams) ? 'N/A' : mealFatGrams.toFixed(1)}</TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
                   <TableFooter>
-                    <TableRow className="font-semibold text-sm">
+                    <TableRow className="font-semibold text-xs h-10">
                       <TableCell className="sticky left-0 bg-background z-10 px-2 py-1">Input % Totals:</TableCell>
                       {macroPctKeys.map(key => {
                           const sum = columnSums[key];
                           const isSum100 = Math.round(sum) === 100;
                           return (
                               <TableCell key={`sum-${key}`} className={cn("px-2 py-1 text-right tabular-nums", isSum100 ? 'text-green-600' : 'text-destructive', key === 'fat_pct' ? 'border-r' : '')}>
-                                  {sum.toFixed(1)}%
+                                  {sum.toFixed(0)}% {/* Changed to toFixed(0) for consistency with UI */}
                                   {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
                               </TableCell>
                           );
                       })}
                       <TableCell colSpan={4} className="px-2 py-1"></TableCell> 
                     </TableRow>
-                    <TableRow className="font-semibold text-sm bg-muted/70">
+                    <TableRow className="font-semibold text-sm bg-muted/70 h-10">
                        <TableCell className="sticky left-0 bg-muted/70 z-10 px-2 py-1">Calc. Value Totals:</TableCell>
                        <TableCell colSpan={4} className="px-2 py-1 border-r"></TableCell>
                        {dailyTargets ? (
@@ -415,6 +424,7 @@ export default function MacroSplitterPage() {
                     </TableRow>
                   </TableFooter>
                 </Table>
+              <ScrollBar orientation="horizontal" />
               </ScrollArea>
               {form.formState.errors.mealDistributions?.root?.message && (
                 <p className="text-sm font-medium text-destructive mt-2">
@@ -493,3 +503,5 @@ export default function MacroSplitterPage() {
     </div>
   );
 }
+
+    
