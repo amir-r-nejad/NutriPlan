@@ -10,57 +10,56 @@
  */
 
 import {ai} from '@/ai/genkit';
-import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro
+import { geminiPro } from '@genkit-ai/googleai';
+import {z} from 'zod';
 import type { Meal as AppMealSchema, Ingredient as AppIngredientSchema, FullProfileType } from '@/lib/schemas'; // Using types from app
 
-// Define interface for ingredients as expected by AI (total macros for given quantity)
-interface AIServiceIngredient {
-  name: string;
-  quantity: number;
-  unit: string; // e.g., g, ml, piece
-  calories: z.number().describe("Total calories for this specific quantity of the ingredient."),
-  protein: z.number().describe("Total protein (g) for this specific quantity of the ingredient."),
-  carbs: z.number().describe("Total carbohydrates (g) for this specific quantity of the ingredient."),
-  fat: z.number().describe("Total fat (g) for this specific quantity of the ingredient."),
+const AIServiceIngredientSchema = z.object({
+  name: z.string(),
+  quantity: z.number(),
+  unit: z.string().describe("e.g., g, ml, piece"),
+  calories: z.number().describe("Total calories for THIS SPECIFIC QUANTITY of the ingredient."),
+  protein: z.number().describe("Total protein (g) for THIS SPECIFIC QUANTITY of the ingredient."),
+  carbs: z.number().describe("Total carbohydrates (g) for THIS SPECIFIC QUANTITY of the ingredient."),
+  fat: z.number().describe("Total fat (g) for THIS SPECIFIC QUANTITY of the ingredient."),
 });
 
-// Define Zod schema for a meal as expected by AI (macros are totals for given quantities)
-interface AIServiceMeal {
-  name: string; // Original meal name (e.g., Breakfast, Lunch). This should generally not be changed by the AI unless the meal becomes fundamentally different.
-  customName?: string; // Custom name of the meal if any (e.g., Chicken Salad). AI can update this if the meal changes significantly.
-  ingredients: AIServiceIngredient[]; // List of ingredients in the meal. Each ingredient MUST have its nutritional information (calories, protein, carbs, fat) correctly calculated for its specified quantity and unit.
-  totalCalories: number; // Total calories for the meal. This MUST be the sum of 'calories' from the 'ingredients' list.
-  totalProtein: number; // Total protein (g) for the meal. This MUST be the sum of 'protein' from the 'ingredients' list.
-  totalCarbs: number; // Total carbohydrates (g) for the meal. This MUST be the sum of 'carbs' from the 'ingredients' list.
-  totalFat: number; // Total fat (g) for the meal. This MUST be the sum of 'fat' from the 'ingredients' list.
-}
+const AIServiceMealSchema = z.object({
+  name: z.string().describe("Original meal name (e.g., Breakfast, Lunch). This should generally not be changed by the AI unless the meal becomes fundamentally different."),
+  customName: z.string().optional().describe("Custom name of the meal if any (e.g., Chicken Salad). AI can update this if the meal changes significantly."),
+  ingredients: z.array(AIServiceIngredientSchema).describe("List of ingredients in the meal. Each ingredient MUST have its nutritional information (calories, protein, carbs, fat) correctly calculated for its specified quantity and unit."),
+  totalCalories: z.number().describe("Total calories for the meal. This MUST be the sum of 'calories' from the 'ingredients' list."),
+  totalProtein: z.number().describe("Total protein (g) for the meal. This MUST be the sum of 'protein' from the 'ingredients' list."),
+  totalCarbs: z.number().describe("Total carbohydrates (g) for the meal. This MUST be the sum of 'carbs' from the 'ingredients' list."),
+  totalFat: z.number().describe("Total fat (g) for the meal. This MUST be the sum of 'fat' from the 'ingredients' list."),
+});
 
+export const AdjustMealIngredientsInputSchema = z.object({
+  originalMeal: AIServiceMealSchema.describe("The original meal object with its current ingredients and macros."),
+  targetMacros: z.object({
+    calories: z.number().describe("Target calories for this meal."),
+    protein: z.number().describe("Target protein (g) for this meal."),
+    carbs: z.number().describe("Target carbohydrates (g) for this meal."),
+    fat: z.number().describe("Target fat (g) for this meal."),
+  }).describe("The desired macronutrient targets for this meal after adjustment."),
+  userProfile: z.object({
+    age: z.number().int().positive().optional(),
+    gender: z.string().optional(),
+    activityLevel: z.string().optional(),
+    dietGoal: z.string().optional(),
+    preferredDiet: z.string().optional(),
+    allergies: z.array(z.string()).optional(),
+    dispreferredIngredients: z.array(z.string()).optional(),
+    preferredIngredients: z.array(z.string()).optional(),
+  }).describe("Relevant user profile information for personalization, including preferences and restrictions."),
+});
+export type AdjustMealIngredientsInput = z.infer<typeof AdjustMealIngredientsInputSchema>;
 
-interface AdjustMealIngredientsInput {
-  originalMeal: AIServiceMeal; // The original meal object with its current ingredients and macros.
-  targetMacros: {
-    calories: number; // Target calories for this meal.
-    protein: number; // Target protein (g) for this meal.
-    carbs: number; // Target carbohydrates (g) for this meal.
-    fat: number; // Target fat (g) for this meal.
-  }; // The desired macronutrient targets for this meal after adjustment.
-  userProfile: { // Relevant user profile information for personalization, including preferences and restrictions.
-    age: z.number().optional(),
-    gender?: string;
-    activityLevel?: string;
-    dietGoal?: string;
-    preferredDiet?: string;
-    allergies?: string[];
-    dispreferredIngredients?: string[];
-    preferredIngredients?: string[];
-  };
-}
-
-
-interface AdjustMealIngredientsOutput {
-  adjustedMeal: AIServiceMeal; // The meal object after AI adjustments, with new ingredients and recalculated total macros. All ingredient nutritional values MUST be for their specific quantities. The meal's total macros MUST be the sum of its ingredients' macros.
-  explanation: string; // A brief explanation of the changes made by the AI to meet the targets.
-}
+export const AdjustMealIngredientsOutputSchema = z.object({
+  adjustedMeal: AIServiceMealSchema.describe("The meal object after AI adjustments, with new ingredients and recalculated total macros. All ingredient nutritional values MUST be for their specific quantities. The meal's total macros MUST be the sum of its ingredients' macros."),
+  explanation: z.string().describe("A brief explanation of the changes made by the AI to meet the targets."),
+});
+export type AdjustMealIngredientsOutput = z.infer<typeof AdjustMealIngredientsOutputSchema>;
 
 
 export async function adjustMealIngredients(input: AdjustMealIngredientsInput): Promise<AdjustMealIngredientsOutput> {
@@ -142,4 +141,3 @@ const adjustMealIngredientsFlow = ai.defineFlow(
     return output;
   }
 );
-
