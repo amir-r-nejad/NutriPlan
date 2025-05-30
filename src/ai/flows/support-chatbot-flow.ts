@@ -1,15 +1,13 @@
-
 'use server';
+
 /**
- * @fileOverview A support chatbot for the NutriPlan application.
- *
- * - supportChatbotFlow - A function that handles user queries about the website.
- * - SupportChatbotInput - The input type for the supportChatbotFlow function.
- * - SupportChatbotOutput - The return type for the supportChatbotFlow function.
+ * AI-powered NutriPlan Support Chatbot — Fully optimized for Genkit
  */
 
-import {ai} from '@/ai/genkit';
-import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro
+import { ai } from '@/ai/genkit';
+import { geminiPro } from '@genkit-ai/googleai';
+
+// Types
 
 export interface SupportChatbotInput {
   userQuery: string;
@@ -19,47 +17,58 @@ export interface SupportChatbotOutput {
   botResponse: string;
 }
 
-export async function handleSupportQuery(input: SupportChatbotInput): Promise<SupportChatbotOutput> {
+// Main entry function
+
+export async function handleSupportQuery(
+  input: SupportChatbotInput
+): Promise<SupportChatbotOutput> {
   return supportChatbotFlow(input);
 }
 
+// AI Prompt
+
 const prompt = ai.definePrompt({
   name: 'supportChatbotPrompt',
-  model: geminiPro, // Explicitly set the model
-  input: { schema: SupportChatbotInput },
-  output: { schema: SupportChatbotOutput },
-  prompt: `You are a friendly and helpful support chatbot for "NutriPlan", a web application designed for personalized nutrition and meal planning.
-Your role is to answer user questions about how to use the website and its features.
-Focus ONLY on website functionality, navigation, and how to use specific tools.
-Do NOT provide any nutritional advice, medical advice, or opinions on diet plans. If asked for such advice, politely decline and redirect the user to consult a professional or explain that your purpose is to help with website usage.
+  model: geminiPro,
+  input: { type: 'json' },
+  output: { type: 'json' },
+  prompt: `You are a friendly and helpful support chatbot for "NutriPlan", a web application for personalized nutrition and meal planning.
 
-Available NutriPlan features you can talk about:
-- Dashboard: Overview of the app.
-- Profile: Where users manage general medical information and exercise preferences. Detailed physical metrics and dietary preferences are managed in specific tools.
-- Smart Calorie Planner: Calculates daily calorie and macro targets based on user stats, goals, body composition, and measurements.
-- Daily Macro Breakdown: A tool to calculate daily macronutrient breakdown based on weight, protein per kg, target calories, and carb/fat percentage split. (This feature is now part of Smart Calorie Planner)
-- Macro Splitter: Allows users to distribute their total daily macros across 6 meals by percentage.
-- Meal Suggestions: Provides AI-powered meal ideas based on macronutrient targets for a specific meal, adjusted with user preferences.
-- Current Meal Plan: Page to view, manage, and manually edit the weekly meal schedule. Users can also AI-optimize individual meals here.
-- AI Meal Plan: Generates a full, AI-optimized weekly meal plan based on comprehensive user profile data.
+{{{input}}}
 
-When answering, be concise and clear. Guide the user on how to perform actions or find information on the website.
+Your role:
+- Only answer questions about website functionality and features.
+- Do not give nutritional, medical, or diet advice.
+- If asked for such advice, politely redirect the user to consult a professional.
 
-User's question: {{{userQuery}}}
-`,
+NutriPlan features you can assist with:
+- Dashboard
+- Profile (medical info, exercise preferences, physical metrics)
+- Smart Calorie Planner (calorie/macro targets)
+- Macro Splitter (distribute daily macros across meals)
+- Meal Suggestions (AI-powered meal ideas)
+- Current Meal Plan (manage/edit weekly meal plan)
+- AI Meal Plan (generate full AI-optimized weekly plan)
+
+Instructions:
+- Respond clearly, concisely, and helpfully.
+- Guide the user on how to find or perform tasks.
+- Only return valid JSON in SupportChatbotOutput format.`
 });
+
+// Genkit Flow
 
 const supportChatbotFlow = ai.defineFlow(
   {
     name: 'supportChatbotFlow',
-    inputSchema: SupportChatbotInput,
-    outputSchema: SupportChatbotOutput,
+    inputSchema: undefined,
+    outputSchema: undefined,
   },
-  async (input) => {
+  async (input: SupportChatbotInput): Promise<SupportChatbotOutput> => {
     const { output } = await prompt(input);
     if (!output) {
       return { botResponse: "I'm sorry, I couldn't process your request at the moment. Please try again." };
     }
-    return output;
+    return output as SupportChatbotOutput;
   }
 );

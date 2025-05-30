@@ -1,35 +1,31 @@
-
 'use server';
 
 /**
- * @fileOverview AI-powered ingredient swap suggestions for optimized meal plans.
- *
- * This file exports:
- * - `suggestIngredientSwap`: Function to get ingredient swap suggestions.
- * - `SuggestIngredientSwapInput`: Input type for the `suggestIngredientSwap` function.
- * - `SuggestIngredientSwapOutput`: Output type for the `suggestIngredientSwap` function.
+ * AI-powered Ingredient Swap Suggestions — Fully optimized for Genkit
  */
 
-import {ai} from '@/ai/genkit';
-import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro
+import { ai } from '@/ai/genkit';
+import { geminiPro } from '@genkit-ai/googleai';
+
+// Types
 
 export interface SuggestIngredientSwapInput {
   mealName: string;
   ingredients: Array<{
     name: string;
-    quantity: number; // in grams
+    quantity: number; // grams
     caloriesPer100g: number;
-    proteinPer100g: number; // in grams
-    fatPer100g: number; // in grams
+    proteinPer100g: number;
+    fatPer100g: number;
   }>;
   dietaryPreferences: string;
   dislikedIngredients: string[];
   allergies: string[];
   nutrientTargets: {
     calories: number;
-    protein: number; // in grams
-    carbohydrates: number; // in grams
-    fat: number; // in grams
+    protein: number;
+    carbohydrates: number;
+    fat: number;
   };
 }
 
@@ -38,42 +34,49 @@ export type SuggestIngredientSwapOutput = Array<{
   reason: string;
 }>;
 
-export async function suggestIngredientSwap(input: SuggestIngredientSwapInput): Promise<SuggestIngredientSwapOutput> {
+// Main entry function
+
+export async function suggestIngredientSwap(
+  input: SuggestIngredientSwapInput
+): Promise<SuggestIngredientSwapOutput> {
   return suggestIngredientSwapFlow(input);
 }
 
+// AI Prompt
+
 const prompt = ai.definePrompt({
   name: 'suggestIngredientSwapPrompt',
-  model: geminiPro, // Explicitly set the model
-  input: {}, // Schema inference from input type
-  output: {}, // Schema inference from output type
-  prompt: `You are a nutritional expert. Given a meal and a user's dietary preferences and restrictions, suggest ingredient swaps that maintain the meal's nutritional balance.
+  model: geminiPro,
+  input: { type: 'json' },
+  output: { type: 'json' },
+  prompt: `You are a nutritional expert. Given a meal and user's preferences, suggest ingredient swaps that preserve nutritional balance.
 
-Meal Name: {{{mealName}}}
-Ingredients:
-{{#each ingredients}}
-- {{name}} ({{quantity}}g, {{caloriesPer100g}} cal/100g, {{proteinPer100g}}g protein/100g, {{fatPer100g}}g fat/100g)
-{{/each}}
+{{{input}}}
 
-Dietary Preferences: {{{dietaryPreferences}}}
-Disliked Ingredients: {{#each dislikedIngredients}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}
-Allergies: {{#each allergies}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}
+Instructions:
+- Respect allergies, dislikes, and dietary preferences.
+- Maintain approximate calorie, protein, carb, and fat targets.
+- For each suggestion, provide:
+  - ingredientName: the swapped ingredient.
+  - reason: explain why this swap is suggested.
+- Return result as valid JSON matching SuggestIngredientSwapOutput (array of objects).
 
-Nutrient Targets: Calories: {{{nutrientTargets.calories}}}, Protein: {{{nutrientTargets.protein}}}g, Carbs: {{{nutrientTargets.carbohydrates}}}g, Fat: {{{nutrientTargets.fat}}}g
-
-Suggest ingredient swaps that adhere to the user's preferences and restrictions while maintaining the meal's approximate calorie, protein, carb, and fat targets.  Explain the reason for each suggested swap.
-
-Output the suggestions as a JSON array of objects, where each object has 'ingredientName' and 'reason' fields.`,  
+Only output valid JSON.`
 });
+
+// Genkit Flow
 
 const suggestIngredientSwapFlow = ai.defineFlow(
   {
     name: 'suggestIngredientSwapFlow',
-    inputSchema: {}, // Schema inference from input type
-    outputSchema: {}, // Schema inference from output type
+    inputSchema: undefined,
+    outputSchema: undefined,
   },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+  async (input: SuggestIngredientSwapInput): Promise<SuggestIngredientSwapOutput> => {
+    const { output } = await prompt(input);
+    if (!output) {
+      throw new Error("AI did not return output.");
+    }
+    return output as SuggestIngredientSwapOutput;
   }
 );
