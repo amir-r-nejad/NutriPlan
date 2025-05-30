@@ -9,107 +9,95 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
 import { geminiPro } from '@genkit-ai/googleai'; // Import geminiPro
 
-const GeneratePersonalizedMealPlanInputSchema = z.object({
-  age: z.number().describe('The age of the user.'),
-  gender: z.string().describe('The gender of the user.'),
-  height_cm: z.number().describe('The height of the user in centimeters.'),
-  current_weight: z.number().describe('The current weight of the user in kilograms.'),
-  goal_weight_1m: z.number().describe('The goal weight of the user in 1 month in kilograms.'),
-  activityLevel: z.string().describe('The activity level of the user (e.g., sedentary, light, moderate, active).'),
-  dietGoalOnboarding: z.string().describe('The diet goal of the user (e.g., fat_loss, muscle_gain, recomp).'), // Renamed from dietGoal to match onboarding
+interface GeneratePersonalizedMealPlanInput {
+  age: number; // The age of the user.
+  gender: string; // The gender of the user.
+  height_cm: number; // The height of the user in centimeters.
+  current_weight: number; // The current weight of the user in kilograms.
+  goal_weight_1m: number; // The goal weight of the user in 1 month in kilograms.
+  activityLevel: string; // The activity level of the user (e.g., sedentary, light, moderate, active).
+  dietGoalOnboarding: string; // The diet goal of the user (e.g., fat_loss, muscle_gain, recomp).
   
   // Optional fields from onboarding/profile
-  ideal_goal_weight: z.number().optional().describe('The ideal goal weight of the user in kilograms.'),
+  ideal_goal_weight?: number; // The ideal goal weight of the user in kilograms.
   
-  bf_current: z.number().optional().describe('Current body fat percentage.'),
-  bf_target: z.number().optional().describe('Target body fat percentage in 1 month.'),
-  bf_ideal: z.number().optional().describe('Ideal body fat percentage.'),
-  mm_current: z.number().optional().describe('Current muscle mass percentage.'),
-  mm_target: z.number().optional().describe('Target muscle mass percentage in 1 month.'),
-  mm_ideal: z.number().optional().describe('Ideal muscle mass percentage.'),
-  bw_current: z.number().optional().describe('Current body water percentage.'),
-  bw_target: z.number().optional().describe('Target body water percentage in 1 month.'),
-  bw_ideal: z.number().optional().describe('Ideal body water percentage.'),
+  bf_current?: number; // Current body fat percentage.
+  bf_target?: number; // Target body fat percentage in 1 month.
+  bf_ideal?: number; // Ideal body fat percentage.
+  mm_current?: number; // Current muscle mass percentage.
+  mm_target?: number; // Target muscle mass percentage in 1 month.
+  mm_ideal?: number; // Ideal muscle mass percentage.
+  bw_current?: number; // Current body water percentage.
+  bw_target?: number; // Target body water percentage in 1 month.
+  bw_ideal?: number; // Ideal body water percentage.
 
-  waist_current: z.number().optional().describe('Current waist measurement in centimeters.'),
-  waist_goal_1m: z.number().optional().describe('1-Month goal for waist measurement in centimeters.'),
-  waist_ideal: z.number().optional().describe('Ideal waist measurement in centimeters.'),
-  hips_current: z.number().optional().describe('Current hips measurement in centimeters.'),
-  hips_goal_1m: z.number().optional().describe('1-Month goal for hips measurement in centimeters.'),
-  hips_ideal: z.number().optional().describe('Ideal hips measurement in centimeters.'),
+  waist_current?: number; // Current waist measurement in centimeters.
+  waist_goal_1m?: number; // 1-Month goal for waist measurement in centimeters.
+  waist_ideal?: number; // Ideal waist measurement in centimeters.
+  hips_current?: number; // Current hips measurement in centimeters.
+  hips_goal_1m?: number; // 1-Month goal for hips measurement in centimeters.
+  hips_ideal?: number; // Ideal hips measurement in centimeters.
   
-  right_leg_current: z.number().optional().describe('Current right leg measurement in centimeters.'),
-  right_leg_goal_1m: z.number().optional().describe('1-Month goal for right leg measurement in centimeters.'),
-  right_leg_ideal: z.number().optional().describe('Ideal right leg measurement in centimeters.'),
-  left_leg_current: z.number().optional().describe('Current left leg measurement in centimeters.'),
-  left_leg_goal_1m: z.number().optional().describe('1-Month goal for left leg measurement in centimeters.'),
-  left_leg_ideal: z.number().optional().describe('Ideal left leg measurement in centimeters.'),
-  right_arm_current: z.number().optional().describe('Current right arm measurement in centimeters.'),
-  right_arm_goal_1m: z.number().optional().describe('1-Month goal for right arm measurement in centimeters.'),
-  right_arm_ideal: z.number().optional().describe('Ideal right arm measurement in centimeters.'),
-  left_arm_current: z.number().optional().describe('Current left arm measurement in centimeters.'),
-  left_arm_goal_1m: z.number().optional().describe('1-Month goal for left arm measurement in centimeters.'),
-  left_arm_ideal: z.number().optional().describe('Ideal left arm measurement in centimeters.'),
+  right_leg_current?: number; // Current right leg measurement in centimeters.
+  right_leg_goal_1m?: number; // 1-Month goal for right leg measurement in centimeters.
+  right_leg_ideal?: number; // Ideal right leg measurement in centimeters.
+  left_leg_current?: number; // Current left leg measurement in centimeters.
+  left_leg_goal_1m?: number; // 1-Month goal for left leg measurement in centimeters.
+  left_leg_ideal?: number; // Ideal left leg measurement in centimeters.
+  right_arm_current?: number; // Current right arm measurement in centimeters.
+  right_arm_goal_1m?: number; // 1-Month goal for right arm measurement in centimeters.
+  right_arm_ideal?: number; // Ideal right arm measurement in centimeters.
+  left_arm_current?: number; // Current left arm measurement in centimeters.
+  left_arm_goal_1m?: number; // 1-Month goal for left arm measurement in centimeters.
+  left_arm_ideal?: number; // Ideal left arm measurement in centimeters.
 
-  preferredDiet: z.string().optional().describe('The preferred diet of the user (e.g., vegetarian, vegan, keto).'),
+  preferredDiet?: string; // The preferred diet of the user (e.g., vegetarian, vegan, keto).
   // mealsPerDay removed
-  allergies: z.array(z.string()).optional().describe('The allergies of the user.'), // Changed from string to array
-  preferredCuisines: z.array(z.string()).optional().describe('The preferred cuisines of the user.'), // Changed from string to array
-  dispreferredCuisines: z.array(z.string()).optional().describe('The dispreferred cuisines of the user.'), // Changed from string to array
-  preferredIngredients: z.array(z.string()).optional().describe('The preferred ingredients of the user.'), // Changed from string to array
-  dispreferredIngredients: z.array(z.string()).optional().describe('The dispreferred ingredients of the user.'), // Changed from string to array
-  preferredMicronutrients: z.array(z.string()).optional().describe('The preferred micronutrients of the user.'), // Changed from string to array
+  allergies?: string[]; // The allergies of the user.
+  preferredCuisines?: string[]; // The preferred cuisines of the user.
+  dispreferredCuisines?: string[]; // The dispreferred cuisines of the user.
+  preferredIngredients?: string[]; // The preferred ingredients of the user.
+  dispreferredIngredients?: string[]; // The dispreferred ingredients of the user.
+  preferredMicronutrients?: string[]; // The preferred micronutrients of the user.
   
-  medicalConditions: z.array(z.string()).optional().describe('The medical conditions of the user.'), // Changed from string to array
-  medications: z.array(z.string()).optional().describe('The medications the user is taking.'), // Changed from string to array
+  medicalConditions?: string[]; // The medical conditions of the user.
+  medications?: string[]; // The medications the user is taking.
   
-  typicalMealsDescription: z.string().optional().describe('A description of the user’s typical meals and eating habits.'),
-});
-export type GeneratePersonalizedMealPlanInput = z.infer<
-  typeof GeneratePersonalizedMealPlanInputSchema
->;
+  typicalMealsDescription?: string; // A description of the user’s typical meals and eating habits.
+}
 
-const MealSchema = z.object({
-  meal_name: z.string(),
-  ingredients: z.array(
-    z.object({
-      ingredient_name: z.string(),
-      quantity_g: z.number(),
-      macros_per_100g: z.object({
-        calories: z.number(),
-        protein_g: z.number(),
-        fat_g: z.number(),
-      }),
-    })
-  ),
-  total_calories: z.number(),
-  total_protein_g: z.number(),
-  total_fat_g: z.number(),
-});
+interface Meal {
+  meal_name: string;
+  ingredients: {
+    ingredient_name: string;
+    quantity_g: number;
+    macros_per_100g: {
+      calories: number;
+      protein_g: number;
+      fat_g: number;
+    };
+  }[];
+  total_calories: number;
+  total_protein_g: number;
+  total_fat_g: number;
+}
 
-const DayPlanSchema = z.object({
-  day: z.string(), // e.g., "Monday"
-  meals: z.array(MealSchema),
-});
+interface DayPlan {
+  day: string; // e.g., "Monday"
+  meals: Meal[];
+}
 
-const GeneratePersonalizedMealPlanOutputSchema = z.object({
-  weeklyMealPlan: z.array(DayPlanSchema).describe('A seven-day meal plan.'),
-  weeklySummary: z
-    .object({
-      totalCalories: z.number(),
-      totalProtein: z.number(),
-      totalCarbs: z.number(),
-      totalFat: z.number(),
-    })
-    .describe('A summary of the total calories, protein, carbs, and fat for the week.'),
-});
-
-export type GeneratePersonalizedMealPlanOutput = z.infer<
-  typeof GeneratePersonalizedMealPlanOutputSchema
->;
+interface GeneratePersonalizedMealPlanOutput {
+  weeklyMealPlan: DayPlan[]; // A seven-day meal plan.
+  weeklySummary: {
+    totalCalories: number;
+    totalProtein: number;
+    totalCarbs: number;
+    totalFat: number;
+  }; // A summary of the total calories, protein, carbs, and fat for the week.
+}
 
 export async function generatePersonalizedMealPlan(
   input: GeneratePersonalizedMealPlanInput
@@ -120,8 +108,8 @@ export async function generatePersonalizedMealPlan(
 const prompt = ai.definePrompt({
   name: 'generatePersonalizedMealPlanPrompt',
   model: geminiPro, // Explicitly set the model
-  input: {schema: GeneratePersonalizedMealPlanInputSchema},
-  output: {schema: GeneratePersonalizedMealPlanOutputSchema},
+  // input: {schema: GeneratePersonalizedMealPlanInputSchema}, // Schema no longer used directly here
+  // output: {schema: GeneratePersonalizedMealPlanOutputSchema}, // Schema no longer used directly here
   prompt: `You are a nutritionist who will generate a personalized weekly meal plan based on the user's profile data and preferences.
 
   User Profile Data:
@@ -191,8 +179,8 @@ const prompt = ai.definePrompt({
 const generatePersonalizedMealPlanFlow = ai.defineFlow(
   {
     name: 'generatePersonalizedMealPlanFlow',
-    inputSchema: GeneratePersonalizedMealPlanInputSchema,
-    outputSchema: GeneratePersonalizedMealPlanOutputSchema,
+    // inputSchema: GeneratePersonalizedMealPlanInputSchema, // Schema no longer used directly here
+    // outputSchema: GeneratePersonalizedMealPlanOutputSchema, // Schema no longer used directly here
   },
   async input => {
     const {output} = await prompt(input);
