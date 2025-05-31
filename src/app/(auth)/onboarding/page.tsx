@@ -319,57 +319,13 @@ export default function OnboardingPage() {
     }
   };
 
-  const processAndSaveData = (data: OnboardingFormValues) => {
-    const fullProfileData: OnboardingFormValues = { ...data };
-    const stringToArray = (str: string[]| string | undefined) => str ? typeof(str)=="string"?str.split(',').map(s => s.trim()).filter(s => s) : []:str;
-    
-    fullProfileData.allergies = stringToArray(data.allergies);
-    fullProfileData.preferredCuisines = stringToArray(data.preferredCuisines);
-    fullProfileData.dispreferredCuisines = stringToArray(data.dispreferredCuisines);
-    fullProfileData.preferredIngredients = stringToArray(data.preferredIngredients);
-    fullProfileData.dispreferredIngredients = stringToArray(data.dispreferredIngredients);
-    fullProfileData.preferredMicronutrients = stringToArray(data.preferredMicronutrients);
-    fullProfileData.medicalConditions = stringToArray(data.medicalConditions);
-    fullProfileData.medications = stringToArray(data.medications);
-    
-    fullProfileData.dietGoalOnboarding = data.dietGoalOnboarding; 
-
-    if (calculatedTargets) fullProfileData.systemCalculatedTargets = calculatedTargets;
-    if (customCalculatedTargets) fullProfileData.userCustomizedTargets = customCalculatedTargets;
-    
-    let finalTargetsForStorage: Partial<CalculatedTargets & CustomCalculatedTargets> = {};
-    if (data.manual_target_calories && data.manual_protein_g && data.manual_carbs_g && data.manual_fat_g) {
-        finalTargetsForStorage = {
-            targetCalories: data.manual_target_calories,
-            targetProtein: data.manual_protein_g,
-            targetCarbs: data.manual_carbs_g,
-            targetFat: data.manual_fat_g,
-        };
-    } else if (customCalculatedTargets?.totalCalories !== undefined) {
-        finalTargetsForStorage = {
-            targetCalories: customCalculatedTargets.totalCalories,
-            targetProtein: customCalculatedTargets.proteinGrams,
-            targetCarbs: customCalculatedTargets.carbGrams,
-            targetFat: customCalculatedTargets.fatGrams,
-        };
-    } else if (calculatedTargets?.targetCalories !== undefined) {
-         finalTargetsForStorage = { ...calculatedTargets };
+  const processAndSaveData = async (data: OnboardingFormValues) => {
+    if (!user) {
+      toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+      return;
     }
 
-    if (user?.uid) { 
-        
-        localStorage.setItem(`nutriplan_profile_${user.uid}`, JSON.stringify(fullProfileData));
-        if (Object.keys(finalTargetsForStorage).length > 0 && finalTargetsForStorage.targetCalories) {
-             localStorage.setItem(`nutriplan_smart_planner_results_${user.uid}`, JSON.stringify({
-                finalTargetCalories: finalTargetsForStorage.targetCalories,
-                proteinGrams: finalTargetsForStorage.targetProtein,
-                carbGrams: finalTargetsForStorage.targetCarbs,
-                fatGrams: finalTargetsForStorage.targetFat,
-                bmr: finalTargetsForStorage.bmr || calculatedTargets?.bmr, 
-                tdee: finalTargetsForStorage.tdee || calculatedTargets?.tdee,
-             }));
-        }
-    }
+    let processedData: Record<string, any> = { ...data };
     
     const arrayLikeFields: (keyof OnboardingFormValues)[] = ['allergies', 'preferredCuisines', 'dispreferredCuisines', 'preferredIngredients', 'dispreferredIngredients', 'preferredMicronutrients', 'medicalConditions', 'medications'];
     arrayLikeFields.forEach(field => {
