@@ -59,12 +59,13 @@ export function SupportChat() {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching bot response:", error);
+      console.error("Full AI error object (SupportChat):", error); // Log the full error object
       const errorMessage: Message = {
         id: Date.now().toString() + '-error',
         sender: 'bot',
-        text: "Sorry, I encountered an error. Please try again later.",
+        text: `Sorry, I encountered an error: ${error.message || "Please try again later."}`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -105,7 +106,7 @@ export function SupportChat() {
                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
-             {msg.sender === 'user' && (
+            {msg.sender === 'user' && (
               <Avatar className="h-8 w-8 self-start">
                 <AvatarFallback><UserIcon className="h-5 w-5" /></AvatarFallback>
               </Avatar>
@@ -115,7 +116,7 @@ export function SupportChat() {
         {isLoading && (
           <div className="flex items-center gap-2 mb-4 justify-start">
             <Avatar className="h-8 w-8 self-start">
-               <AvatarFallback><Bot className="h-5 w-5 text-primary" /></AvatarFallback>
+              <AvatarFallback><Bot className="h-5 w-5 text-primary" /></AvatarFallback>
             </Avatar>
             <div className="max-w-[70%] rounded-lg px-4 py-3 text-sm shadow bg-muted text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin inline-block mr-2" /> Typing...

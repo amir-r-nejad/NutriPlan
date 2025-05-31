@@ -9,48 +9,35 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { MacroSplitterFormSchema, type MacroSplitterFormValues, type ProfileFormValues, type CalculatedMealMacros, type MealMacroDistribution } from '@/lib/schemas';
+import { MacroSplitterFormSchema, type MacroSplitterFormValues, type FullProfileType, type MealMacroDistribution, type GlobalCalculatedTargets as AppGlobalCalculatedTargets, type CustomCalculatedTargets } from '@/lib/schemas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { mealNames as defaultMealNames, defaultMacroPercentages } from '@/lib/constants';
-import { Loader2, RefreshCw, Calculator, AlertTriangle, CheckCircle2, SplitSquareHorizontal, Lightbulb, Info } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2, RefreshCw, SplitSquareHorizontal, Lightbulb, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'; // Added ScrollBar
 import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { cn } from "@/lib/utils";
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/clientApp';
+import { preprocessDataForFirestore } from '@/lib/schemas';
+
 
 interface TotalMacros {
   calories: number;
   protein_g: number;
   carbs_g: number;
   fat_g: number;
-  source?: string; // To indicate where the data came from
+  source?: string;
 }
 
-async function getProfileDataForMacroSplitter(userId: string): Promise<Partial<ProfileFormValues>> {
-  console.log("Fetching profile for macro splitter, user:", userId);
-  const storedProfile = localStorage.getItem(`nutriplan_profile_${userId}`);
-  if (storedProfile) {
-    try {
-      const parsedProfile = JSON.parse(storedProfile) as ProfileFormValues;
-       const arrayFields: (keyof ProfileFormValues)[] = [
-        'injuries', 'surgeries', 'exerciseGoals', 'exercisePreferences', 'equipmentAccess'
-      ];
-      arrayFields.forEach(field => {
-        if (parsedProfile[field] && typeof parsedProfile[field] === 'string') {
-           (parsedProfile as any)[field] = (parsedProfile[field] as unknown as string).split(',').map((s: string) => s.trim()).filter((s: string) => s !== '');
-        } else if (!Array.isArray(parsedProfile[field])) {
-            (parsedProfile as any)[field] = [];
-        }
-      });
-      return parsedProfile;
-    } catch (error) {
-      console.error("Error parsing stored profile data for macro splitter:", error);
-      return {};
-    }
-  }
-  return {};
+interface CalculatedMealMacros {
+  mealName: string;
+  Calories: number;
+  'Protein (g)': number;
+  'Carbs (g)': number;
+  'Fat (g)': number;
 }
 
 
@@ -60,10 +47,10 @@ function customMacroSplit(
 ): CalculatedMealMacros[] {
   return mealMacroDistribution.map(mealPct => ({
     mealName: mealPct.mealName,
-    Calories: Math.round(totalMacros.calories * (mealPct.calories_pct / 100)),
-    'Protein (g)': Math.round(totalMacros.protein_g * (mealPct.protein_pct / 100)),
-    'Carbs (g)': Math.round(totalMacros.carbs_g * (mealPct.carbs_pct / 100)),
-    'Fat (g)': Math.round(totalMacros.fat_g * (mealPct.fat_pct / 100)),
+    Calories: Math.round(totalMacros.calories * ((mealPct.calories_pct || 0) / 100)),
+    'Protein (g)': Math.round(totalMacros.protein_g * ((mealPct.protein_pct || 0) / 100)),
+    'Carbs (g)': Math.round(totalMacros.carbs_g * ((mealPct.carbs_pct || 0) / 100)),
+    'Fat (g)': Math.round(totalMacros.fat_g * ((mealPct.fat_pct || 0) / 100)),
   }));
 }
 
@@ -75,7 +62,7 @@ export default function MacroSplitterPage() {
   const [dailyTargets, setDailyTargets] = useState<TotalMacros | null>(null);
   const [calculatedSplit, setCalculatedSplit] = useState<CalculatedMealMacros[] | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  // const [profileData, setProfileData] = useState<Partial<ProfileFormValues> | null>(null);
+  const [dataSourceMessage, setDataSourceMessage] = useState<string | null>(null);
 
 
   const form = useForm<MacroSplitterFormValues>({
@@ -97,114 +84,170 @@ export default function MacroSplitterPage() {
   });
 
   const loadDataForSplitter = useCallback(async () => {
-    if (!user?.id) {
+    if (!user?.uid) {
       setIsLoading(false);
       return;
     }
     setIsLoading(true);
     let targets: TotalMacros | null = null;
     let sourceMessage = "";
+    
+    try {
+      const userProfileRef = doc(db, "users", user.uid);
+      const docSnap = await getDoc(userProfileRef);
 
-    // 1. Try Daily Macro Breakdown results (now from smart planner's manual section)
-    const macroCalcResultsRaw = localStorage.getItem(`nutriplan_macro_calculator_results_${user.id}`);
-    if (macroCalcResultsRaw) {
-      try {
-        const parsed = JSON.parse(macroCalcResultsRaw);
-        targets = {
-          calories: parsed.Total_cals,
-          protein_g: parsed.Protein_g,
-          carbs_g: parsed.Carbs_g,
-          fat_g: parsed.Fat_g,
-          source: "Manual Macro Breakdown"
-        };
-        sourceMessage = "Daily totals sourced from 'Manual Macro Breakdown' in the Smart Planner. Adjust there for changes.";
-      } catch (e) { console.error("Failed to parse Manual Macro Breakdown results", e); }
-    }
+      if (docSnap.exists()) {
+        const profileData = docSnap.data() as FullProfileType;
 
-    // 2. Try Smart Calorie Planner results if first source failed
-    if (!targets) {
-      const smartPlannerResultsRaw = localStorage.getItem(`nutriplan_smart_planner_results_${user.id}`);
-      if (smartPlannerResultsRaw) {
-        try {
-          const parsed = JSON.parse(smartPlannerResultsRaw); // Expects full CalculationResults
-          targets = {
-            calories: parsed.finalTargetCalories, // Adjusted property name
-            protein_g: parsed.proteinGrams,     // Adjusted property name
-            carbs_g: parsed.carbGrams,         // Adjusted property name
-            fat_g: parsed.fatGrams,           // Adjusted property name
-            source: "Smart Calorie Planner"
-          };
-          sourceMessage = "Daily totals sourced from 'Smart Calorie Planner'. Adjust there for changes.";
-        } catch (e) { console.error("Failed to parse Smart Calorie Planner results", e); }
-      }
-    }
-
-    // 3. Fallback to profile estimation
-    if (!targets) {
-      try {
-        const fetchedProfileData = await getProfileDataForMacroSplitter(user.id);
-        // setProfileData(fetchedProfileData); 
-        if (fetchedProfileData.age && fetchedProfileData.gender && fetchedProfileData.currentWeight && fetchedProfileData.height && fetchedProfileData.activityLevel && fetchedProfileData.dietGoal) {
-          const estimatedTargets = calculateEstimatedDailyTargets(fetchedProfileData);
-          if (estimatedTargets.targetCalories && estimatedTargets.targetProtein && estimatedTargets.targetCarbs && estimatedTargets.targetFat) {
-            targets = {
-              calories: estimatedTargets.targetCalories,
-              protein_g: estimatedTargets.targetProtein,
-              carbs_g: estimatedTargets.targetCarbs,
-              fat_g: estimatedTargets.targetFat,
-              source: "Profile Estimation"
-            };
-            sourceMessage = "Daily totals estimated from your Profile. Complete your profile or use calculation tools for more precision.";
-          } else {
-             toast({ title: "Profile Incomplete for Calculation", description: "Could not calculate daily totals from your profile. Please ensure all basic info, activity level, and diet goal are set.", variant: "destructive", duration: 5000});
+        // Load meal distributions if saved
+        if (profileData.mealDistributions && Array.isArray(profileData.mealDistributions) && profileData.mealDistributions.length === defaultMealNames.length) {
+          form.reset({ mealDistributions: profileData.mealDistributions });
+           const savedSplitToastExists = toast && Array.isArray(toast.toasts) && toast.toasts.find(t => t.description === "Your previously saved macro split percentages have been loaded.");
+           if (!savedSplitToastExists) {
+            toast({ title: "Loaded Saved Split", description: "Your previously saved macro split percentages have been loaded.", duration: 3000 });
           }
         } else {
-          toast({ title: "Profile Incomplete", description: "Your user profile is incomplete. Please fill it out to calculate daily totals for the Macro Splitter.", variant: "destructive", duration: 5000 });
+           form.reset({ // Reset to default percentages if none saved or invalid
+            mealDistributions: defaultMealNames.map(name => ({
+              mealName: name,
+              calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
+              protein_pct: defaultMacroPercentages[name]?.protein_pct || 0,
+              carbs_pct: defaultMacroPercentages[name]?.carbs_pct || 0,
+              fat_pct: defaultMacroPercentages[name]?.fat_pct || 0,
+            }))
+          });
         }
-      } catch (error) {
-        toast({ title: "Error", description: "Failed to load profile data for macro estimation.", variant: "destructive" });
+        
+        // Priority: Manual Macro Breakdown results, then Smart Planner results, then Profile estimation
+        if (profileData.manualMacroResults && profileData.manualMacroResults.totalCalories !== undefined && profileData.manualMacroResults.totalCalories !== null) {
+            const manualResults = profileData.manualMacroResults;
+            targets = {
+                calories: manualResults.totalCalories || 0,
+                protein_g: manualResults.proteinGrams || 0,
+                carbs_g: manualResults.carbGrams || 0,
+                fat_g: manualResults.fatGrams || 0,
+                source: "Manual Macro Breakdown (Smart Planner)"
+            };
+            sourceMessage = "Daily totals from 'Manual Macro Breakdown' in Smart Planner. Adjust there for changes.";
+        } 
+        else if (profileData.smartPlannerData?.results?.finalTargetCalories !== undefined && profileData.smartPlannerData?.results?.finalTargetCalories !== null) {
+            const smartResults = profileData.smartPlannerData.results;
+            targets = {
+                calories: smartResults.finalTargetCalories || 0,
+                protein_g: smartResults.proteinGrams || 0,
+                carbs_g: smartResults.carbGrams || 0,
+                fat_g: smartResults.fatGrams || 0,
+                source: "Smart Calorie Planner Targets"
+            };
+            sourceMessage = "Daily totals from 'Smart Calorie Planner'. Adjust there for changes.";
+        } 
+        else if (profileData.age && profileData.gender && profileData.current_weight && profileData.height_cm && profileData.activityLevel && profileData.dietGoalOnboarding) {
+          const estimatedTargets = calculateEstimatedDailyTargets({
+            age: profileData.age,
+            gender: profileData.gender,
+            current_weight: profileData.current_weight, 
+            height_cm: profileData.height_cm, 
+            activityLevel: profileData.activityLevel,
+            dietGoalOnboarding: profileData.dietGoalOnboarding, 
+            goal_weight_1m: profileData.goal_weight_1m,
+            bf_current: profileData.bf_current,
+            bf_target: profileData.bf_target,
+            waist_current: profileData.waist_current,
+            waist_goal_1m: profileData.waist_goal_1m
+          });
+          if (estimatedTargets.finalTargetCalories && estimatedTargets.proteinGrams && estimatedTargets.carbGrams && estimatedTargets.fatGrams) {
+            targets = {
+              calories: estimatedTargets.finalTargetCalories,
+              protein_g: estimatedTargets.proteinGrams,
+              carbs_g: estimatedTargets.carbGrams,
+              fat_g: estimatedTargets.fatGrams,
+              source: "Profile Estimation"
+            };
+            sourceMessage = "Daily totals estimated from Profile. Use Smart Calorie Planner for more precision or manual input.";
+          } else {
+             toast({ title: "Profile Incomplete for Calculation", description: "Could not calculate daily totals from profile. Ensure all basic info, activity, and diet goal are set in Onboarding or Smart Planner.", variant: "destructive", duration: 5000});
+          }
+        } else {
+          toast({ title: "Profile Incomplete", description: "Profile is incomplete. Please fill it via Onboarding or Smart Calorie Planner for daily totals.", variant: "destructive", duration: 5000 });
+        }
+      } else {
+         toast({ title: "Profile Not Found", description: "Could not find user profile for daily totals.", variant: "destructive", duration: 5000 });
       }
+    } catch (error) {
+      toast({ title: "Error Loading Data", description: "Failed to load data for macro estimation.", variant: "destructive" });
+      console.error("Error in loadDataForSplitter:", error);
     }
     
     setDailyTargets(targets);
+    setDataSourceMessage(sourceMessage);
+
     if (targets && sourceMessage) {
-       toast({ 
-        title: "Daily Totals Loaded", 
-        description: sourceMessage, 
-        duration: 6000 
-      });
+      const shouldShowToast = (toast && Array.isArray(toast.toasts)) ? !toast.toasts.find(t => t.description === sourceMessage) : true;
+      if (shouldShowToast) {
+         toast({ 
+          title: "Daily Totals Loaded", 
+          description: sourceMessage, 
+          duration: 6000 
+        });
+      }
     } else if (!targets) {
-        toast({ title: "No Daily Totals", description: "Could not find or calculate daily macro totals. Please use calculation tools or complete your profile.", variant: "destructive", duration: 6000 });
+        toast({ title: "No Daily Totals", description: "Could not find or calculate daily macro totals. Please use the Smart Calorie Planner or complete your profile.", variant: "destructive", duration: 6000 });
     }
 
     setIsLoading(false);
-  }, [user, toast]);
+  }, [user, toast, form]);
 
   useEffect(() => {
     loadDataForSplitter();
   }, [loadDataForSplitter]);
 
-  const onSubmit = (data: MacroSplitterFormValues) => {
+  const onSubmit = async (data: MacroSplitterFormValues) => {
     if (!dailyTargets) {
-      toast({ title: "Error", description: "Daily macro totals not available. Please ensure your profile is complete or use other calculation tools.", variant: "destructive" });
+      toast({ title: "Error", description: "Daily macro totals not available. Please ensure your profile is complete or use the Smart Calorie Planner.", variant: "destructive" });
       return;
     }
+    if (!user?.uid) {
+      toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+      return;
+    }
+
     const result = customMacroSplit(dailyTargets, data.mealDistributions);
     setCalculatedSplit(result);
-    toast({ title: "Calculation Complete", description: "Macro split calculated successfully." });
+    
+    try {
+      const userProfileRef = doc(db, "users", user.uid);
+      // Ensure data.mealDistributions is preprocessed to convert undefined to null
+      const distributionsToSave = preprocessDataForFirestore(data.mealDistributions);
+      await setDoc(userProfileRef, { mealDistributions: distributionsToSave }, { merge: true });
+      toast({ title: "Split Calculated & Saved", description: "Macro split calculated and your percentages have been saved." });
+    } catch (error) {
+      toast({ title: "Calculation Complete (Save Failed)", description: "Macro split calculated, but failed to save percentages.", variant: "destructive" });
+      console.error("Error saving meal distributions:", error);
+    }
   };
 
-  const handleReset = () => {
-    form.reset({
-      mealDistributions: defaultMealNames.map(name => ({
+  const handleReset = async () => {
+    const defaultValues = defaultMealNames.map(name => ({
         mealName: name,
         calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
         protein_pct: defaultMacroPercentages[name]?.protein_pct || 0,
         carbs_pct: defaultMacroPercentages[name]?.carbs_pct || 0,
         fat_pct: defaultMacroPercentages[name]?.fat_pct || 0,
-      })),
-    });
+      }));
+    form.reset({ mealDistributions: defaultValues });
     setCalculatedSplit(null);
+     if (user?.uid) {
+      try {
+        const userProfileRef = doc(db, "users", user.uid);
+        await setDoc(userProfileRef, { mealDistributions: null }, { merge: true });
+        toast({ title: "Reset Complete", description: "Percentages reset to defaults and saved." });
+      } catch (error) {
+         toast({ title: "Reset Warning", description: "Percentages reset locally, but failed to save defaults to cloud.", variant: "destructive" });
+         console.error("Error saving default meal distributions to Firestore:", error);
+      }
+    } else {
+      toast({ title: "Reset Complete", description: "Percentages reset to defaults." });
+    }
   };
 
   const handleSuggestMeals = (mealData: CalculatedMealMacros) => {
@@ -232,15 +275,15 @@ export default function MacroSplitterPage() {
   };
   
   const headerLabels = [
-    { key: "meal", label: "Meal", className: "sticky left-0 bg-background z-10 w-[150px] text-left font-medium" },
+    { key: "meal", label: "Meal", className: "sticky left-0 bg-card z-10 w-[120px] text-left font-medium" },
     { key: "cal_pct", label: "%Cal", className: "text-right min-w-[70px]" },
     { key: "p_pct", label: "%P", className: "text-right min-w-[70px]" },
     { key: "c_pct", label: "%C", className: "text-right min-w-[70px]" },
     { key: "f_pct", label: "%F", className: "text-right min-w-[70px] border-r" },
-    { key: "kcal", label: "kcal", className: "text-right min-w-[70px]" },
-    { key: "p_g", label: "P(g)", className: "text-right min-w-[70px]" },
-    { key: "c_g", label: "C(g)", className: "text-right min-w-[70px]" },
-    { key: "f_g", label: "F(g)", className: "text-right min-w-[70px]" },
+    { key: "kcal", label: "kcal", className: "text-right min-w-[60px]" },
+    { key: "p_g", label: "P(g)", className: "text-right min-w-[60px]" },
+    { key: "c_g", label: "C(g)", className: "text-right min-w-[60px]" },
+    { key: "f_g", label: "F(g)", className: "text-right min-w-[60px]" },
   ];
   
   const macroPctKeys: (keyof Omit<MealMacroDistribution, 'mealName'>)[] = ['calories_pct', 'protein_pct', 'carbs_pct', 'fat_pct'];
@@ -265,6 +308,7 @@ export default function MacroSplitterPage() {
           </CardTitle>
           <CardDescription>
             Distribute your total daily macros across your meals by percentage.
+             Percentages must be whole numbers (e.g., 20, not 20.5).
           </CardDescription>
         </CardHeader>
         {dailyTargets ? (
@@ -276,12 +320,11 @@ export default function MacroSplitterPage() {
               <p><span className="font-medium">Carbs:</span> {dailyTargets.carbs_g.toFixed(1)} g</p>
               <p><span className="font-medium">Fat:</span> {dailyTargets.fat_g.toFixed(1)} g</p>
             </div>
-            {dailyTargets.source && (
+            {dataSourceMessage && (
               <div className="text-sm text-muted-foreground flex items-center gap-2 p-2 rounded-md border border-dashed bg-background">
                 <Info className="h-4 w-4 text-accent shrink-0" />
                 <span>
-                  These totals are sourced from your <strong>{dailyTargets.source}</strong>. 
-                  Adjustments can be made in the respective tool or by updating your profile for estimations.
+                  {dataSourceMessage}
                 </span>
               </div>
             )}
@@ -301,15 +344,18 @@ export default function MacroSplitterPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="text-2xl">Meal Macro Percentage & Value Distribution</CardTitle>
-              <CardDescription>Enter percentages. Each percentage column must sum to 100%. Calculated values update live.</CardDescription>
+              <CardDescription>
+                Enter percentages. Each percentage column must sum to 100%. Calculated values update live.
+                Percentages must be whole numbers (e.g., 20, not 20.5).
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="w-full">
+              <ScrollArea className="w-full border rounded-md">
                 <Table className="min-w-[800px]"> 
                   <TableHeader>
                     <TableRow>
                       {headerLabels.map(header => (
-                        <TableHead key={header.key} className={cn("px-2 py-2 text-xs font-medium", header.className)}>
+                        <TableHead key={header.key} className={cn("px-2 py-2 text-xs font-medium h-9", header.className)}>
                           {header.label}
                         </TableHead>
                       ))}
@@ -329,55 +375,67 @@ export default function MacroSplitterPage() {
                       
                       return (
                         <TableRow key={field.id}>
-                          <TableCell className="font-medium sticky left-0 bg-background z-10 px-2 py-1 text-sm">{field.mealName}</TableCell>
+                          <TableCell className={cn("font-medium px-2 py-1 text-sm h-10", headerLabels[0].className)}>{field.mealName}</TableCell>
                           {macroPctKeys.map(macroKey => (
-                            <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums", macroKey === 'fat_pct' ? 'border-r' : '')}>
+                            <TableCell key={macroKey} className={cn("px-1 py-1 text-right tabular-nums h-10", macroKey === 'fat_pct' ? 'border-r' : '')}>
                               <FormField
                                 control={form.control}
                                 name={`mealDistributions.${index}.${macroKey}`}
                                 render={({ field: itemField }) => (
                                   <FormItem className="inline-block">
-                                    <FormControl>
+                                    <FormControl><div>
                                       <Input
                                         type="number"
+                                        step="1"
                                         {...itemField}
-                                        value={itemField.value ?? 0}
-                                        onChange={e => itemField.onChange(parseFloat(e.target.value) || 0)}
+                                        value={itemField.value ?? ''}
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            // Allow empty string for temporary state, Zod will validate on blur/submit
+                                            if (val === '') {
+                                                itemField.onChange(undefined); // Or null, depending on how Zod handles empty string for numbers
+                                            } else {
+                                                const numVal = parseFloat(val);
+                                                itemField.onChange(isNaN(numVal) ? undefined : numVal);
+                                            }
+                                        }}
+                                        onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
                                         className="w-16 text-right tabular-nums text-sm px-1 py-0.5 h-8"
                                         min="0"
                                         max="100"
-                                      />
+                                      /></div>
                                     </FormControl>
+                                    {/* FormMessage removed from here to prevent layout shift, shown below table */}
                                   </FormItem>
                                 )}
                               />
                             </TableCell>
                           ))}
-                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{isNaN(mealCalories) ? 'N/A' : mealCalories.toFixed(0)}</TableCell>
-                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{isNaN(mealProteinGrams) ? 'N/A' : mealProteinGrams.toFixed(1)}</TableCell>
-                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{isNaN(mealCarbsGrams) ? 'N/A' : mealCarbsGrams.toFixed(1)}</TableCell>
-                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{isNaN(mealFatGrams) ? 'N/A' : mealFatGrams.toFixed(1)}</TableCell>
+                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums h-10">{isNaN(mealCalories) ? 'N/A' : mealCalories.toFixed(0)}</TableCell>
+                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums h-10">{isNaN(mealProteinGrams) ? 'N/A' : mealProteinGrams.toFixed(1)}</TableCell>
+                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums h-10">{isNaN(mealCarbsGrams) ? 'N/A' : mealCarbsGrams.toFixed(1)}</TableCell>
+                          <TableCell className="px-2 py-1 text-sm text-right tabular-nums h-10">{isNaN(mealFatGrams) ? 'N/A' : mealFatGrams.toFixed(1)}</TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
                   <TableFooter>
-                    <TableRow className="font-semibold text-sm">
-                      <TableCell className="sticky left-0 bg-background z-10 px-2 py-1">Input % Totals:</TableCell>
+                    <TableRow className="font-semibold text-xs h-10 bg-muted/70">
+                      <TableCell className={cn("px-2 py-1", headerLabels[0].className)}>Input % Totals:</TableCell>
                       {macroPctKeys.map(key => {
                           const sum = columnSums[key];
-                          const isSum100 = Math.round(sum) === 100;
+                          const isSum100 = Math.abs(sum - 100) < 0.1; 
                           return (
                               <TableCell key={`sum-${key}`} className={cn("px-2 py-1 text-right tabular-nums", isSum100 ? 'text-green-600' : 'text-destructive', key === 'fat_pct' ? 'border-r' : '')}>
-                                  {sum.toFixed(1)}%
+                                  {sum.toFixed(0)}%
                                   {isSum100 ? <CheckCircle2 className="ml-1 h-3 w-3 inline-block" /> : <AlertTriangle className="ml-1 h-3 w-3 inline-block" />}
                               </TableCell>
                           );
                       })}
                       <TableCell colSpan={4} className="px-2 py-1"></TableCell> 
                     </TableRow>
-                    <TableRow className="font-semibold text-sm bg-muted/70">
-                       <TableCell className="sticky left-0 bg-muted/70 z-10 px-2 py-1">Calc. Value Totals:</TableCell>
+                    <TableRow className="font-semibold text-sm bg-muted/70 h-10">
+                       <TableCell className={cn("px-2 py-1", headerLabels[0].className)}>Calc. Value Totals:</TableCell>
                        <TableCell colSpan={4} className="px-2 py-1 border-r"></TableCell>
                        {dailyTargets ? (
                         <>
@@ -400,18 +458,33 @@ export default function MacroSplitterPage() {
                     </TableRow>
                   </TableFooter>
                 </Table>
+              <ScrollBar orientation="horizontal" />
               </ScrollArea>
               {form.formState.errors.mealDistributions?.root?.message && (
                 <p className="text-sm font-medium text-destructive mt-2">
                     {form.formState.errors.mealDistributions.root.message}
                 </p>
               )}
+               {form.formState.errors.mealDistributions && !form.formState.errors.mealDistributions.root && (
+                    Object.values(form.formState.errors.mealDistributions).map((errorObj, index) => {
+                        if (errorObj && typeof errorObj === 'object' && errorObj !== null && !Array.isArray(errorObj)) {
+                            return Object.entries(errorObj).map(([key, error]) => (
+                                error && typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string' && (
+                                    <p key={`${index}-${key}`} className="text-sm font-medium text-destructive mt-1">
+                                        Error in {defaultMealNames[index]} {key.replace('_pct', ' %')}: {error.message.replace(/"/g, '')}
+                                    </p>
+                                )
+                            ));
+                        }
+                        return null;
+                    })
+                )}
             </CardContent>
           </Card>
           
           <div className="flex space-x-4 mt-6">
             <Button type="submit" className="flex-1 text-lg py-3" disabled={!dailyTargets || form.formState.isSubmitting || isLoading}>
-              <Calculator className="mr-2 h-5 w-5" />
+              <SplitSquareHorizontal className="mr-2 h-5 w-5" />
               {form.formState.isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
               Save &amp; Show Final Split
             </Button>
@@ -433,7 +506,7 @@ export default function MacroSplitterPage() {
             <Table className="min-w-[700px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 bg-background z-10 w-[150px] px-2 py-2 text-left text-xs font-medium">Meal</TableHead>
+                  <TableHead className="sticky left-0 bg-card z-10 w-[150px] px-2 py-2 text-left text-xs font-medium">Meal</TableHead>
                   <TableHead className="px-2 py-2 text-right text-xs font-medium">Calories (kcal)</TableHead>
                   <TableHead className="px-2 py-2 text-right text-xs font-medium">Protein (g)</TableHead>
                   <TableHead className="px-2 py-2 text-right text-xs font-medium">Carbs (g)</TableHead>
@@ -444,7 +517,7 @@ export default function MacroSplitterPage() {
               <TableBody>
                 {calculatedSplit.map((mealData) => (
                   <TableRow key={mealData.mealName}>
-                    <TableCell className="font-medium sticky left-0 bg-background z-10 px-2 py-1 text-sm">{mealData.mealName}</TableCell>
+                    <TableCell className="font-medium sticky left-0 bg-card z-10 px-2 py-1 text-sm">{mealData.mealName}</TableCell>
                     <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{mealData.Calories}</TableCell>
                     <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{mealData['Protein (g)']}</TableCell>
                     <TableCell className="px-2 py-1 text-sm text-right tabular-nums">{mealData['Carbs (g)']}</TableCell>
