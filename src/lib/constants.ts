@@ -1,3 +1,4 @@
+import { FirebaseOptions } from "firebase/app";
 
 export const activityLevels = [
   { value: "sedentary", label: "Sedentary (little or no exercise)", activityFactor: 1.2, proteinFactorPerKg: 0.8 },
@@ -60,14 +61,15 @@ export const exerciseIntensities = [
   { value: "vigorous", label: "Vigorous" },
 ];
 
-export const firebaseConfig = {
-  apiKey: "AIzaSyBn52hl8ARjilr2TBAOKGHbAw6G3-CvGgw",
-  authDomain: "nutriplan-7wkxu.firebaseapp.com",
-  projectId: "nutriplan-7wkxu",
-  storageBucket: "nutriplan-7wkxu.firebasestorage.app",
-  messagingSenderId: "631126099554",
-  appId: "1:631126099554:web:45488015d6fda0f149f33b"
+export const firebaseConfig:FirebaseOptions = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
+
 
 export const subscriptionStatuses = [
   { value: "free", label: "Free Tier" },

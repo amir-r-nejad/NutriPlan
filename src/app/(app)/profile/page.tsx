@@ -32,40 +32,8 @@ import { subscriptionStatuses, exerciseFrequencies, exerciseIntensities } from "
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/clientApp';
 import { AlertTriangle, RefreshCcw } from "lucide-react";
+import { getProfileData } from "@/app/api/user/database";
 
-
-async function getProfileData(userId: string): Promise<Partial<ProfileFormValues>> {
-  if (!userId) return {};
-  try {
-    const userProfileRef = doc(db, "users", userId);
-    const docSnap = await getDoc(userProfileRef);
-    if (docSnap.exists()) {
-      const fullProfile = docSnap.data() as FullProfileType;
-      // Extract only the fields relevant to this simplified profile form
-      return {
-        name: fullProfile.name ?? undefined,
-        subscriptionStatus: fullProfile.subscriptionStatus ?? undefined,
-        // Fields removed in previous steps are not loaded into this specific form
-        painMobilityIssues: fullProfile.painMobilityIssues ?? undefined,
-        injuries: fullProfile.injuries || [], 
-        surgeries: fullProfile.surgeries || [], 
-        exerciseGoals: fullProfile.exerciseGoals || [],
-        exercisePreferences: fullProfile.exercisePreferences || [],
-        exerciseFrequency: fullProfile.exerciseFrequency ?? undefined,
-        exerciseIntensity: fullProfile.exerciseIntensity ?? undefined,
-        equipmentAccess: fullProfile.equipmentAccess || [],
-      };
-    }
-  } catch (error) {
-    console.error("Error fetching profile from Firestore:", error);
-  }
-  return { 
-    name: undefined, subscriptionStatus: undefined, 
-    painMobilityIssues: undefined, injuries: [], surgeries: [],
-    exerciseGoals: [], exercisePreferences: [], exerciseFrequency: undefined, 
-    exerciseIntensity: undefined, equipmentAccess: []
-  };
-}
 
 async function saveProfileData(userId: string, data: ProfileFormValues) {
   if (!userId) throw new Error("User ID is required to save profile data.");

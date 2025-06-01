@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller, FieldPath, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
+import {Loader2} from "lucide-react"
 import {
   Form,
   FormControl,
@@ -38,7 +39,7 @@ import {
   mealNames as defaultMealNames,
   defaultMacroPercentages,
 } from "@/lib/constants";
-import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution, type GlobalCalculatedTargets, preprocessDataForFirestore } from "@/lib/schemas";
+import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution, type GlobalCalculatedTargets, preprocessDataForFirestore, FullProfileType } from "@/lib/schemas";
 import { calculateEstimatedDailyTargets } from "@/lib/nutrition-calculator";
 import { Slider } from "@/components/ui/slider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
@@ -106,36 +107,36 @@ export default function OnboardingPage() {
       const estimated = calculateEstimatedDailyTargets({
         age: data.age,
         gender: data.gender,
-        current_weight: data.current_weight,
-        height_cm: data.height_cm,
+        currentWeight: data.current_weight,
+        height: data.height_cm,
         activityLevel: data.activityLevel,
-        dietGoalOnboarding: data.dietGoalOnboarding,
-        goal_weight_1m: data.goal_weight_1m,
-        bf_current: data.bf_current,
-        bf_target: data.bf_target,
-        waist_current: data.waist_current,
-        waist_goal_1m: data.waist_goal_1m,
+        dietGoal: data.dietGoalOnboarding,
+        goalWeight: data.goal_weight_1m,
+        bfCurrent: data.bf_current,
+        bfTarget: data.bf_target,
+        waistCurrent: data.waist_current,
+        waistGoal_1m: data.waist_goal_1m,
       });
 
-      if (estimated.finalTargetCalories && estimated.proteinGrams && estimated.carbGrams && estimated.fatGrams) {
-        const proteinCals = estimated.proteinGrams * 4;
-        const carbCals = estimated.carbGrams * 4;
-        const fatCals = estimated.fatGrams * 9;
+      if (estimated.targetCalories && estimated.targetProtein && estimated.targetCarbs && estimated.targetFat) {
+        const proteinCals = estimated.targetProtein! * 4;
+        const carbCals = estimated.targetCarbs! * 4;
+        const fatCals = estimated.targetFat! * 9;
          const newTargets: GlobalCalculatedTargets = {
           bmr: Math.round(estimated.bmr || 0),
           tdee: Math.round(estimated.tdee || 0),
-          finalTargetCalories: Math.round(estimated.finalTargetCalories),
-          proteinGrams: Math.round(estimated.proteinGrams),
+          finalTargetCalories: Math.round(estimated.targetCalories),
+          proteinGrams: Math.round(estimated.targetProtein),
           proteinCalories: Math.round(proteinCals),
-          proteinTargetPct: estimated.finalTargetCalories > 0 ? Math.round((proteinCals / estimated.finalTargetCalories) * 100) : undefined,
-          carbGrams: Math.round(estimated.carbGrams),
+          proteinTargetPct: estimated.targetProtein > 0 ? Math.round((proteinCals / estimated.targetProtein) * 100) : undefined,
+          carbGrams: Math.round(estimated.targetCarbs),
           carbCalories: Math.round(carbCals),
-          carbTargetPct: estimated.finalTargetCalories > 0 ? Math.round((carbCals / estimated.finalTargetCalories) * 100) : undefined,
-          fatGrams: Math.round(estimated.fatGrams),
+          carbTargetPct: estimated.targetCalories > 0 ? Math.round((carbCals / estimated.targetCalories) * 100) : undefined,
+          fatGrams: Math.round(estimated.targetFat),
           fatCalories: Math.round(fatCals),
-          fatTargetPct: estimated.finalTargetCalories > 0 ? Math.round((fatCals / estimated.finalTargetCalories) * 100) : undefined,
+          fatTargetPct: estimated.targetCalories > 0 ? Math.round((fatCals / estimated.targetCalories) * 100) : undefined,
           current_weight_for_custom_calc: data.current_weight,
-          estimatedWeeklyWeightChangeKg: estimated.estimatedWeeklyWeightChangeKg,
+          estimatedWeeklyWeightChangeKg: estimated.tdee,
         };
         setCalculatedTargets(newTargets);
       } else {
@@ -232,14 +233,14 @@ export default function OnboardingPage() {
 
     if (customCalculatedTargets && customCalculatedTargets.finalTargetCalories !== undefined && (formValues.custom_total_calories !== undefined || formValues.custom_protein_per_kg !== undefined)) {
       sourceTotals = {
-        calories: customCalculatedTargets.finalTargetCalories,
+        calories: customCalculatedTargets.finalTargetCalories || 0,
         protein_g: customCalculatedTargets.proteinGrams || 0,
         carbs_g: customCalculatedTargets.carbGrams || 0,
         fat_g: customCalculatedTargets.fatGrams || 0,
       };
     } else if (calculatedTargets && calculatedTargets.finalTargetCalories !== undefined) {
        sourceTotals = {
-        calories: calculatedTargets.finalTargetCalories,
+        calories: calculatedTargets.finalTargetCalories ||  0,
         protein_g: calculatedTargets.proteinGrams || 0,
         carbs_g: calculatedTargets.carbGrams || 0,
         fat_g: calculatedTargets.fatGrams || 0,
@@ -276,6 +277,7 @@ export default function OnboardingPage() {
   const handleNext = async () => {
     if (activeStepData?.fieldsToValidate && activeStepData.fieldsToValidate.length > 0) {
       const result = await form.trigger(activeStepData.fieldsToValidate as FieldPath<OnboardingFormValues>[]);
+      console.log("Getting new result from form on next",form.getValues())
       if (!result) {
         let firstErrorField: FieldPath<OnboardingFormValues> | undefined = undefined;
         for (const field of activeStepData.fieldsToValidate) {
@@ -320,6 +322,7 @@ export default function OnboardingPage() {
   };
 
   const processAndSaveData = async (data: OnboardingFormValues) => {
+    console.log("proccessing the data",data)
     if (!user) {
       toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
       return;
@@ -394,22 +397,18 @@ export default function OnboardingPage() {
           results: preprocessDataForFirestore(finalResultsToSave)
       },
       mealDistributions: processedData.mealDistributions && processedData.mealDistributions.length > 0 
-        ? preprocessDataForFirestore(processedData.mealDistributions)
+        ? preprocessDataForFirestore(processedData.mealDistributions) as MealMacroDistribution[]
         : defaultMealNames.map(name => ({ // Ensure this also gets preprocessed if necessary
             mealName: name,
             calories_pct: defaultMacroPercentages[name]?.calories_pct || 0,
             protein_pct: defaultMacroPercentages[name]?.protein_pct || 0,
             carbs_pct: defaultMacroPercentages[name]?.carbs_pct || 0,
             fat_pct: defaultMacroPercentages[name]?.fat_pct || 0,
-          })),
+          } as MealMacroDistribution)),
     };
     
-    // Remove fields that are now nested under smartPlannerData.formValues from the top level
-    delete firestoreReadyData.custom_total_calories;
-    delete firestoreReadyData.custom_protein_per_kg;
-    delete firestoreReadyData.remaining_calories_carb_pct;
     
-    await completeOnboarding(firestoreReadyData as FullProfileType); 
+    await completeOnboarding(firestoreReadyData); 
     toast({ title: "Onboarding Complete!", description: "Your profile has been saved. Welcome to NutriPlan!" });
   };
 
@@ -434,7 +433,7 @@ export default function OnboardingPage() {
   );
 
   if (!activeStepData) return <div className="flex justify-center items-center h-screen"><p>Loading step...</p></div>;
-  if (!user) return <div className="flex justify-center items-center h-screen"><p>Loading user information...</p></div>;
+  if (!user) return <div className="flex justify-center items-center h-screen"><div className="flex justify-center items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /><p>Loading user information...</p></div></div>;
 
   const progressValue = (currentStep / onboardingStepsData.length) * 100;
 
@@ -470,7 +469,7 @@ export default function OnboardingPage() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(processAndSaveData)} className="space-y-8">
+          <form onSubmit={form.handleSubmit((data)=>{processAndSaveData(data),console.log("Submiting data"+data)})} className="space-y-8">
             {currentStep === 1 && ( <div className="text-center p-4">  </div> )}
             {currentStep === 2 && ( <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> {renderNumberField("age", "Age (Years)", "e.g., 30", undefined, "1")} {renderSelectField("gender", "Biological Sex", "Select sex", genders)} {renderNumberField("height_cm", "Height (cm)", "e.g., 175", undefined, "0.1")} {renderNumberField("current_weight", "Current Weight (kg)", "e.g., 70", undefined, "0.1")} {renderNumberField("goal_weight_1m", "Target Weight After 1 Month (kg)", "e.g., 68", undefined, "0.1")} {renderNumberField("ideal_goal_weight", "Long-Term Goal Weight (kg, Optional)", "e.g., 65", undefined, "0.1")} {renderSelectField("activityLevel", "Physical Activity Level", "Select activity level", activityLevels)} {renderSelectField("dietGoalOnboarding", "Primary Diet Goal", "Select your diet goal", smartPlannerDietGoals)} </div> )}
             {currentStep === 3 && ( <div className="space-y-4"> <div className="grid grid-cols-4 gap-x-2 pb-1 border-b mb-2 text-sm font-medium text-muted-foreground"> <span className="col-span-1">Metric</span> <span className="text-center">Current (%)</span> <span className="text-center">Target (1 Mth) (%)</span> <span className="text-center">Ideal (%)</span> </div> {(['Body Fat', 'Muscle Mass', 'Body Water'] as const).map((metric) => { const keys = { 'Body Fat': ['bf_current', 'bf_target', 'bf_ideal'], 'Muscle Mass': ['mm_current', 'mm_target', 'mm_ideal'], 'Body Water': ['bw_current', 'bw_target', 'bw_ideal'], }[metric] as [FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>, FieldPath<OnboardingFormValues>]; return ( <div key={metric} className="grid grid-cols-4 gap-x-2 items-start py-1"> <FormLabel className="text-sm pt-2">{metric}</FormLabel> {keys.map(key => ( <FormField key={key} control={form.control} name={key} render={({ field }) => ( <FormItem className="text-center"> <FormControl><div><Input type="number" placeholder="e.g., 20" {...field} value={field.value === undefined || field.value === null || isNaN(Number(field.value)) ? '' : String(field.value)} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} className="w-full text-center text-sm h-9" step="0.1" onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}/></div></FormControl> <FormMessage className="text-xs text-center"/> </FormItem> )}/> ))} </div> ); })} </div> )}
@@ -495,17 +494,18 @@ export default function OnboardingPage() {
                       </p>
                     </div>
                     <ScrollArea className="w-full border rounded-md"> {/* Added ScrollArea */}
-                      <Table className="min-w-[700px]"> {/* Added min-width */}
+                      <Table className="w-full"> {/* Added min-width */}
                         <TableHeader>
                           <TableRow>
-                            {tableHeaderLabels.map(header => (
+                            {tableHeaderLabels.map(header =>{ 
+                              return(
                               <TableHead key={header.key} className={cn("px-2 py-1 h-9 text-xs font-medium", header.className)}>
                                 {header.label}
                               </TableHead>
-                            ))}
+                            )})}
                           </TableRow>
                         </TableHeader>
-                        <TableBody>
+                        <TableBody className="overflow-x-auto">
                           {mealDistributionFields.map((item, index) => {
                             const currentPercentages = watchedMealDistributions?.[index];
                             let mealCal = NaN, mealP = NaN, mealC = NaN, mealF = NaN;
@@ -555,7 +555,7 @@ export default function OnboardingPage() {
                             <TableCell className={cn("px-2 py-1", tableHeaderLabels[0].className)}>Input % Totals:</TableCell>
                             {macroPctKeys.map(key => {
                               const sum = columnSums[key];
-                              const isSum100 = Math.abs(sum - 100) < 0.1;
+                              const isSum100 = Math.abs(sum - 100) <= 1;
                               return (
                                 <TableCell key={`sum-${key}`} className={cn("text-right py-1 tabular-nums", isSum100 ? 'text-green-600' : 'text-destructive', key === 'fat_pct' ? 'border-r' : '')}>
                                   {sum.toFixed(0)}%
@@ -596,9 +596,9 @@ export default function OnboardingPage() {
             {currentStep === 10 && ( <div> {renderTextareaField("typicalMealsDescription", "Describe Your Typical Meals", "e.g., Breakfast: Oats with berries. Lunch: Chicken salad sandwich...", "This helps our AI learn your habits.")} </div> )}
             {currentStep === 11 && ( <div className="text-center space-y-4"> <CheckCircle className="h-16 w-16 text-green-500 mx-auto" /> <p className="text-lg">You're all set! Your profile is complete.</p> <p className="text-muted-foreground">Click "Finish Onboarding" to save your profile and proceed to the dashboard. You can then generate your first AI-powered meal plan.</p> </div> )}
 
-            <div className="flex justify-between items-center pt-6"> <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 1}> Previous </Button> <div className="space-x-2"> {activeStepData.isOptional && currentStep < onboardingStepsData.length && ( <Button type="button" variant="ghost" onClick={handleSkip}> Skip </Button> )} {currentStep < onboardingStepsData.length ? ( <Button type="button" onClick={handleNext}> Next </Button> ) : ( <Button type="submit"> Finish Onboarding </Button> )} </div> </div>
-          </form>
-        </Form>
+              <div className="flex justify-between items-center pt-6"> <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 1}> Previous </Button> <div className="space-x-2"> {activeStepData.isOptional && currentStep < onboardingStepsData.length && (<Button type="button" variant="ghost" onClick={handleSkip}> Skip </Button>)} {currentStep < onboardingStepsData.length ? (<Button type="button" onClick={handleNext}> Next </Button>) : (<Button onClick={() =>processAndSaveData(form.getValues())}  type="submit"> Finish Onboarding </Button>)} </div> </div>
+            </form>
+          </Form>
       </CardContent>
     </Card>
     </TooltipProvider>

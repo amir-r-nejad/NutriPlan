@@ -1,6 +1,7 @@
 
 import * as z from "zod";
 import { preferredDiets, genders, activityLevels as allActivityLevels, smartPlannerDietGoals, subscriptionStatuses, mealNames as defaultMealNames, defaultMacroPercentages } from "./constants";
+import { User } from "firebase/auth";
 
 // Helper for preprocessing optional number fields: empty string, null, or non-numeric becomes undefined
 const preprocessOptionalNumber = (val: unknown) => {
@@ -36,6 +37,7 @@ export function preprocessDataForFirestore(data: Record<string, any> | null | un
 export const ProfileFormSchema = z.object({
   name: z.string().min(1, "Name is required.").optional(),
   subscriptionStatus: z.string().optional(),
+  goalWeight: z.number(),
   // Medical Info & Physical Limitations
   painMobilityIssues: z.string().optional(),
   injuries: z.array(z.string()).optional(),
@@ -79,8 +81,7 @@ export interface GlobalCalculatedTargets {
 
 
 // Base fields that might come from onboarding or profile and be used by tools
-export interface BaseProfileData {
-  name?: string | null;
+export interface BaseProfileData extends User {
   age?: number | null;
   gender?: string | null;
   height_cm?: number | null;
@@ -117,7 +118,6 @@ export interface BaseProfileData {
   // Onboarding specific
   typicalMealsDescription?: string | null;
   onboardingComplete?: boolean;
-  email?: string | null; // Stored with main profile data
   subscriptionStatus?: string | null; // Stored with main profile data
 
   // Exercise prefs from Profile page
@@ -188,14 +188,13 @@ export const WeeklyMealPlanSchema = z.object({
 });
 export type WeeklyMealPlan = z.infer<typeof WeeklyMealPlanSchema>;
 
-const customIntErrorMessage = "⚠ Invalid value. Please enter a whole number (e.g., 19 or 20, not 19.3).";
 
 export const MealMacroDistributionSchema = z.object({
   mealName: z.string(),
-  calories_pct: z.coerce.number().int(customIntErrorMessage).min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
-  protein_pct: z.coerce.number().int(customIntErrorMessage).min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
-  carbs_pct: z.coerce.number().int(customIntErrorMessage).min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
-  fat_pct: z.coerce.number().int(customIntErrorMessage).min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
+  calories_pct: z.coerce.number().min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
+  protein_pct: z.coerce.number().min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
+  carbs_pct: z.coerce.number().min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
+  fat_pct: z.coerce.number().min(0, "% must be >= 0").max(100, "% must be <= 100").default(0),
 });
 export type MealMacroDistribution = z.infer<typeof MealMacroDistributionSchema>;
 

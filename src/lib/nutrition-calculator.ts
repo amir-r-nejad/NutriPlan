@@ -75,6 +75,8 @@ export function calculateEstimatedDailyTargets(profile: Partial<ProfileFormValue
   targetProtein?: number;
   targetCarbs?: number; 
   targetFat?: number; 
+  bmr?: number;
+  tdee?: number
 } {
   if (
     !profile.gender ||
@@ -102,9 +104,11 @@ export function calculateEstimatedDailyTargets(profile: Partial<ProfileFormValue
 
 
   return {
-    targetCalories: Math.round(targetCalories),
-    targetProtein: Math.round(protein),
-    targetFat: Math.max(0, fatGrams), // Ensure non-negative
-    targetCarbs: Math.max(0, carbGrams), // Ensure non-negative
+    targetCalories: targetCalories,
+    targetProtein: protein,
+    targetFat: fatGrams, // Ensure non-negative
+    targetCarbs: carbGrams, // Ensure non-negative
+    bmr: bmr,
+    tdee: tdee,
   };
 }

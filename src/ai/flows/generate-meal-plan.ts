@@ -5,8 +5,9 @@
  * Optimized for Genkit with minimal token usage.
  */
 
+
 import { ai } from '@/ai/genkit';
-import { geminiPro } from '@genkit-ai/googleai';
+import { gpt41Nano } from 'genkitx-openai';
 
 // Types
 
@@ -101,7 +102,7 @@ export async function generatePersonalizedMealPlan(
 
 const prompt = ai.definePrompt({
   name: 'generatePersonalizedMealPlanPrompt',
-  model: geminiPro,
+  model: gpt41Nano,
   input: { type: 'json' },
   output: { type: 'json' },
   prompt: `You are a nutritionist who will generate a personalized weekly meal plan based on the user's full profile data and preferences.

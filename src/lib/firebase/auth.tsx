@@ -12,9 +12,11 @@ import {
   verifyPasswordResetCode,
 } from "firebase/auth";
 import { auth } from "./firebase"
+import { Caveat_Brush } from "next/font/google";
 
 
 export function onAuthStateChanged(cb:NextOrObserver<User>) {
+  console.log("onAuthStateChanged called",cb);
   return _onAuthStateChanged(auth, cb);
 }
 
@@ -26,7 +28,7 @@ export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
 
   try {
-    await signInWithRedirect(auth, provider);
+    await signInWithPopup(auth, provider);
   } catch (error) {
     console.error("Error signing in with Google", error);
   }

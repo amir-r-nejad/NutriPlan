@@ -16,7 +16,6 @@ import { useAuth } from '@/contexts/AuthContext'; // Updated import
 import { signInWithGoogle } from '@/lib/firebase/auth'; // Kept for Google sign-in
 import { useRouter } from 'next/navigation';
 
-
 export default  function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,7 +23,6 @@ export default  function LoginPage() {
   const { login, isLoading: authIsLoading } = useAuth(); // Use login from AuthContext
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter()
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +40,11 @@ export default  function LoginPage() {
     router.push("/dashboard")
   };
 
+
+
   const disabled = authIsLoading || isSubmitting;
+
+  const [loading,setisLoading] = useState(false);
 
   return (
     <Card className="w-full max-w-sm shadow-xl">
@@ -91,8 +93,8 @@ export default  function LoginPage() {
             {disabled ? "Logging in..." : "Login"}
           </Button>
 
-          <Button onClick={(e) => signInWithGoogle()} type="button" className="w-full" disabled={disabled}>
-            <Image src={Google} alt='google' /> Login with Google
+          <Button onClick={(e) =>{setisLoading(true);signInWithGoogle();}} type="button" className="w-full" disabled={disabled}>
+            {loading?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<Image src={Google} alt='google' />} Login with Google
           </Button>
 
         </form>

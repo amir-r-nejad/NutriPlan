@@ -1,10 +1,18 @@
 
-import { initializeApp, initializeServerApp } from "firebase/app";
+"use server";
+
+import { FirebaseApp, FirebaseError, initializeApp, initializeServerApp,FirebaseServerApp } from "firebase/app";
 import { cookies } from "next/headers";
-import { getAuth } from "firebase/auth";
+import { getAuth, NextOrObserver, Unsubscribe, User } from "firebase/auth";
 import { firebaseConfig } from "../../../lib/constants";
 
-export async function getAuthenticatedAppForUser() {
+
+export interface IAuthincatedAppUser{
+    firebaseServerApp:FirebaseApp,
+     currentUser: User
+}
+
+export async function getAuthenticatedAppForUser(){
   "use server";
   const authIdToken = (await cookies()).get("__session")?.value;
 
@@ -22,5 +30,5 @@ export async function getAuthenticatedAppForUser() {
   const auth = getAuth(firebaseServerApp);
   await auth.authStateReady();
 
-  return { firebaseServerApp, currentUser: auth.currentUser };
+  return JSON.stringify({ firebaseServerApp, currentUser: auth.currentUser });
 }

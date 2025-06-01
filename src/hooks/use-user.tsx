@@ -3,15 +3,20 @@
 import { onAuthStateChanged, User } from "firebase/auth";
 import { useEffect, useState } from "react";
 
-import { auth } from "../lib/firebase/firebase";
+import { auth } from "@/lib/firebase/firebase";
+import { addUser } from "@/app/api/user/database";
 
 export function useUser() {
   const [user, setUser] = useState<User|null>();
 
   useEffect(() => {
-    return onAuthStateChanged(auth, (authUser) => {
-      console.log(authUser)
-      localStorage.setItem("user", JSON.stringify(authUser));
+    onAuthStateChanged(auth, (authUser) => {
+      const addServerUser = async () => {
+        if (authUser!=null){
+          await addUser(JSON.stringify(authUser))
+        }
+      }
+      addServerUser();
       setUser(authUser);
     });
   }, []);
