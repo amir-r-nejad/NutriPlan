@@ -1,8 +1,6 @@
 
 import {genkit} from 'genkit';
 import { gemini15Flash, googleAI } from '@genkit-ai/googleai';
-
-
 // Genkit AI initialization
 export const ai = genkit({
   plugins: [
