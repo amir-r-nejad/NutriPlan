@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -102,7 +103,7 @@ export async function generatePersonalizedMealPlan(
 
 const prompt = ai.definePrompt({
   name: 'generatePersonalizedMealPlanPrompt',
-  model: gpt41Nano,
+  // model: gpt41Nano, // Removed to use default model from ai.ts (gemini15Flash)
   input: { type: 'json' },
   output: { type: 'json' },
   prompt: `You are a nutritionist who will generate a personalized weekly meal plan based on the user's full profile data and preferences.
@@ -135,3 +136,4 @@ const generatePersonalizedMealPlanFlow = ai.defineFlow(
     return output as GeneratePersonalizedMealPlanOutput;
   }
 );
+
