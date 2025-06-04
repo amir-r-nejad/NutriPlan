@@ -1,0 +1,24 @@
+# Settings for Cloud Run
+runConfig:
+  minInstances: 2
+  maxInstances: 100
+  concurrency: 100
+  cpu: 2
+  memoryMiB: 1024
+
+# Environment variables and secrets
+env:
+  - variable: NEXT_PUBLIC_GEMINI_KEY
+    secret: AIzaSyCf-xXweO9nJDSzF_r0uDgLiPFgnIcx2h8
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    secret: "AIzaSyBn52hl8ARjilr2TBAOKGHbAw6G3-CvGgw"
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    secret: "nutriplan-7wkxu.firebaseapp.com"
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    secret: "nutriplan-7wkxu"
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    secret: "nutriplan-7wkxu.firebasestorage.app"
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    secret: "631126099554"
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    secret: "1:631126099554:web:45488015d6fda0f149f33b"
