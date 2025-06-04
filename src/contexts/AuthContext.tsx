@@ -24,7 +24,7 @@ interface User {
 }
 
 interface AuthContextType {
-  user: User | null | undefined;
+  user: User | null; // Changed from User | null | undefined
   isLoading: boolean;
   login: (email: string, password?: string) => Promise<void>; 
   signup: (email: string, password?: string) => Promise<void>; 
@@ -51,7 +51,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
-
 
   useEffect(() => {
     if (isLoading) return;
@@ -91,18 +90,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
         }
     }
-}, [user, isLoading, pathname, router]);
-
-  const login = async (emailProvided: string, passwordProvided?: string) => { // Made password optional for potential future social logins
+}, [user, isLoading, pathname, router]);// Added toast to dependency array
+  const login = async (emailProvided: string, passwordProvided?: string) => { 
     if (!passwordProvided) {
       toast({ title: "Login Failed", description: "Password is required.", variant: "destructive" });
       return;
     }
     setIsLoading(true);
     try {
-      await fLogin(emailProvided, passwordProvided);
+      const userCredential = await fLogin(emailProvided, passwordProvided); // Use aliased fLogin
+      if (userCredential.user) {
+        localStorage.setItem('lastUserUid_nutriplan', userCredential.user.uid); // Store UID for logout
+      }
       toast({ title: "Login Successful", description: `Welcome back!` });
-      // onAuthStateChanged will handle setting user and redirection
     } catch (error: any) {
       console.error("Firebase login error:", error);
       let errorMessage = "Failed to login. Please check your credentials.";
@@ -117,33 +117,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const signup = async (emailProvided: string, passwordProvided?: string) => { // Made password optional
+  const signup = async (emailProvided: string, passwordProvided?: string) => { 
     if (!passwordProvided) {
       toast({ title: "Signup Failed", description: "Password is required.", variant: "destructive" });
       return;
     }
     setIsLoading(true);
+    let title = "Signup Failed";
     try {
       await fSignIn(emailProvided,passwordProvided);
     } catch (error: any) {
       let errorMessage = "Failed to sign up. Please try again.";
-      let title = "Signup Failed";
-
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = "This email address is already in use. Please try logging in or use a different email.";
-        console.warn(`Signup attempt with existing email (${emailProvided}):`, error.message);
       } else if (error.code === 'auth/weak-password') {
         errorMessage = "Password is too weak. It should be at least 6 characters.";
-        console.warn(`Signup attempt with weak password for email (${emailProvided}):`, error.message);
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = "Please enter a valid email address.";
-        console.warn(`Signup attempt with invalid email format (${emailProvided}):`, error.message);
       } else if (error.code === 'auth/operation-not-allowed') {
-        errorMessage = "Email/Password sign-up is not enabled for this project. Please check Firebase console settings.";
-        console.error("CRITICAL: Email/Password sign-up not enabled in Firebase project.", error);
-      } else {
-        // For unexpected errors, log as error
-        console.error("Unexpected Firebase signup error:", error);
+        errorMessage = "Email/Password sign-up is not enabled for this project.";
       }
       
       toast({ title: title, description: errorMessage, variant: "destructive" });
@@ -154,6 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     setIsLoading(true);
+    const currentUserUid = user?.uid; // Get UID before user state is cleared
     try {
       await fSignOut();
     } catch (error) {
@@ -165,7 +158,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const completeOnboarding = async (profileData: OnboardingFormValues) => {
-    if (user) {
+    if (user?.uid) { // Ensure user and user.uid exist
       try {
         console.log(user.uid)
         await onboardingUpdateUser(user.uid,profileData)
