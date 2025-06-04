@@ -17,22 +17,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { FullProfileType } from '@/lib/schemas';
+import type { FullProfileType, MealSuggestionType, SuggestMealsForMacrosInputType } from '@/lib/schemas';
 import { MealSuggestionPreferencesSchema, type MealSuggestionPreferencesValues } from '@/lib/schemas';
-import { suggestMealsForMacros, type SuggestMealsForMacrosInput, type SuggestMealsForMacrosOutput } from '@/ai/flows/suggest-meals-for-macros';
+import { suggestMealsForMacros } from '@/ai/flows/suggest-meals-for-macros';
 import { mealNames, defaultMacroPercentages, preferredDiets } from '@/lib/constants';
 import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/clientApp';
+import { getProfileData } from '@/app/api/user/database';
 
 async function getProfileDataForSuggestions(userId: string): Promise<Partial<FullProfileType>> {
   if (!userId) return {};
   try {
-    const userProfileRef = doc(db, "users", userId);
-    const docSnap = await getDoc(userProfileRef);
-    if (docSnap.exists()) {
-      return docSnap.data() as Partial<FullProfileType>;
-    }
+    const profileData = await getProfileData(userId)
+    console.log("Profile data from Profile suggestion", profileData)
+    return  profileData
   } catch (error) {
     console.error("Error fetching profile data from Firestore for suggestions:", error);
   }
@@ -58,7 +55,7 @@ function MealSuggestionsContent() {
   const [isLoadingAiSuggestions, setIsLoadingAiSuggestions] = useState(false);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   
-  const [suggestions, setSuggestions] = useState<SuggestMealsForMacrosOutput['suggestions']>([]);
+  const [suggestions, setSuggestions] = useState<MealSuggestionType[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
 
@@ -120,20 +117,20 @@ function MealSuggestionsContent() {
       const dailyTotals = calculateEstimatedDailyTargets({
         age: profileToUse.age!,
         gender: profileToUse.gender!,
-        current_weight: profileToUse.current_weight!,
-        height_cm: profileToUse.height_cm!,
+        currentWeight: profileToUse.current_weight!,
+        height: profileToUse.height_cm!,
         activityLevel: profileToUse.activityLevel!,
-        dietGoalOnboarding: profileToUse.dietGoalOnboarding!,
+        dietGoal: profileToUse.dietGoalOnboarding!,
       });
       const mealDistribution = defaultMacroPercentages[selectedMealName];
 
-      if (dailyTotals.finalTargetCalories && dailyTotals.proteinGrams && dailyTotals.carbGrams && dailyTotals.fatGrams && mealDistribution) {
+      if (dailyTotals.targetCalories && dailyTotals.targetProtein && dailyTotals.targetCarbs && dailyTotals.targetFat && mealDistribution) {
         setTargetMacros({
           mealName: selectedMealName,
-          calories: Math.round(dailyTotals.finalTargetCalories * (mealDistribution.calories_pct / 100)),
-          protein: Math.round(dailyTotals.proteinGrams * (mealDistribution.protein_pct / 100)),
-          carbs: Math.round(dailyTotals.carbGrams * (mealDistribution.carbs_pct / 100)),
-          fat: Math.round(dailyTotals.fatGrams * (mealDistribution.fat_pct / 100)),
+          calories: Math.round(dailyTotals.targetCalories * (mealDistribution.calories_pct / 100)),
+          protein: Math.round(dailyTotals.targetProtein * (mealDistribution.protein_pct / 100)),
+          carbs: Math.round(dailyTotals.targetCarbs * (mealDistribution.carbs_pct / 100)),
+          fat: Math.round(dailyTotals.targetFat * (mealDistribution.fat_pct / 100)),
         });
         setIsDemoMode(false);
       } else {
@@ -210,13 +207,13 @@ function MealSuggestionsContent() {
 
     const currentPreferences = preferenceForm.getValues();
     
-    const aiInput: SuggestMealsForMacrosInput = {
+    const aiInput: SuggestMealsForMacrosInputType = {
       mealName: targetMacros.mealName,
       targetCalories: targetMacros.calories,
       targetProteinGrams: targetMacros.protein,
       targetCarbsGrams: targetMacros.carbs,
       targetFatGrams: targetMacros.fat,
-      age: !isDemoMode ? fullProfileData?.age : undefined,
+      age: !isDemoMode ? fullProfileData?.age  : undefined,
       gender: !isDemoMode ? fullProfileData?.gender : undefined,
       activityLevel: !isDemoMode ? fullProfileData?.activityLevel : undefined,
       dietGoal: !isDemoMode ? fullProfileData?.dietGoalOnboarding : undefined,
@@ -228,7 +225,7 @@ function MealSuggestionsContent() {
       allergies: currentPreferences.allergies,
     };
 
-    Object.keys(aiInput).forEach(key => aiInput[key as keyof SuggestMealsForMacrosInput] === undefined && delete aiInput[key as keyof SuggestMealsForMacrosInput]);
+    Object.keys(aiInput).forEach(key => aiInput[key as keyof SuggestMealsForMacrosInputType] === undefined && delete aiInput[key as keyof SuggestMealsForMacrosInputType]);
 
     try {
       const result = await suggestMealsForMacros(aiInput);

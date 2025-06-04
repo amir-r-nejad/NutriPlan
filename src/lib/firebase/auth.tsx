@@ -1,3 +1,5 @@
+"use client"
+
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -11,12 +13,10 @@ import {
   confirmPasswordReset,
   verifyPasswordResetCode,
 } from "firebase/auth";
-import { auth } from "./firebase"
-import { Caveat_Brush } from "next/font/google";
+import { auth } from "./clientApp"
 
 
 export function onAuthStateChanged(cb:NextOrObserver<User>) {
-  console.log("onAuthStateChanged called",cb);
   return _onAuthStateChanged(auth, cb);
 }
 
@@ -28,7 +28,10 @@ export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
 
   try {
-    await signInWithPopup(auth, provider);
+    if(process.env.NODE_ENV =="development")
+      await signInWithPopup(auth, provider);
+    else
+      await signInWithRedirect(auth, provider);
   } catch (error) {
     console.error("Error signing in with Google", error);
   }

@@ -1,39 +1,53 @@
 'use server'
-import { db } from "@/lib/firebase/firebase"
-import { collection,addDoc, updateDoc, query, where, getDocs  } from "firebase/firestore";
+import { getDb } from "@/lib/firebase/firebase"
 import {User} from  "firebase/auth"
 import { CustomCalculatedTargets, FullProfileType, GlobalCalculatedTargets, OnboardingFormValues, ProfileFormValues, SmartCaloriePlannerFormValues } from "../../../lib/schemas";
+
+const db = await getDb();
 export async function  addUser(u:string){
     'use server'
     let user = JSON.parse(u) as User;
-    try{
-        const userRef =  collection(db,"users")
-        const q = query(userRef,where("uid","==",""+user.uid))
-        const userSnapshot = await getDocs(q);
-        console.log("Quried Users: ",userSnapshot.size)
-        if(userSnapshot.empty){
-            addDoc(userRef, user)
-        }
-        return user
-    }catch(e){
+    return await db.runTransaction(async (transaction)=>{
+      try{
+          const userQuery = db.collection("users").where("userid", "==", user.uid);
+          const userQuerySnapshot = await transaction.get(userQuery);
+          if (userQuerySnapshot.empty) {
+            await db.collection("user").add(user)
+          }
+          return user;
+      }catch(e){
         console.log(e)
     }
+    })
 }
 
+export async function onboardingUserCompleted(userId: string) {
+  'use server'
+    try {
+        const userSnapshot = await db.collection("users").where("uid", "==", ""+userId).limit(1).get();
+        if (userSnapshot.empty) {
+          console.error(`User with thid uid ${userId} not found`)
+          return 
+        }
+
+        // Assuming uid is unique, so only one doc
+        const userDoc = userSnapshot.docs[0];
+        return userDoc.data()["age"] != undefined;
+    } catch (e) {
+        throw e;
+    }
+}
 export async function onboardingUpdateUser(userId: string, onboardingValues: OnboardingFormValues) {
     try {
-        const userRef = collection(db, "users");
-        const q = query(userRef, where("uid", "==", ""+userId));
-        const userSnapshot = await getDocs(q);
+        const userSnapshot = await  db.collection("users").where("uid", "==", ""+userId).limit(1).get();
         console.log(userSnapshot,userId,onboardingValues)
-
         if (userSnapshot.empty) {
             throw new Error("User not found");
         }
 
         // Assuming uid is unique, so only one doc
         const userDoc = userSnapshot.docs[0];
-        await updateDoc(userDoc.ref, onboardingValues);
+        await userDoc.ref.update(onboardingValues);
         return true;
     } catch (e) {
         throw e;
@@ -43,9 +57,7 @@ export async function getSmartPlannerData(userId: string): Promise<{formValues: 
     'use server'
   if (!userId) return { formValues: {} };
   try {
-    const userCollection = collection(db, "users", userId);
-    const userSnapshot = query(userCollection, where("uid", "==", userId));
-    const docSnap = await getDocs(userSnapshot);
+    const docSnap = await db.collection("users").where("uid", "==", userId).limit(1).get();
     if (!docSnap.empty) {
       const profile = docSnap.docs[0].data() as FullProfileType;
       
@@ -107,34 +119,43 @@ export async function getProfileData(userId: string): Promise<Partial<ProfileFor
 'use server'
   if (!userId) return {};
   try {
-    const userCollection = collection(db, "users");
-    const userSnapshot = query(userCollection, where("uid", "==", ""+userId));
-    const docSnap = await getDocs(userSnapshot);
-    if (!docSnap.empty) {
-      const fullProfile = docSnap.docs[0].data() as FullProfileType;
-      console.log("Fetchde Proifle from firestore",fullProfile)
-      // Extract only the fields relevant to this simplified profile form
-      return {
-        name: fullProfile.providerData[0].displayName ?? undefined,
-        subscriptionStatus: fullProfile.subscriptionStatus ?? undefined,
-        // Fields removed in previous steps are not loaded into this specific form
-        painMobilityIssues: fullProfile.painMobilityIssues ?? undefined,
-        injuries: fullProfile.injuries || [], 
-        surgeries: fullProfile.surgeries || [], 
-        exerciseGoals: fullProfile.exerciseGoals || [],
-        exercisePreferences: fullProfile.exercisePreferences || [],
-        exerciseFrequency: fullProfile.exerciseFrequency ?? undefined,
-        exerciseIntensity: fullProfile.exerciseIntensity ?? undefined,
-        equipmentAccess: fullProfile.equipmentAccess || [],
-      };
+    const docSnap = await  db.collection("users").where("uid", "==", userId).limit(1).get();
+    if (docSnap.empty || docSnap.docs.length === 0) {
+      // redirect("/login",RedirectType.push)
+      return {};
     }
+    const profile = docSnap.docs[0].data() as FullProfileType;
+    return {
+      name: profile.displayName ?? profile.email ?? "",
+      email: profile.email ?? "",
+      subscriptionStatus: profile.subscriptionStatus ?? "free",
+      painMobilityIssues: profile.painMobilityIssues ?? '',
+      injuries: profile.injuries ?? [],
+      surgeries: profile.surgeries ?? [],
+      age: profile.age ?? undefined,
+      gender: profile.gender ?? undefined,
+      height_cm: profile.height_cm ?? undefined,
+      current_weight: profile.current_weight ?? undefined,
+      goal_weight_1m: profile.goal_weight_1m ?? undefined,
+      ideal_goal_weight: profile.ideal_goal_weight ?? undefined,
+      dietGoal: profile.dietGoalOnboarding ?? undefined,
+      // Smart planner custom fields
+      custom_total_calories: profile.smartPlannerData?.formValues?.custom_total_calories ?? undefined,
+      custom_protein_per_kg: profile.smartPlannerData?.formValues?.custom_protein_per_kg ?? undefined,
+      remaining_calories_carb_pct: profile.smartPlannerData?.formValues?.remaining_calories_carb_pct ?? 50,
+      // Additional FullProfileType fields
+      smartPlannerData: profile.smartPlannerData ?? undefined,
+      dietGoalOnboarding: profile.dietGoalOnboarding ?? undefined,
+      preferredDiet: profile.preferredDiet ?? undefined,
+      allergies: profile.allergies ?? [],
+      activityLevel: profile.activityLevel,
+      preferredCuisines: profile.preferredCuisines,
+      dispreferredCuisines: profile.dispreferredCuisines,
+      preferredIngredients: profile.preferredIngredients,
+      dispreferredIngredients: profile.dispreferredIngredients,
+    } as Partial<ProfileFormValues>;
   } catch (error) {
     console.error("Error fetching profile from Firestore:", error);
+    throw error
   }
-  return { 
-    name: undefined, subscriptionStatus: undefined, 
-    painMobilityIssues: undefined, injuries: [], surgeries: [],
-    exerciseGoals: [], exercisePreferences: [], exerciseFrequency: undefined, 
-    exerciseIntensity: undefined, equipmentAccess: []
-  };
 }

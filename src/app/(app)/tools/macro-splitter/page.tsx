@@ -17,7 +17,7 @@ import { Loader2, RefreshCw, SplitSquareHorizontal, Lightbulb, Info, CheckCircle
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'; // Added ScrollBar
 import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { redirect, useRouter } from 'next/navigation';
 import { cn } from "@/lib/utils";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/clientApp';
@@ -182,14 +182,11 @@ export default function MacroSplitterPage() {
     setDataSourceMessage(sourceMessage);
 
     if (targets && sourceMessage) {
-      const shouldShowToast = (toast && Array.isArray(toast.toasts)) ? !toast.toasts.find(t => t.description === sourceMessage) : true;
-      if (shouldShowToast) {
          toast({ 
           title: "Daily Totals Loaded", 
           description: sourceMessage, 
           duration: 6000 
-        });
-      }
+      })
     } else if (!targets) {
         toast({ title: "No Daily Totals", description: "Could not find or calculate daily macro totals. Please use the Smart Calorie Planner or complete your profile.", variant: "destructive", duration: 6000 });
     }
@@ -208,6 +205,7 @@ export default function MacroSplitterPage() {
     }
     if (!user?.uid) {
       toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+      router.replace("/login")
       return;
     }
 

@@ -1,12 +1,12 @@
 
 import {genkit} from 'genkit';
-import openAI, { gpt41Nano } from 'genkitx-openai';
+import { gemini15Flash, googleAI } from '@genkit-ai/googleai';
 
 
 // Genkit AI initialization
 export const ai = genkit({
   plugins: [
-    openAI({apiKey: process.env.OPEN_AI_APIKEY}) // Use Google AI plugin
+    googleAI({apiKey: process.env.NEXT_PUBLIC_GEMINI_KEY }) // Use Google AI plugin
   ],
-  model: gpt41Nano, // Set geminiPro as the default model
+  model: gemini15Flash, // Set geminiPro as the default model
 });

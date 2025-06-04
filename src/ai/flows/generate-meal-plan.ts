@@ -7,7 +7,7 @@
 
 
 import { ai } from '@/ai/genkit';
-import { gpt41Nano } from 'genkitx-openai';
+import { goo } from 'genkitx/googleAI';
 
 // Types
 

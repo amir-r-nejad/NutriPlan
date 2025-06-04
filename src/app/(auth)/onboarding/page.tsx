@@ -58,6 +58,7 @@ export default function OnboardingPage() {
   const { user, completeOnboarding } = useAuth();
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
+  const [loading, setLoading] = useState(false);
 
   const [calculatedTargets, setCalculatedTargets] = useState<GlobalCalculatedTargets | null>(null);
   const [customCalculatedTargets, setCustomCalculatedTargets] = useState<GlobalCalculatedTargets | null>(null);
@@ -596,7 +597,7 @@ export default function OnboardingPage() {
             {currentStep === 10 && ( <div> {renderTextareaField("typicalMealsDescription", "Describe Your Typical Meals", "e.g., Breakfast: Oats with berries. Lunch: Chicken salad sandwich...", "This helps our AI learn your habits.")} </div> )}
             {currentStep === 11 && ( <div className="text-center space-y-4"> <CheckCircle className="h-16 w-16 text-green-500 mx-auto" /> <p className="text-lg">You're all set! Your profile is complete.</p> <p className="text-muted-foreground">Click "Finish Onboarding" to save your profile and proceed to the dashboard. You can then generate your first AI-powered meal plan.</p> </div> )}
 
-              <div className="flex justify-between items-center pt-6"> <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 1}> Previous </Button> <div className="space-x-2"> {activeStepData.isOptional && currentStep < onboardingStepsData.length && (<Button type="button" variant="ghost" onClick={handleSkip}> Skip </Button>)} {currentStep < onboardingStepsData.length ? (<Button type="button" onClick={handleNext}> Next </Button>) : (<Button onClick={() =>processAndSaveData(form.getValues())}  type="submit"> Finish Onboarding </Button>)} </div> </div>
+              <div className="flex justify-between items-center pt-6"> <Button type="button" variant="outline" onClick={handlePrevious} disabled={currentStep === 1}> Previous </Button> <div className="space-x-2"> {activeStepData.isOptional && currentStep < onboardingStepsData.length && (<Button type="button" variant="ghost" onClick={handleSkip}> Skip </Button>)} {currentStep < onboardingStepsData.length ? (<Button type="button" onClick={handleNext}> Next </Button>) : (<Button onClick={() => { setLoading(true); processAndSaveData(form.getValues()) }} type="submit">{loading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" />:"Finish Onboarding" }  </Button>)} </div> </div>
             </form>
           </Form>
       </CardContent>

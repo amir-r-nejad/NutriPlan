@@ -1,7 +1,7 @@
-
-import * as z from "zod";
-import { preferredDiets, genders, activityLevels as allActivityLevels, smartPlannerDietGoals, subscriptionStatuses, mealNames as defaultMealNames, defaultMacroPercentages } from "./constants";
+import { z } from 'zod';
+import { preferredDiets, genders, activityLevels as allActivityLevels, smartPlannerDietGoals, mealNames as defaultMealNames, defaultMacroPercentages } from "./constants";
 import { User } from "firebase/auth";
+import { GeneratePersonalizedMealPlanOutput } from "@/ai/flows/generate-meal-plan";
 
 // Helper for preprocessing optional number fields: empty string, null, or non-numeric becomes undefined
 const preprocessOptionalNumber = (val: unknown) => {
@@ -82,14 +82,14 @@ export interface GlobalCalculatedTargets {
 
 // Base fields that might come from onboarding or profile and be used by tools
 export interface BaseProfileData extends User {
-  age?: number | null;
-  gender?: string | null;
-  height_cm?: number | null;
-  current_weight?: number | null;
+  age?: number ;
+  gender?: string ;
+  height_cm?: number;
+  current_weight?: number ;
   goal_weight_1m?: number | null;
   ideal_goal_weight?: number | null;
-  activityLevel?: string | null; // From onboarding
-  dietGoalOnboarding?: string | null; // From onboarding
+  activityLevel?: string; // From onboarding
+  dietGoalOnboarding?: string ; // From onboarding
 
   // Preferences from Onboarding/MealSuggestions
   preferredDiet?: string | null;
@@ -136,6 +136,7 @@ export interface BaseProfileData extends User {
     results?: GlobalCalculatedTargets | null; // Storing calculated results
   } | null;
   mealDistributions?: MealMacroDistribution[] | null; // Saved from Macro Splitter or Onboarding
+  aiGeneratedMealPlan?: GeneratePersonalizedMealPlanOutput | null;
 }
 
 export type FullProfileType = BaseProfileData;
@@ -172,6 +173,139 @@ export const DailyMealPlanSchema = z.object({
   meals: z.array(MealSchema), // Array of Meal objects for the day
 });
 export type DailyMealPlan = z.infer<typeof DailyMealPlanSchema>;
+
+
+
+// Zod schema for IngredientDetail
+export const IngredientDetailSchema = z.object({
+  name: z.string({
+    required_error: "Ingredient name is required.",
+    invalid_type_error: "Ingredient name must be a string.",
+  }),
+  amount: z.string({
+    required_error: "Ingredient amount is required.",
+    invalid_type_error: "Ingredient amount must be a string.",
+  }), // Assuming amount can be like "1/2", "1 medium" etc.
+  unit: z.string({
+    required_error: "Ingredient unit is required.",
+    invalid_type_error: "Ingredient unit must be a string.",
+  }), // e.g., "cup", "grams", "tbsp"
+  calories: z.number({
+    required_error: "Calories are required.",
+    invalid_type_error: "Calories must be a number.",
+  }).positive({ message: "Calories must be a positive number." }),
+  protein: z.number({
+    required_error: "Protein is required.",
+    invalid_type_error: "Protein must be a number.",
+  }).nonnegative({ message: "Protein cannot be negative." }),
+  carbs: z.number({
+    required_error: "Carbs are required.",
+    invalid_type_error: "Carbs must be a number.",
+  }).nonnegative({ message: "Carbs cannot be negative." }),
+  fat: z.number({
+    required_error: "Fat is required.",
+    invalid_type_error: "Fat must be a number.",
+  }).nonnegative({ message: "Fat cannot be negative." }),
+  macrosString: z.string({
+    required_error: "Macros string is required.",
+    invalid_type_error: "Macros string must be a string.",
+  }), // e.g., "P:20g C:30g F:10g"
+});
+
+// Zod schema for SuggestMealsForMacrosInput
+export const SuggestMealsForMacrosInputSchema = z.object({
+  mealName: z.string({
+    required_error: "Meal name is required.",
+    invalid_type_error: "Meal name must be a string.",
+  }).min(1, { message: "Meal name cannot be empty." }),
+  targetCalories: z.number({
+    required_error: "Target calories are required.",
+    invalid_type_error: "Target calories must be a number.",
+  }).positive({ message: "Target calories must be a positive number." }),
+  targetProteinGrams: z.number({
+    required_error: "Target protein is required.",
+    invalid_type_error: "Target protein must be a number.",
+  }).nonnegative({ message: "Target protein cannot be negative." }),
+  targetCarbsGrams: z.number({
+    required_error: "Target carbs are required.",
+    invalid_type_error: "Target carbs must be a number.",
+  }).nonnegative({ message: "Target carbs cannot be negative." }),
+  targetFatGrams: z.number({
+    required_error: "Target fat is required.",
+    invalid_type_error: "Target fat must be a number.",
+  }).nonnegative({ message: "Target fat cannot be negative." }),
+  age: z.number({
+    invalid_type_error: "Age must be a number.",
+  }).positive({ message: "Age must be a positive number." }).optional(),
+  gender: z.string({
+    invalid_type_error: "Gender must be a string.",
+  }).optional(),
+  activityLevel: z.string({
+    invalid_type_error: "Activity level must be a string.",
+  }).optional(), // Could be an enum: z.enum(["sedentary", "light", "moderate", "active"]).optional()
+  dietGoal: z.string({
+    invalid_type_error: "Diet goal must be a string.",
+  }).optional(), // Could be an enum: z.enum(["lose_weight", "maintain_weight", "gain_muscle"]).optional()
+  preferredDiet: z.string({
+    invalid_type_error: "Preferred diet must be a string.",
+  }).optional(), // e.g., "vegetarian", "vegan", "keto"
+  preferredCuisines: z.array(z.string({
+    invalid_type_error: "Preferred cuisine must be a string.",
+  })).optional(),
+  dispreferredCuisines: z.array(z.string({
+    invalid_type_error: "Dispreferred cuisine must be a string.",
+  })).optional(),
+  preferredIngredients: z.array(z.string({
+    invalid_type_error: "Preferred ingredient must be a string.",
+  })).optional(),
+  dispreferredIngredients: z.array(z.string({
+    invalid_type_error: "Dispreferred ingredient must be a string.",
+  })).optional(),
+  allergies: z.array(z.string({
+    invalid_type_error: "Allergy must be a string.",
+  })).optional(),
+});
+
+// Zod schema for MealSuggestion
+export const MealSuggestionSchema = z.object({
+  mealTitle: z.string({
+    required_error: "Meal title is required.",
+    invalid_type_error: "Meal title must be a string.",
+  }).min(1, { message: "Meal title cannot be empty." }),
+  description: z.string({
+    required_error: "Description is required.",
+    invalid_type_error: "Description must be a string.",
+  }),
+  ingredients: z.array(IngredientDetailSchema),
+  totalCalories: z.number({
+    required_error: "Total calories are required.",
+    invalid_type_error: "Total calories must be a number.",
+  }).positive({ message: "Total calories must be a positive number." }),
+  totalProtein: z.number({
+    required_error: "Total protein is required.",
+    invalid_type_error: "Total protein must be a number.",
+  }).nonnegative({ message: "Total protein cannot be negative." }),
+  totalCarbs: z.number({
+    required_error: "Total carbs are required.",
+    invalid_type_error: "Total carbs must be a number.",
+  }).nonnegative({ message: "Total carbs cannot be negative." }),
+  totalFat: z.number({
+    required_error: "Total fat is required.",
+    invalid_type_error: "Total fat must be a number.",
+  }).nonnegative({ message: "Total fat cannot be negative." }),
+  instructions: z.string({
+    invalid_type_error: "Instructions must be a string.",
+  }).optional(),
+});
+export const MealSuggestionOutputSchema = z.object({
+  suggestions: z.array(MealSuggestionSchema)
+})
+// You can also infer TypeScript types from these Zod schemas if needed:
+export type SuggestMealsForMacrosInputType = z.infer<typeof SuggestMealsForMacrosInputSchema>;
+export type IngredientDetailType = z.infer<typeof IngredientDetailSchema>;
+export type MealSuggestionType = z.infer<typeof MealSuggestionSchema>;
+export type MealSuggestionTypeOutputType = z.infer<typeof MealSuggestionOutputSchema>;
+
 
 // Schema for the entire weekly meal plan (current or optimized)
 export const WeeklyMealPlanSchema = z.object({

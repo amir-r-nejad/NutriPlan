@@ -14,7 +14,7 @@ import { login as fLogin , signIn as fSignIn , signOut as fSignOut } from "@/lib
 import type { OnboardingFormValues, } from '@/lib/schemas'; 
 import { useUser } from '@/hooks/use-user';
 import { getAuthenticatedAppForUser, IAuthincatedAppUser } from '@/app/api/user/serverApp';
-import { addUser,onboardingUpdateUser } from '@/app/api/user/database';
+import { addUser,onboardingUpdateUser, onboardingUserCompleted } from '@/app/api/user/database';
 import { auth } from "@/lib/firebase/clientApp"
 
 interface User {
@@ -58,20 +58,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const isAuthPage = pathname === '/login' || pathname === '/signup' || pathname === "/forgot-password" || pathname==="/reset-password";
     const isOnboardingPage = pathname === '/onboarding';
     const isOnboarded = localStorage.getItem("Onboarded") === "true";
-    console.log("Auth Check:", { user, isLoading, pathname, isAuthPage, isOnboardingPage, isOnboarded });
-    
     
     if (!user) { 
-      if (!isAuthPage && !isOnboardingPage && pathname !== '/' ) {
+      if (!isAuthPage) {
+        console.log("User not authenticated, redirecting to login");
         router.push('/login');
       }
     } else { 
         if (!user.emailVerified && pathname !== '/login' && !isOnboardingPage && !isAuthPage) {
-            toast({ title: "Email Not Verified", description: "Please verify your email address to continue.", variant: "destructive", duration: 7000});
+          toast({ title: "Email Not Verified", description: "Please verify your email address to continue.", variant: "destructive", duration: 7000 });
+          router.push('/onboarding');
             // Consider redirecting to login or a specific "please verify" page if strict verification is needed before any app access
             // For now, if they are on login, signup, or onboarding, they can stay.
             // If they try to go elsewhere protected, they'll be pushed back by other conditions or this one if refined.
         } else if (!isOnboarded) { 
+          (async () => {
+            const serverIsOnboarded = await onboardingUserCompleted(user.uid)
+            if (serverIsOnboarded) {
+              localStorage.setItem("Onboarded", "true");
+              console.log("User  authenticated, Onboarded Redirect to dasboard" + isAuthPage, isOnboardingPage);
+              if (isAuthPage || isOnboardingPage) {
+                router.push("/dashboard");
+              }
+            }
+          })()
             if (!isOnboardingPage) { 
               router.push('/onboarding');
             }
@@ -157,6 +167,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const completeOnboarding = async (profileData: OnboardingFormValues) => {
     if (user) {
       try {
+        console.log(user.uid)
         await onboardingUpdateUser(user.uid,profileData)
         localStorage.setItem("Onboarded", "true");
         router.push('/dashboard'); // Redirection handled by useEffect

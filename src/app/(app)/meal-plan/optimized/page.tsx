@@ -8,7 +8,7 @@ import { Loader2, Wand2, Utensils, AlertTriangle, ChefHat, BarChart3 } from 'luc
 import { generatePersonalizedMealPlan, type GeneratePersonalizedMealPlanInput, type GeneratePersonalizedMealPlanOutput } from '@/ai/flows/generate-meal-plan';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { FullProfileType, CalculatedTargets, MacroResults } from '@/lib/schemas';
+import type { FullProfileType, MacroResults } from '@/lib/schemas';
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,16 +18,13 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis, LabelList } from "recharts"
 import type { ChartConfig } from "@/components/ui/chart";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/clientApp';
+import { getProfileData } from '@/app/api/user/database';
 
 
 async function getFullProfileData(userId: string): Promise<Partial<FullProfileType>> {
   if (!userId) return {};
   try {
-    const userProfileRef = doc(db, "users", userId);
-    const docSnap = await getDoc(userProfileRef);
-    if (docSnap.exists()) {
-      return docSnap.data() as Partial<FullProfileType>;
-    }
+    return await getProfileData(userId);
   } catch (error) {
     console.error("Error fetching full profile data from Firestore:", error);
   }
@@ -93,7 +90,7 @@ export default function OptimizedMealPlanPage() {
       dietGoalOnboarding: profileData.dietGoalOnboarding!,
 
       // Optional fields
-      ideal_goal_weight: profileData.ideal_goal_weight,
+      ideal_goal_weight: profileData.ideal_goal_weight??undefined,
       bf_current: profileData.bf_current ?? undefined,
       bf_target: profileData.bf_target ?? undefined,
       bf_ideal: profileData.bf_ideal ?? undefined,
@@ -121,16 +118,16 @@ export default function OptimizedMealPlanPage() {
       left_arm_current: profileData.left_arm_current ?? undefined,
       left_arm_goal_1m: profileData.left_arm_goal_1m ?? undefined,
       left_arm_ideal: profileData.left_arm_ideal ?? undefined,
-      preferredDiet: profileData.preferredDiet,
-      allergies: profileData.allergies,
-      preferredCuisines: profileData.preferredCuisines,
-      dispreferredCuisines: profileData.dispreferredCuisines,
-      preferredIngredients: profileData.preferredIngredients,
-      dispreferredIngredients: profileData.dispreferredIngredients,
-      preferredMicronutrients: profileData.preferredMicronutrients,
-      medicalConditions: profileData.medicalConditions,
-      medications: profileData.medications,
-      typicalMealsDescription: profileData.typicalMealsDescription,
+      preferredDiet: profileData.preferredDiet??"",
+      allergies: profileData.allergies??[],
+      preferredCuisines: profileData.preferredCuisines??[],
+      dispreferredCuisines: profileData.dispreferredCuisines??[],
+      preferredIngredients: profileData.preferredIngredients??[],
+      dispreferredIngredients: profileData.dispreferredIngredients??[],
+      preferredMicronutrients: profileData.preferredMicronutrients??[],
+      medicalConditions: profileData.medicalConditions??[],
+      medications: profileData.medications??[],
+      typicalMealsDescription: profileData.typicalMealsDescription??"",
     };
     // Filter out undefined optional fields to keep AI input clean
     Object.keys(input).forEach(key => input[key as keyof GeneratePersonalizedMealPlanInput] === undefined && delete input[key as keyof GeneratePersonalizedMealPlanInput]);

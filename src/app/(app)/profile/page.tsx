@@ -93,11 +93,12 @@ export default function ProfilePage() {
     if (user?.uid) { 
       setIsLoading(true);
       getProfileData(user.uid).then((profileDataSubset) => {
+        console.log("Loaded profile data:", profileDataSubset);
         form.reset(profileDataSubset); 
         setIsLoading(false);
       }).catch(error => {
         console.error("Error loading profile data:", error);
-        toast({ title: "Error", description: "Could not load profile data.", variant: "destructive"});
+        toast({ title: "Error", description: "Could not load profile data."  + error, variant: "destructive"});
         setIsLoading(false);
       });
     } else {
@@ -136,7 +137,7 @@ export default function ProfilePage() {
               <Textarea
                 placeholder={placeholder}
                 value={displayValue}
-                onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()).filter(s => s))}
+                onChange={(e) => field.onChange(e.target.value.split(',').map(s => s.trim()))}
                 className="h-10 resize-none" 
               /></div>
             </FormControl>
@@ -314,7 +315,7 @@ export default function ProfilePage() {
         </Form>
 
         {/* Developer Section for Resetting Onboarding */}
-        <Card className="mt-12 border-destructive/50">
+        {process.env.NODE_ENV == "development" ? <Card className="mt-12 border-destructive/50">
           <CardHeader>
             <CardTitle className="text-lg flex items-center text-destructive">
               <AlertTriangle className="mr-2 h-5 w-5" /> Developer Tools
@@ -335,7 +336,8 @@ export default function ProfilePage() {
               This will set your onboarding status to incomplete, allowing you to go through the onboarding flow again. The page will reload.
             </p>
           </CardContent>
-        </Card>
+        </Card> : null
+        }
 
       </CardContent>
     </Card>
