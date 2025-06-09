@@ -1,11 +1,11 @@
 "use server"
-import serviceAccount from './nutriplan-firebase.json';
 import admin, { ServiceAccount } from 'firebase-admin';
+import {firebaseConfig} from "../constants"
 
 
 
 // Initialize Firebase
-const app = admin.apps.length == 0 ? admin.initializeApp({ credential: admin.credential.cert(serviceAccount as ServiceAccount) }) : admin.app();
+const app = admin.apps.length == 0 ? admin.initializeApp(firebaseConfig) : admin.app();
 const auth = admin.auth(app);
 const db = admin.firestore(app);
 const storage = admin.storage(app);
