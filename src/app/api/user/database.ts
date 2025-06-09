@@ -12,7 +12,7 @@ export async function  addUser(u:string){
           const userQuery = db.collection("users").where("userid", "==", user.uid);
           const userQuerySnapshot = await transaction.get(userQuery);
           if (userQuerySnapshot.empty) {
-            await db.collection("user").add(user)
+            await db.collection("users").add(user)
           }
           return user;
       }catch(e){
