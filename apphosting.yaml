@@ -5,20 +5,48 @@ runConfig:
   concurrency: 100
   cpu: 2
   memoryMiB: 1024
-
+scripts:
+  buildCommand: next build --no-lint
+  runCommand: node dist/index.js
 # Environment variables and secrets
 env:
   - variable: NEXT_PUBLIC_GEMINI_KEY
-    secret: AIzaSyCf-xXweO9nJDSzF_r0uDgLiPFgnIcx2h8
+    secret: NEXT_PUBLIC_GEMINI_KEY
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    secret: "AIzaSyBn52hl8ARjilr2TBAOKGHbAw6G3-CvGgw"
+    secret: NEXT_PUBLIC_FIREBASE_API_KEY
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    secret: "nutriplan-7wkxu.firebaseapp.com"
+    secret: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    secret: "nutriplan-7wkxu"
+    secret: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    secret: "nutriplan-7wkxu.firebasestorage.app"
+    value: "nutriplan-7wkxu.firebasestorage.app"
+    availability:
+      - BUILD
+      - RUNTIME 
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    secret: "631126099554"
+    secret: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    secret: "1:631126099554:web:45488015d6fda0f149f33b"
+    secret: NEXT_PUBLIC_FIREBASE_APP_ID
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NODE_ENV
+    value: "production"
+    availability:
+      - BUILD
+      - RUNTIME
