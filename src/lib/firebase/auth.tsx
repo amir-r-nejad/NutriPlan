@@ -28,10 +28,7 @@ export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
 
   try {
-    if(process.env.NODE_ENV =="development")
       await signInWithPopup(auth, provider);
-    else
-      await signInWithRedirect(auth, provider);
   } catch (error) {
     console.error("Error signing in with Google", error);
   }
