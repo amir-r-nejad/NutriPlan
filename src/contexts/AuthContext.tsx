@@ -4,10 +4,6 @@
 import type { ReactNode } from 'react';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { 
-  getRedirectResult,
-  type User as FirebaseUser 
-} from 'firebase/auth';
 import {  useToast } from '../hooks/use-toast';
 import { login as fLogin , signIn as fSignIn , signOut as fSignOut } from "../lib/firebase/auth"
 

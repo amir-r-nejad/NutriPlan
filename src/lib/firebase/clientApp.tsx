@@ -8,6 +8,7 @@ import { getStorage } from "firebase/storage";
 import { firebaseConfig } from "../constants";
 
 // Initialize Firebase only if it hasn't been initialized yet
+console.log("Initializing Firebase with config:", firebaseConfig);  
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const firebaseApp = app; // Export the singleton app instance

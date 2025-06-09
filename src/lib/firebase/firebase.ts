@@ -4,6 +4,7 @@ import {firebaseConfig} from "../constants"
 
 
 
+console.log("Server config",firebaseConfig)
 // Initialize Firebase
 const app = admin.apps.length == 0 ? admin.initializeApp(firebaseConfig) : admin.app();
 const auth = admin.auth(app);
