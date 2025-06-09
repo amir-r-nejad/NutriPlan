@@ -4,8 +4,8 @@
  * AI-powered Ingredient Swap Suggestions — Fully optimized for Genkit
  */
 
-import { ai } from '@/ai/genkit';
-import { geminiPro } from '@genkit-ai/googleai';
+import { ai } from '../../ai/genkit';
+import { gemini10Pro } from '@genkit-ai/googleai';
 
 // Types
 

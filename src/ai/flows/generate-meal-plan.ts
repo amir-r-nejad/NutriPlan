@@ -7,8 +7,7 @@
  */
 
 
-import { ai } from '@/ai/genkit';
-import { goo } from 'genkitx/googleAI';
+import { ai } from '../../ai/genkit';
 
 // Types
 

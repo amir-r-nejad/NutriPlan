@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { preferredDiets, genders, activityLevels as allActivityLevels, smartPlannerDietGoals, mealNames as defaultMealNames, defaultMacroPercentages } from "./constants";
 import { User } from "firebase/auth";
-import { GeneratePersonalizedMealPlanOutput } from "@/ai/flows/generate-meal-plan";
+import { GeneratePersonalizedMealPlanOutput } from "../ai/flows/generate-meal-plan";
 
 // Helper for preprocessing optional number fields: empty string, null, or non-numeric becomes undefined
 const preprocessOptionalNumber = (val: unknown) => {

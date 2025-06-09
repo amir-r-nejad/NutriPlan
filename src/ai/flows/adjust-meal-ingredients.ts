@@ -1,6 +1,6 @@
 'use server';
 
-import { ai } from '@/ai/genkit';
+import { ai } from '../../ai/genkit';
 import { gemini10Pro } from '@genkit-ai/googleai';
 
 // Types

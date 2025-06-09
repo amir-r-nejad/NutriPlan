@@ -9,13 +9,11 @@ import {
   type User as FirebaseUser 
 } from 'firebase/auth';
 import {  useToast } from '@/hooks/use-toast';
-import { login as fLogin , signIn as fSignIn , signOut as fSignOut } from "@/lib/firebase/auth"
+import { login as fLogin , signIn as fSignIn , signOut as fSignOut } from "../lib/firebase/auth"
 
 import type { OnboardingFormValues, } from '@/lib/schemas'; 
 import { useUser } from '@/hooks/use-user';
-import { getAuthenticatedAppForUser, IAuthincatedAppUser } from '@/app/api/user/serverApp';
-import { addUser,onboardingUpdateUser, onboardingUserCompleted } from '@/app/api/user/database';
-import { auth } from "@/lib/firebase/clientApp"
+import { addUser,onboardingUpdateUser, onboardingUserCompleted } from '../app/api/user/database';
 
 interface User {
   uid: string; 
