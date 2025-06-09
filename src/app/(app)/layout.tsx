@@ -27,7 +27,7 @@ import {
   SidebarInset,
   SidebarTrigger,
   SidebarSeparator, 
-} from '@/components/ui/sidebar';
+} from '../../components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Logo } from '@/components/Logo';
 import { Toaster } from "@/components/ui/toaster";
