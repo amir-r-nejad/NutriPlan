@@ -3,14 +3,14 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../../components/ui/card';
+import { useAuth } from '../../../contexts/AuthContext';
 import { Leaf, UserPlus, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { signInWithGoogle } from '@/lib/firebase/auth';
+import { useToast } from '../../../hooks/use-toast';
+import { signInWithGoogle } from '../../../lib/firebase/auth';
 import Image from "next/image"
 import Google from  "../../../public/google.svg"
 

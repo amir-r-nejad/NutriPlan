@@ -3,14 +3,14 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../../components/ui/card';
 import { Leaf, KeyRound, Loader2, ShieldAlert, ShieldCheck } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '../../../hooks/use-toast';
 import Link from 'next/link';
-import { confirmPassword, verifyOob } from "@/lib/firebase/auth"
+import { confirmPassword, verifyOob } from "../../../lib/firebase/auth"
 
 function ResetPasswordContent() {
   const router = useRouter();

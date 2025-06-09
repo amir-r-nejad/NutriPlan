@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller, FieldPath, useFieldArray } from "react-hook-form";
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../components/ui/button";
 import {Loader2} from "lucide-react"
 import {
   Form,
@@ -14,22 +14,22 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+} from "../../../components/ui/form";
+import { Input } from "../../../components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+} from "../../../components/ui/select";
+import { Textarea } from "../../../components/ui/textarea";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Progress } from "../../../components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../../components/ui/tooltip";
 import { AlertCircle, CheckCircle, Leaf, Info, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "../../../contexts/AuthContext";
+import { useToast } from "../../../hooks/use-toast";
 import {
   onboardingStepsData,
   genders,
@@ -38,13 +38,13 @@ import {
   smartPlannerDietGoals,
   mealNames as defaultMealNames,
   defaultMacroPercentages,
-} from "@/lib/constants";
-import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution, type GlobalCalculatedTargets, preprocessDataForFirestore, FullProfileType } from "@/lib/schemas";
-import { calculateEstimatedDailyTargets } from "@/lib/nutrition-calculator";
-import { Slider } from "@/components/ui/slider";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area"; // Added ScrollArea import
+} from "../../../lib/constants";
+import { OnboardingFormSchema, type OnboardingFormValues, type MealMacroDistribution, type GlobalCalculatedTargets, preprocessDataForFirestore, FullProfileType } from "../../../lib/schemas";
+import { calculateEstimatedDailyTargets } from "../../../lib/nutrition-calculator";
+import { Slider } from "../../../components/ui/slider";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from "../../../components/ui/table";
+import { cn } from "../../../lib/utils";
+import { ScrollArea } from "../../../components/ui/scroll-area"; // Added ScrollArea import
 
 interface TotalsForSplitter {
   calories: number;

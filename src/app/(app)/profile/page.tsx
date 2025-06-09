@@ -3,7 +3,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../components/ui/button";
 import {
   Form,
   FormControl,
@@ -12,27 +12,27 @@ import {
   FormLabel,
   FormMessage,
   FormDescription,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+} from "../../../components/ui/form";
+import { Input } from "../../../components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ProfileFormSchema, type FullProfileType, type ProfileFormValues } from "@/lib/schemas"; 
-import { useAuth } from "@/contexts/AuthContext"; 
-import { useToast } from "@/hooks/use-toast";
+} from "../../../components/ui/select";
+import { Textarea } from "../../../components/ui/textarea";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../../components/ui/accordion";
+import { ProfileFormSchema, type FullProfileType, type ProfileFormValues } from "../../../lib/schemas"; 
+import { useAuth } from "../../../contexts/AuthContext"; 
+import { useToast } from "../../../hooks/use-toast";
 import React, { useEffect, useState } from "react";
-import { subscriptionStatuses, exerciseFrequencies, exerciseIntensities } from "@/lib/constants";
+import { subscriptionStatuses, exerciseFrequencies, exerciseIntensities } from "../../../lib/constants";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/clientApp';
+import { db } from '../../../lib/firebase/clientApp';
 import { AlertTriangle, RefreshCcw } from "lucide-react";
-import { getProfileData } from "@/app/api/user/database";
+import { getProfileData } from "../../../app/api/user/database";
 
 
 async function saveProfileData(userId: string, data: ProfileFormValues) {

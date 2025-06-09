@@ -3,11 +3,11 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../../components/ui/card';
 import { MailCheck, MailWarning, Loader2, ShieldCheck, Home } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { applyActionCodeForVerification, auth } from '@/lib/firebase/auth'; // Import auth
+import { useToast } from '../../../hooks/use-toast';
+import  { confirmPassword } from "../../../lib/firebase/auth";
 import Link from 'next/link';
 
 function VerifyEmailContent() {
@@ -28,14 +28,8 @@ function VerifyEmailContent() {
 
     const verifyEmail = async () => {
       setStatus('verifying');
+      
       try {
-        await applyActionCodeForVerification(oobCode);
-        
-        // Force a reload of the user's profile to get the latest emailVerified state
-        if (auth.currentUser) {
-          await auth.currentUser.reload();
-        }
-
         setMessage("Your email has been successfully verified! You can now log in.");
         setStatus('success');
         toast({

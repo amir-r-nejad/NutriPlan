@@ -5,7 +5,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { geminiPro } from '@genkit-ai/googleai';
+import { gemini10Pro } from '@genkit-ai/googleai';
 
 // Types
 
@@ -29,7 +29,7 @@ export async function handleSupportQuery(
 
 const prompt = ai.definePrompt({
   name: 'supportChatbotPrompt',
-  model: geminiPro,
+  model: gemini10Pro,
   input: { type: 'json' },
   output: { type: 'json' },
   prompt: `You are a friendly and helpful support chatbot for "NutriPlan", a web application for personalized nutrition and meal planning.

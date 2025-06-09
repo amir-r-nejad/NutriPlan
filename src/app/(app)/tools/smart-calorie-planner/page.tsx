@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller, FieldPath } from "react-hook-form";
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../../components/ui/button";
 import {
   Form,
   FormControl,
@@ -13,30 +13,30 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+} from "../../../../components/ui/form";
+import { Input } from "../../../../components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
+} from "../../../../components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../../../components/ui/accordion";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "../../../../components/ui/table";
 import { BrainCircuit, Calculator, HelpCircle, AlertTriangle, RefreshCcw, Edit3, Info } from "lucide-react";
-import { SmartCaloriePlannerFormSchema, type SmartCaloriePlannerFormValues, type FullProfileType, type GlobalCalculatedTargets, type CustomCalculatedTargets } from "@/lib/schemas";
-import { activityLevels, genders, smartPlannerDietGoals } from "@/lib/constants";
-import { calculateBMR, calculateTDEE } from "@/lib/nutrition-calculator";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { Slider } from "@/components/ui/slider";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { SmartCaloriePlannerFormSchema, type SmartCaloriePlannerFormValues, type FullProfileType, type GlobalCalculatedTargets, type CustomCalculatedTargets } from "../../../../lib/schemas";
+import { activityLevels, genders, smartPlannerDietGoals } from "../../../../lib/constants";
+import { calculateBMR, calculateTDEE } from "../../../../lib/nutrition-calculator";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { useToast } from "../../../../hooks/use-toast";
+import { Slider } from "../../../../components/ui/slider";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../../../components/ui/tooltip";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/clientApp';
-import { preprocessDataForFirestore } from "@/lib/schemas";
-import { getSmartPlannerData} from "@/app/api/user/database"
+import { db } from '../../../../lib/firebase/clientApp';
+import { preprocessDataForFirestore } from "../../../../lib/schemas";
+import { getSmartPlannerData} from "../../../../app/api/user/database"
 
 
 

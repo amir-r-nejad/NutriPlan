@@ -1,8 +1,8 @@
 
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../../../../components/ui/accordion";
 import { SupportChat } from "@/components/SupportChat";
 import { HelpCircle, MessageSquareQuote } from "lucide-react"; // Changed from MessageSquareQuestion
 

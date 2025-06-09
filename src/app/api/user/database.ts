@@ -1,5 +1,5 @@
 'use server'
-import { getDb } from "@/lib/firebase/firebase"
+import { getDb } from "../../../lib/firebase/firebase"
 import {User} from  "firebase/auth"
 import { CustomCalculatedTargets, FullProfileType, GlobalCalculatedTargets, OnboardingFormValues, ProfileFormValues, SmartCaloriePlannerFormValues } from "../../../lib/schemas";
 

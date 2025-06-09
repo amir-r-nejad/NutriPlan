@@ -29,11 +29,11 @@ import {
   SidebarSeparator, 
 } from '../../components/ui/sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Logo } from '@/components/Logo';
-import { Toaster } from "@/components/ui/toaster";
+import { Logo } from '../../components/Logo';
+import { Toaster } from "../../components/ui/toaster";
 import React from "react"; 
-import { signOut } from "@/lib/firebase/auth";
-import { useAuth } from "@/contexts/AuthContext"; 
+import { signOut } from "../../lib/firebase/auth";
+import { useAuth } from "../../contexts/AuthContext"; 
 
 
 const navItems = [

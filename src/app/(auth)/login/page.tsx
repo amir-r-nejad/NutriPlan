@@ -3,18 +3,19 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../../components/ui/card';
 import { Leaf, LogIn, Loader2 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '../../../hooks/use-toast';
 import "./page.css"
 import Image from "next/image";
 import Google from  "../../../public/google.svg"
-import { useAuth } from '@/contexts/AuthContext'; // Updated import
-import { signInWithGoogle } from '@/lib/firebase/auth'; // Kept for Google sign-in
+import { useAuth } from '../../../contexts/AuthContext'; // Updated import
+import { signInWithGoogle } from '../../../lib/firebase/auth'; // Kept for Google sign-in
 import { useRouter } from 'next/navigation';
+
 
 export default  function LoginPage() {
   const [email, setEmail] = useState('');

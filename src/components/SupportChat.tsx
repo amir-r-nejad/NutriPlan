@@ -2,13 +2,13 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '../components/ui/input';
+import { Button } from '../components/ui/button';
+import { ScrollArea } from '../components/ui/scroll-area';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Bot, Loader2, Send, UserIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { handleSupportQuery } from '@/ai/flows/support-chatbot-flow';
+import { cn } from '../lib/utils';
+import { handleSupportQuery } from '../ai/flows/support-chatbot-flow';
 
 interface Message {
   id: string;

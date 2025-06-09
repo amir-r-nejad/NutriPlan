@@ -1,6 +1,6 @@
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
 import Link from "next/link";
 import { ArrowRight, Bot, NotebookText, Target, User, BrainCircuit, SplitSquareHorizontal } from "lucide-react"; // Removed Scaling
 import Image from "next/image";

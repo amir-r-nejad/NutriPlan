@@ -1,8 +1,8 @@
 
 "use client";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SupportChat } from "@/components/SupportChat";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { SupportChat } from "../../../../components/SupportChat";
 import { MessageSquareQuote } from "lucide-react"; // Changed from MessageSquareQuestion
 
 export default function ChatbotSupportPage() {

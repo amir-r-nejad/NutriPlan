@@ -2,23 +2,23 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../../../../components/ui/card";
+import { Button } from '../../../../components/ui/button';
 import { Loader2, Wand2, Utensils, AlertTriangle, ChefHat, BarChart3 } from 'lucide-react';
-import { generatePersonalizedMealPlan, type GeneratePersonalizedMealPlanInput, type GeneratePersonalizedMealPlanOutput } from '@/ai/flows/generate-meal-plan';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import type { FullProfileType, MacroResults } from '@/lib/schemas';
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { daysOfWeek } from '@/lib/constants';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
+import { generatePersonalizedMealPlan, type GeneratePersonalizedMealPlanInput, type GeneratePersonalizedMealPlanOutput } from '../../../../ai/flows/generate-meal-plan';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { useToast } from '../../../../hooks/use-toast';
+import type { FullProfileType, MacroResults } from '../../../../lib/schemas';
+import { ScrollArea, ScrollBar } from "../../../../components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../../components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../components/ui/tabs";
+import { daysOfWeek } from '../../../../lib/constants';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "../../../../components/ui/chart";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis, LabelList } from "recharts";
-import type { ChartConfig } from "@/components/ui/chart";
+import type { ChartConfig } from "../../../../components/ui/chart";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/clientApp';
-import { getProfileData } from '@/app/api/user/database';
+import { db } from '../../../../lib/firebase/clientApp';
+import { getProfileData } from '../../../../app/api/user/database';
 
 
 async function getFullProfileData(userId: string): Promise<Partial<FullProfileType>> {

@@ -2,24 +2,24 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "../../../../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../../components/ui/tabs";
+import { Button } from '../../../../components/ui/button';
 import { Pencil, PlusCircle, Trash2, Wand2, Loader2 } from 'lucide-react';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { daysOfWeek, mealNames, defaultMacroPercentages } from '@/lib/constants';
-import type { Meal, DailyMealPlan, WeeklyMealPlan, Ingredient, FullProfileType } from '@/lib/schemas';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
-import { adjustMealIngredients, type AdjustMealIngredientsInput } from '@/ai/flows/adjust-meal-ingredients';
+import { ScrollArea, ScrollBar } from '../../../../components/ui/scroll-area';
+import { daysOfWeek, mealNames, defaultMacroPercentages } from '../../../../lib/constants';
+import type { Meal, DailyMealPlan, WeeklyMealPlan, Ingredient, FullProfileType } from '../../../../lib/schemas';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '../../../../components/ui/dialog';
+import { Input } from '../../../../components/ui/input';
+import { Label } from '../../../../components/ui/label';
+import { Textarea } from '../../../../components/ui/textarea';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { useToast } from '../../../../hooks/use-toast';
+import { calculateEstimatedDailyTargets } from '../../../../lib/nutrition-calculator';
+import { adjustMealIngredients, type AdjustMealIngredientsInput } from '../../../../ai/flows/adjust-meal-ingredients';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/clientApp';
-import { preprocessDataForFirestore } from '@/lib/schemas';
+import { db } from '../../../../lib/firebase/clientApp';
+import { preprocessDataForFirestore } from '../../../../lib/schemas';
 
 
 async function getMealPlanData(userId: string): Promise<WeeklyMealPlan | null> {

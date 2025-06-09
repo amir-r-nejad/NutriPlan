@@ -5,7 +5,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { MealSuggestionOutputSchema, MealSuggestionSchema, MealSuggestionTypeOutputType, SuggestMealsForMacrosInputSchema, SuggestMealsForMacrosInputType } from '@/lib/schema-server';
+import { MealSuggestionOutputSchema, MealSuggestionSchema, MealSuggestionTypeOutputType, SuggestMealsForMacrosInputSchema, SuggestMealsForMacrosInputType } from '../../lib/schema-server';
 import { gemini25FlashPreview0417 as geminiPro } from '@genkit-ai/googleai';
 
 // Main entry function

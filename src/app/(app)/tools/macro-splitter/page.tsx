@@ -4,24 +4,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
-import { MacroSplitterFormSchema, type MacroSplitterFormValues, type FullProfileType, type MealMacroDistribution, type GlobalCalculatedTargets as AppGlobalCalculatedTargets, type CustomCalculatedTargets } from '@/lib/schemas';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { mealNames as defaultMealNames, defaultMacroPercentages } from '@/lib/constants';
+import { Button } from '../../../../components/ui/button';
+import { Input } from '../../../../components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '../../../../components/ui/table';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '../../../../components/ui/form';
+import { MacroSplitterFormSchema, type MacroSplitterFormValues, type FullProfileType, type MealMacroDistribution, type GlobalCalculatedTargets as AppGlobalCalculatedTargets, type CustomCalculatedTargets } from '../../../../lib/schemas';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { useToast } from '../../../../hooks/use-toast';
+import { mealNames as defaultMealNames, defaultMacroPercentages } from '../../../../lib/constants';
 import { Loader2, RefreshCw, SplitSquareHorizontal, Lightbulb, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'; // Added ScrollBar
-import { calculateEstimatedDailyTargets } from '@/lib/nutrition-calculator';
+import { ScrollArea, ScrollBar } from '../../../../components/ui/scroll-area'; // Added ScrollBar
+import { calculateEstimatedDailyTargets } from '../../../../lib/nutrition-calculator';
 import Link from 'next/link';
 import { redirect, useRouter } from 'next/navigation';
-import { cn } from "@/lib/utils";
+import { cn } from "../../../../lib/utils";
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/clientApp';
-import { preprocessDataForFirestore } from '@/lib/schemas';
+import { db } from '../../../../lib/firebase/clientApp';
+import { preprocessDataForFirestore } from '../../../../lib/schemas';
 
 
 interface TotalMacros {
